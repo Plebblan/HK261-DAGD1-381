@@ -2,7 +2,7 @@
 
 ## Gap 1: State - Space Explosion in Multi - Actor Workflow
 
-### Reason: 
+### Reasons: 
 
 * Interleaves Action: when there n possibles process for 1 actor then independent concurrent execution can result in up to nˆm global state with m is number of actor.
 * Asynchorous Communication: message queue, delay, network latency can lead to vast permutations of of system history.
@@ -17,9 +17,16 @@
 
 ## Gap 2: Semantic Inadequacy of Schema-based DAST & LLM Hallucination Risks)
 
-### Reason:
+**Semantic Inadequacy of Schema-based DAST**
+
+### Reasons:
 
 * Structural and Semantic Boundary (OpenAPI Limitations): OpenAPI Specifications strictly define data types, payload structures, path formats, and query parameters. security semantics, fine-grained access policies, or business rules is hard to express, cause lack off methods.
 * Object and Session Blindness: Schema definitions treat Object UUIDs or numerical IDs as generic primitive types. They are completely recognize object ownership, session boundaries, and tenant isolation rules across multi-role environments.
 * Lack of Business Invariants: Schema-based treat endpoints as isolated, static functions. Completly ignore or can not model or track state transitions occurring across multi-step API workflows.
 
+### Consequences:
+
+* Blind Spots for Deep Authorization Flaws: Schema-based DAST only validates single-session responses, also mean fail to generate cross-session test cases which is necessary to uncover IDOR, BOLA, or Priviledge Escalation.
+* Execution of Business rules Violation State Chains: Fuzzers generate thousands of syntactically valid requests that fail backend pre-condition checks, which is wasting time and budgets on rejected paths.
+* High False Positive/Negative Rates: Standard DAST tools misinterpret API responses by relying solely on HTTP status codes. They fail when an API returns HTTP 200 OK with an application-level error payload.
