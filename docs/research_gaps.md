@@ -15,7 +15,7 @@
 * Testing Gap: No model for state-aware plan can lead to most of generated request violate bussiness rules and trigger rejection immediately. That also mean trapping in shallow endpoint checks. Beside, scanner fails to map how state change executed by priviledged/unpriviledged role affect shared objects.
 * Performance Dregadation: Explosion lead to exhaustion of computational budgets, CPU, network bandwidth without finding actionable process. Extreme latency and inf-loop traps extend test runs to hours or days, making CI/CD imcompatible.
 
-## Gap 2: Semantic Inadequacy of Schema-based DAST & LLM Hallucination Risks)
+## Gap 2: Semantic Inadequacy of Schema-based DAST & LLM Hallucination Risks
 
 **Semantic Inadequacy of Schema-based DAST**
 
@@ -30,3 +30,14 @@
 * Blind Spots for Deep Authorization Flaws: Schema-based DAST only validates single-session responses, also mean fail to generate cross-session test cases which is necessary to uncover IDOR, BOLA, or Priviledge Escalation.
 * Execution of Business rules Violation State Chains: Fuzzers generate thousands of syntactically valid requests that fail backend pre-condition checks, which is wasting time and budgets on rejected paths.
 * High False Positive/Negative Rates: Standard DAST tools misinterpret API responses by relying solely on HTTP status codes. They fail when an API returns HTTP 200 OK with an application-level error payload.
+
+**LLM Hallucination Risks**
+
+## Reasons:
+* Probability - based Generation: Missing precise runtime context can lead to hallucinate endpoints, parameters, or precondition to complete sequences.
+* Seperating from execution: Blackbox generation is not relliable in realtime execution. Especially when realtime image of database state, variables, or network status.
+* Prompt Injection via Application Responses: Uncleaned dynamic responses returned by target APIs can affect the LLM Planner's context window, change sequence generation away from target objectives.
+## Consequences:
+* Endpoint and Payload Hallucinations: LLMs generate non-existent endpoints, rule-violated payload structures, or mismatch headers, leading to high invalid-request rates and wasted execution budget.
+* Unintended Data Mutation and Safety Hazards: Lacking execution protection, an auto LLM planner can make destructive operations, triggering infinite loops, data loss, or DoS in demo environments.
+* Planless Test Vectors: The randomness of LLM outputs produces non-reproducible test cases. Identical vulnerabilities cannot be reliably re-executed, creating bottlenecks for human-in-the-loop triage and ground-truth validation.
