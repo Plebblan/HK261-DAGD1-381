@@ -1,6 +1,6 @@
 # Research Question Analysis and Phase 1 Development Scope
 
-## 1. RQ1 — Role–Session–Object and Business State Modeling
+## 1. RQ1 - Role–Session–Object and Business State Modeling
 
 ### Research Question
 
@@ -129,7 +129,7 @@ Therefore, the appropriate scope is **semi-automated modeling with human validat
 
 ---
 
-# 2. RQ2 — AI-Assisted Test Sequence Planning
+# 2. RQ2 - AI-Assisted Test Sequence Planning
 
 ### Research Question
 
@@ -240,7 +240,7 @@ Thus, the Phase 1 contribution to RQ2 is **preparing the experimental infrastruc
 
 ---
 
-# 3. RQ3 — Authorization and State Verification Oracles
+# 3. RQ3 - Authorization and State Verification Oracles
 
 ### Research Question
 
@@ -390,7 +390,7 @@ The more advanced automated oracle mechanisms can then be investigated in Phase 
 
 ---
 
-# 4. RQ4 — Human-in-the-Loop Triage
+# 4. RQ4 - Human-in-the-Loop Triage
 
 ### Research Question
 
@@ -489,10 +489,10 @@ Based on the four RQs, the boundary of Phase 1 can be summarized as follows:
 
 | Research Question  | Phase 1 Contribution                                               | Phase 1 Boundary                                                                 |
 | ------------------ | ------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
-| **RQ1 — Modeling** | Build Role–Session–Object and Business State models                | Semi-automated + human validation; no requirement for full autonomous inference  |
-| **RQ2 — Planning** | Build replay, state, budget, coverage, and baseline infrastructure | No AI Planner/Ranker or autonomous LLM testing                                   |
-| **RQ3 — Oracle**   | Build deterministic authorization/state verification baselines     | Limited to modeled roles, objects, states, and predefined vulnerability families |
-| **RQ4 — HITL**     | Prepare evidence, ground truth, and manual verification workflow   | No quantitative HITL effectiveness study in Phase 1                              |
+| **RQ1 - Modeling** | Build Role–Session–Object and Business State models                | Semi-automated + human validation; no requirement for full autonomous inference  |
+| **RQ2 - Planning** | Build replay, state, budget, coverage, and baseline infrastructure | No AI Planner/Ranker or autonomous LLM testing                                   |
+| **RQ3 - Oracle**   | Build deterministic authorization/state verification baselines     | Limited to modeled roles, objects, states, and predefined vulnerability families |
+| **RQ4 - HITL**     | Prepare evidence, ground truth, and manual verification workflow   | No quantitative HITL effectiveness study in Phase 1                              |
 
 Therefore:
 
