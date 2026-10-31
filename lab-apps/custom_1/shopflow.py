@@ -3,12 +3,13 @@ Roles: customer < staff < merchant_admin. Tenants (merchants): acme-shop, globex
 Workflows: order (draft->paid->shipped->delivered | cancelled | refunded), refund (pending->approved).
 14 planted flaws (SF-01..SF-14); each can be switched on/off independently.
 """
+from pathlib import Path
 from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from .common import Range, add_lab_routes, enabled_from_env, make_auth
+from .common import Range, add_lab_routes, enabled_from_env, make_auth, use_openapi_file
 
 FLAWS = [f"SF-{i:02d}" for i in range(1, 15)]
 LIVE = ("paid", "shipped", "delivered")
@@ -328,6 +329,7 @@ def create_app(enabled=None):
                and o["status"] in LIVE + ("refunded",)]
         return {"tenant": u["tenant"], "orders": len(os_), "gross": sum(o["paid_amount"] for o in os_)}
 
+    use_openapi_file(app, Path(__file__).parent / "docs/shopflow/openapi_shopflow.json")
     return app
 
 

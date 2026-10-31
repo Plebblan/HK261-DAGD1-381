@@ -3,13 +3,14 @@ Roles: member < agent < admin. Tenants: acme, globex.
 Workflows: ticket (open->in_progress->resolved->closed), document (draft->review->published).
 17 planted flaws (TD-01..TD-17); each can be switched on/off independently.
 """
+from pathlib import Path
 from typing import Literal, Optional
 
 from fastapi import Depends, FastAPI, HTTPException
 
 from pydantic import BaseModel, Field
 
-from .common import Range, add_lab_routes, enabled_from_env, make_auth
+from .common import Range, add_lab_routes, enabled_from_env, make_auth, use_openapi_file
 
 FLAWS = [f"TD-{i:02d}" for i in range(1, 18)]
 ALLOWED = {"open": ["in_progress"], "in_progress": ["resolved", "open"],
@@ -366,6 +367,7 @@ def create_app(enabled=None):
             raise HTTPException(403, "admin only")
         return [a for a in rng.audit if a["tenant"] == u["tenant"]]
 
+    use_openapi_file(app, Path(__file__).parent / "docs/tenantdesk/openapi_tenantdesk.json")
     return app
 
 

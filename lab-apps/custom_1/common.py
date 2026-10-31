@@ -6,7 +6,9 @@ Design goals (map to Phase-1 KPIs):
   * Every authenticated request lands in an audit log   -> provenance / evidence
 All users, tokens and data are synthetic. Bind to 127.0.0.1 only.
 """
+import json
 import os
+from pathlib import Path
 from typing import Optional
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
@@ -15,6 +17,11 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 SEED = int(os.getenv("RANGE_SEED", "1337"))
 LAB_KEY = os.getenv("LAB_KEY", "lab-only-synthetic-key")
 bearer = HTTPBearer(auto_error=False)
+
+
+def use_openapi_file(app: FastAPI, path: Path):
+    spec = json.loads(path.read_text(encoding="utf-8"))
+    app.openapi = lambda: spec
 
 
 def enabled_from_env(all_flaws):
