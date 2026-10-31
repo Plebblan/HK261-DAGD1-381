@@ -30,7 +30,7 @@ services:
   tenantdesk:
     build: ./custom_1
     profiles: ["custom"]
-    command: ["uvicorn", "app.custom.tenantdesk:app", "--host", "0.0.0.0", "--port", "8001"]
+    command: ["uvicorn", "custom_1.tenantdesk:app", "--host", "0.0.0.0", "--port", "8001"]
     ports:
       - "127.0.0.1:8001:8001"
     environment:
@@ -41,7 +41,7 @@ services:
   shopflow:
     build: ./custom_1
     profiles: ["custom"]
-    command: ["uvicorn", "app.custom.shopflow:app", "--host", "0.0.0.0", "--port", "8002"]
+    command: ["uvicorn", "custom_1.shopflow:app", "--host", "0.0.0.0", "--port", "8002"]
     ports:
       - "127.0.0.1:8002:8002"
     environment:
