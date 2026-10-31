@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.test/cyber-range/ground_truth.schema.json",
+  "title": "Cyber Range Ground Truth CSV row",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "case_id",
+    "app",
+    "family",
+    "scenario",
+    "operation_id",
+    "method",
+    "path",
+    "attacker",
+    "victim",
+    "object_id",
+    "oracle_type",
+    "expected_safe",
+    "observed_vulnerable",
+    "flag",
+    "is_benign",
+    "cwe",
+    "owasp",
+    "severity",
+    "split",
+    "evidence_required",
+    "verification_status",
+    "verified_by",
+    "verified_at"
+  ],
+  "properties": {
+    "case_id": {
+      "type": "string",
+      "pattern": "^(AUTHZ|BENIGN)-[0-9]{3}$"
+    },
+    "app": {
+      "type": "string"
+    },
+    "family": {
+      "type": "string"
+    },
+    "scenario": {
+      "type": "string"
+    },
+    "operation_id": {
+      "type": "string"
+    },
+    "method": {
+      "type": "string"
+    },
+    "path": {
+      "type": "string"
+    },
+    "attacker": {
+      "type": "string"
+    },
+    "victim": {
+      "type": "string"
+    },
+    "object_id": {
+      "type": "string"
+    },
+    "oracle_type": {
+      "type": "string"
+    },
+    "expected_safe": {
+      "type": "string"
+    },
+    "observed_vulnerable": {
+      "type": "string"
+    },
+    "flag": {
+      "type": "string"
+    },
+    "is_benign": {
+      "type": "string",
+      "enum": [
+        "true",
+        "false"
+      ]
+    },
+    "cwe": {
+      "type": "string"
+    },
+    "owasp": {
+      "type": "string"
+    },
+    "severity": {
+      "type": "string"
+    },
+    "split": {
+      "type": "string"
+    },
+    "evidence_required": {
+      "type": "string",
+      "description": "JSON-encoded array of evidence requirements in the CSV cell."
+    },
+    "verification_status": {
+      "type": "string"
+    },
+    "verified_by": {
+      "type": "string"
+    },
+    "verified_at": {
+      "type": "string",
+      "description": "Empty string until human verification."
+    }
+  }
+}

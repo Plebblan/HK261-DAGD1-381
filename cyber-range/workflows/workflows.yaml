@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "workflows": [
+    {
+      "ID": "workflow-order-refund",
+      "Name": "Order refund lifecycle",
+      "Steps": [
+        {
+          "Action": "read_order",
+          "Precondition": {
+            "State": [
+              "delivered",
+              "return_pending"
+            ]
+          },
+          "Postcondition": "no_state_change"
+        },
+        {
+          "Action": "request_return",
+          "Precondition": {
+            "State": [
+              "delivered"
+            ]
+          },
+          "Postcondition": {
+            "State": "return_pending"
+          }
+        },
+        {
+          "Action": "approve_refund",
+          "Precondition": {
+            "State": [
+              "return_pending"
+            ],
+            "Role": [
+              "Admin"
+            ]
+          },
+          "Postcondition": {
+            "State": "returned"
+          }
+        }
+      ]
+    },
+    {
+      "ID": "workflow-ticket",
+      "Name": "Support ticket lifecycle",
+      "Steps": [
+        {
+          "Action": "create_ticket",
+          "Precondition": {
+            "Role": [
+              "Customer"
+            ]
+          },
+          "Postcondition": {
+            "State": "open"
+          }
+        },
+        {
+          "Action": "assign_ticket",
+          "Precondition": {
+            "Role": [
+              "Support",
+              "Admin"
+            ],
+            "State": [
+              "open"
+            ]
+          },
+          "Postcondition": {
+            "State": "assigned"
+          }
+        },
+        {
+          "Action": "close_ticket",
+          "Precondition": {
+            "Role": [
+              "Support",
+              "Admin"
+            ],
+            "State": [
+              "assigned"
+            ]
+          },
+          "Postcondition": {
+            "State": "closed"
+          }
+        }
+      ]
+    }
+  ]
+}

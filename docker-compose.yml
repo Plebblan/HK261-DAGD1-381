@@ -1,0 +1,31 @@
+services:
+  api:
+    build: .
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      MONGODB_URI: mongodb://mongo:27017
+      MONGODB_DATABASE: inlanefreight_api
+      SEED_DEMO_DATA: "true"
+      LAB_VULNERABILITIES: ${LAB_VULNERABILITIES:-}
+      LAB_MODE: ${LAB_MODE:-false}
+      LAB_ADMIN_TOKEN: ${LAB_ADMIN_TOKEN:-}
+      AUDIT_LOG_ENABLED: "true"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
+  mongo:
+    image: mongo:7
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+volumes:
+  mongo_data:

@@ -1,0 +1,175 @@
+{
+  "version": 1,
+  "description": "Actor-Resource-Action-State model for the synthetic web/API security range.",
+  "tenants": [
+    {
+      "ID": "tenant-a",
+      "Name": "Tenant A",
+      "Active": true
+    },
+    {
+      "ID": "tenant-b",
+      "Name": "Tenant B",
+      "Active": true
+    }
+  ],
+  "actors": [
+    {
+      "ID": "actor-customer-a",
+      "Email": "customer-a@lab.test",
+      "Password": "lab123",
+      "Role": "Customer",
+      "TenantID": "tenant-a",
+      "SessionID": "session-customer-a",
+      "Scopes": [
+        "profile:read",
+        "orders:read"
+      ],
+      "Active": true
+    },
+    {
+      "ID": "actor-customer-a2",
+      "Email": "customer-a2@lab.test",
+      "Password": "lab123",
+      "Role": "Customer",
+      "TenantID": "tenant-a",
+      "SessionID": "session-customer-a2",
+      "Scopes": [
+        "profile:read",
+        "orders:read"
+      ],
+      "Active": true
+    },
+    {
+      "ID": "actor-customer-b",
+      "Email": "customer-b@lab.test",
+      "Password": "lab123",
+      "Role": "Customer",
+      "TenantID": "tenant-b",
+      "SessionID": "session-customer-b",
+      "Scopes": [
+        "profile:read",
+        "orders:read"
+      ],
+      "Active": true
+    },
+    {
+      "ID": "actor-support-a",
+      "Email": "support-a@lab.test",
+      "Password": "lab123",
+      "Role": "Support",
+      "TenantID": "tenant-a",
+      "SessionID": "session-support-a",
+      "Scopes": [
+        "tickets:read",
+        "tickets:update"
+      ],
+      "Active": true
+    },
+    {
+      "ID": "actor-admin-a",
+      "Email": "admin-a@lab.test",
+      "Password": "lab123",
+      "Role": "Admin",
+      "TenantID": "tenant-a",
+      "SessionID": "session-admin-a",
+      "Scopes": [
+        "*"
+      ],
+      "Active": true
+    }
+  ],
+  "actions": [
+    {
+      "id": "list_resources",
+      "method": "GET",
+      "path": "/lab/v1/resources",
+      "roles": [
+        "Customer",
+        "Support",
+        "Admin"
+      ],
+      "resource_type": "any",
+      "state_effect": "read"
+    },
+    {
+      "id": "search_resources",
+      "method": "GET",
+      "path": "/lab/v1/resources?resource_type={type}",
+      "roles": [
+        "Customer",
+        "Support",
+        "Admin"
+      ],
+      "resource_type": "any",
+      "state_effect": "read"
+    },
+    {
+      "id": "get_resource",
+      "method": "GET",
+      "path": "/lab/v1/resources/{resource_id}",
+      "roles": [
+        "Customer",
+        "Support",
+        "Admin"
+      ],
+      "resource_type": "any",
+      "state_effect": "read"
+    },
+    {
+      "id": "update_resource",
+      "method": "PATCH",
+      "path": "/lab/v1/resources/{resource_id}",
+      "roles": [
+        "Customer",
+        "Support",
+        "Admin"
+      ],
+      "resource_type": "any",
+      "state_effect": "mutable_properties_only"
+    },
+    {
+      "id": "delete_resource",
+      "method": "DELETE",
+      "path": "/lab/v1/resources/{resource_id}",
+      "roles": [
+        "Customer",
+        "Support",
+        "Admin"
+      ],
+      "resource_type": "any",
+      "state_effect": "delete"
+    },
+    {
+      "id": "transition_resource",
+      "method": "POST",
+      "path": "/lab/v1/resources/{resource_id}/actions/{action}",
+      "roles": [
+        "Customer",
+        "Support",
+        "Admin"
+      ],
+      "resource_type": "order|ticket",
+      "state_effect": "workflow_transition"
+    },
+    {
+      "id": "admin_action",
+      "method": "POST",
+      "path": "/lab/v1/admin/actions/{action}",
+      "roles": [
+        "Admin"
+      ],
+      "resource_type": "none",
+      "state_effect": "privileged_action"
+    }
+  ],
+  "authorization_dimensions": [
+    "role",
+    "owner",
+    "tenant",
+    "resource_type",
+    "state",
+    "mutable_properties"
+  ],
+  "vulnerability_flags": "AUTHZ-NNN via LAB_VULNERABILITIES; disabled by default"
+}
