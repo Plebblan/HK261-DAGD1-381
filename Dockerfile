@@ -6,4 +6,4 @@ COPY app ./app
 COPY docs/app1/openapi.json ./openapi.json
 COPY cyber-range ./cyber-range
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.standard.main:app", "--host", "0.0.0.0", "--port", "8000"]
