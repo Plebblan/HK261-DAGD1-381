@@ -1,0 +1,1090 @@
+{
+  "version": 1,
+  "description": "Actor-Resource-Action-State model for the synthetic Cyber Range apps: TenantDesk (App A) and ShopFlow (App B). Every entry carries an App tag.",
+  "tenants": [
+    {
+      "App": "tenantdesk",
+      "ID": "tenant-acme",
+      "Name": "acme",
+      "Active": true
+    },
+    {
+      "App": "tenantdesk",
+      "ID": "tenant-globex",
+      "Name": "globex",
+      "Active": true
+    },
+    {
+      "App": "shopflow",
+      "ID": "tenant-acme-shop",
+      "Name": "acme-shop",
+      "Active": true
+    },
+    {
+      "App": "shopflow",
+      "ID": "tenant-globex-shop",
+      "Name": "globex-shop",
+      "Active": true
+    }
+  ],
+  "actors": [
+    {
+      "App": "tenantdesk",
+      "ID": "actor-alice",
+      "Email": "alice@acme.test",
+      "Password": "pw-alice",
+      "Role": "Admin",
+      "TenantID": "tenant-acme",
+      "SessionID": "session-alice",
+      "Scopes": [],
+      "Active": true
+    },
+    {
+      "App": "tenantdesk",
+      "ID": "actor-adam",
+      "Email": "adam@acme.test",
+      "Password": "pw-adam",
+      "Role": "Agent",
+      "TenantID": "tenant-acme",
+      "SessionID": "session-adam",
+      "Scopes": [],
+      "Active": true
+    },
+    {
+      "App": "tenantdesk",
+      "ID": "actor-amy",
+      "Email": "amy@acme.test",
+      "Password": "pw-amy",
+      "Role": "Member",
+      "TenantID": "tenant-acme",
+      "SessionID": "session-amy",
+      "Scopes": [],
+      "Active": true
+    },
+    {
+      "App": "tenantdesk",
+      "ID": "actor-ann",
+      "Email": "ann@acme.test",
+      "Password": "pw-ann",
+      "Role": "Member",
+      "TenantID": "tenant-acme",
+      "SessionID": "session-ann",
+      "Scopes": [],
+      "Active": true
+    },
+    {
+      "App": "tenantdesk",
+      "ID": "actor-gina",
+      "Email": "gina@globex.test",
+      "Password": "pw-gina",
+      "Role": "Admin",
+      "TenantID": "tenant-globex",
+      "SessionID": "session-gina",
+      "Scopes": [],
+      "Active": true
+    },
+    {
+      "App": "tenantdesk",
+      "ID": "actor-greg",
+      "Email": "greg@globex.test",
+      "Password": "pw-greg",
+      "Role": "Agent",
+      "TenantID": "tenant-globex",
+      "SessionID": "session-greg",
+      "Scopes": [],
+      "Active": true
+    },
+    {
+      "App": "tenantdesk",
+      "ID": "actor-gus",
+      "Email": "gus@globex.test",
+      "Password": "pw-gus",
+      "Role": "Member",
+      "TenantID": "tenant-globex",
+      "SessionID": "session-gus",
+      "Scopes": [],
+      "Active": true
+    },
+    {
+      "App": "shopflow",
+      "ID": "actor-olga",
+      "Email": "olga@acme-shop.test",
+      "Password": "pw-olga",
+      "Role": "MerchantAdmin",
+      "TenantID": "tenant-acme-shop",
+      "SessionID": "session-olga",
+      "Scopes": [],
+      "Active": true
+    },
+    {
+      "App": "shopflow",
+      "ID": "actor-sam",
+      "Email": "sam@acme-shop.test",
+      "Password": "pw-sam",
+      "Role": "Staff",
+      "TenantID": "tenant-acme-shop",
+      "SessionID": "session-sam",
+      "Scopes": [],
+      "Active": true
+    },
+    {
+      "App": "shopflow",
+      "ID": "actor-cathy",
+      "Email": "cathy@acme-shop.test",
+      "Password": "pw-cathy",
+      "Role": "Customer",
+      "TenantID": "tenant-acme-shop",
+      "SessionID": "session-cathy",
+      "Scopes": [],
+      "Active": true
+    },
+    {
+      "App": "shopflow",
+      "ID": "actor-carl",
+      "Email": "carl@acme-shop.test",
+      "Password": "pw-carl",
+      "Role": "Customer",
+      "TenantID": "tenant-acme-shop",
+      "SessionID": "session-carl",
+      "Scopes": [],
+      "Active": true
+    },
+    {
+      "App": "shopflow",
+      "ID": "actor-greta",
+      "Email": "greta@globex-shop.test",
+      "Password": "pw-greta",
+      "Role": "MerchantAdmin",
+      "TenantID": "tenant-globex-shop",
+      "SessionID": "session-greta",
+      "Scopes": [],
+      "Active": true
+    },
+    {
+      "App": "shopflow",
+      "ID": "actor-steve",
+      "Email": "steve@globex-shop.test",
+      "Password": "pw-steve",
+      "Role": "Staff",
+      "TenantID": "tenant-globex-shop",
+      "SessionID": "session-steve",
+      "Scopes": [],
+      "Active": true
+    },
+    {
+      "App": "shopflow",
+      "ID": "actor-chris",
+      "Email": "chris@globex-shop.test",
+      "Password": "pw-chris",
+      "Role": "Customer",
+      "TenantID": "tenant-globex-shop",
+      "SessionID": "session-chris",
+      "Scopes": [],
+      "Active": true
+    }
+  ],
+  "actions": [
+    {
+      "App": "tenantdesk",
+      "id": "login",
+      "method": "POST",
+      "path": "/auth/login",
+      "roles": [
+        "*"
+      ],
+      "resource_type": "none",
+      "state_effect": "session_create",
+      "tenant_scope": "none",
+      "ownership": "none",
+      "precondition": {},
+      "postcondition": "no_state_change"
+    },
+    {
+      "App": "tenantdesk",
+      "id": "logout",
+      "method": "POST",
+      "path": "/auth/logout",
+      "roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "resource_type": "none",
+      "state_effect": "session_destroy",
+      "tenant_scope": "none",
+      "ownership": "none",
+      "precondition": {},
+      "postcondition": "no_state_change"
+    },
+    {
+      "App": "tenantdesk",
+      "id": "get_me",
+      "method": "GET",
+      "path": "/users/me",
+      "roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "resource_type": "user",
+      "state_effect": "read",
+      "tenant_scope": "same_tenant",
+      "ownership": "self",
+      "precondition": {},
+      "postcondition": "no_state_change"
+    },
+    {
+      "App": "tenantdesk",
+      "id": "patch_me",
+      "method": "PATCH",
+      "path": "/users/me",
+      "roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "resource_type": "user",
+      "state_effect": "mutable_properties_only",
+      "tenant_scope": "same_tenant",
+      "ownership": "self",
+      "precondition": {},
+      "postcondition": "no_state_change",
+      "rule": "display_name/email only; role is not client-mutable"
+    },
+    {
+      "App": "tenantdesk",
+      "id": "list_users",
+      "method": "GET",
+      "path": "/users",
+      "roles": [
+        "Agent",
+        "Admin"
+      ],
+      "resource_type": "user",
+      "state_effect": "read",
+      "tenant_scope": "same_tenant",
+      "ownership": "none",
+      "precondition": {},
+      "postcondition": "no_state_change",
+      "rule": "same-tenant users only"
+    },
+    {
+      "App": "tenantdesk",
+      "id": "create_user",
+      "method": "POST",
+      "path": "/users",
+      "roles": [
+        "Admin"
+      ],
+      "resource_type": "user",
+      "state_effect": "create",
+      "tenant_scope": "same_tenant",
+      "ownership": "none",
+      "precondition": {},
+      "postcondition": "no_state_change"
+    },
+    {
+      "App": "tenantdesk",
+      "id": "get_user",
+      "method": "GET",
+      "path": "/users/{user_id}",
+      "roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "resource_type": "user",
+      "state_effect": "read",
+      "tenant_scope": "same_tenant",
+      "ownership": "none",
+      "precondition": {},
+      "postcondition": "no_state_change",
+      "rule": "api_key visible to self only"
+    },
+    {
+      "App": "tenantdesk",
+      "id": "delete_user",
+      "method": "DELETE",
+      "path": "/users/{user_id}",
+      "roles": [
+        "Admin"
+      ],
+      "resource_type": "user",
+      "state_effect": "delete",
+      "tenant_scope": "same_tenant",
+      "ownership": "none",
+      "precondition": {},
+      "postcondition": "no_state_change",
+      "rule": "not self"
+    },
+    {
+      "App": "tenantdesk",
+      "id": "create_ticket",
+      "method": "POST",
+      "path": "/tickets",
+      "roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "resource_type": "ticket",
+      "state_effect": "create",
+      "tenant_scope": "same_tenant",
+      "ownership": "none",
+      "precondition": {},
+      "postcondition": {
+        "State": "open"
+      }
+    },
+    {
+      "App": "tenantdesk",
+      "id": "list_tickets",
+      "method": "GET",
+      "path": "/tickets",
+      "roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "resource_type": "ticket",
+      "state_effect": "read",
+      "tenant_scope": "same_tenant",
+      "ownership": "owner_or_agent_admin",
+      "precondition": {},
+      "postcondition": "no_state_change"
+    },
+    {
+      "App": "tenantdesk",
+      "id": "get_ticket",
+      "method": "GET",
+      "path": "/tickets/{ticket_id}",
+      "roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "resource_type": "ticket",
+      "state_effect": "read",
+      "tenant_scope": "same_tenant",
+      "ownership": "owner_or_agent_admin",
+      "precondition": {},
+      "postcondition": "no_state_change"
+    },
+    {
+      "App": "tenantdesk",
+      "id": "patch_ticket",
+      "method": "PATCH",
+      "path": "/tickets/{ticket_id}",
+      "roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "resource_type": "ticket",
+      "state_effect": "mutable_properties_only",
+      "tenant_scope": "same_tenant",
+      "ownership": "owner_or_agent_admin",
+      "precondition": {},
+      "postcondition": "no_state_change",
+      "rule": "Member: title/body only; priority/status/assignee_id need Agent/Admin"
+    },
+    {
+      "App": "tenantdesk",
+      "id": "delete_ticket",
+      "method": "DELETE",
+      "path": "/tickets/{ticket_id}",
+      "roles": [
+        "Member",
+        "Admin"
+      ],
+      "resource_type": "ticket",
+      "state_effect": "delete",
+      "tenant_scope": "same_tenant",
+      "ownership": "owner_or_admin",
+      "precondition": {},
+      "postcondition": "no_state_change"
+    },
+    {
+      "App": "tenantdesk",
+      "id": "add_comment",
+      "method": "POST",
+      "path": "/tickets/{ticket_id}/comments",
+      "roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "resource_type": "comment",
+      "state_effect": "create",
+      "tenant_scope": "same_tenant",
+      "ownership": "owner_or_agent_admin",
+      "precondition": {},
+      "postcondition": "no_state_change",
+      "rule": "internal=true honoured for Agent/Admin only"
+    },
+    {
+      "App": "tenantdesk",
+      "id": "list_comments",
+      "method": "GET",
+      "path": "/tickets/{ticket_id}/comments",
+      "roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "resource_type": "comment",
+      "state_effect": "read",
+      "tenant_scope": "same_tenant",
+      "ownership": "owner_or_agent_admin",
+      "precondition": {},
+      "postcondition": "no_state_change",
+      "rule": "internal comments hidden from Member"
+    },
+    {
+      "App": "tenantdesk",
+      "id": "assign_ticket",
+      "method": "POST",
+      "path": "/tickets/{ticket_id}/assign",
+      "roles": [
+        "Agent",
+        "Admin"
+      ],
+      "resource_type": "ticket",
+      "state_effect": "relationship_change",
+      "tenant_scope": "same_tenant",
+      "ownership": "none",
+      "precondition": {},
+      "postcondition": "no_state_change",
+      "rule": "assignee: same tenant, role Agent/Admin"
+    },
+    {
+      "App": "tenantdesk",
+      "id": "transition_ticket",
+      "method": "POST",
+      "path": "/tickets/{ticket_id}/transition",
+      "roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "resource_type": "ticket",
+      "state_effect": "workflow_transition",
+      "tenant_scope": "same_tenant",
+      "ownership": "owner_or_agent_admin",
+      "precondition": {
+        "State": [
+          "open",
+          "in_progress",
+          "resolved"
+        ]
+      },
+      "postcondition": {
+        "State": "per workflow-ticket"
+      },
+      "rule": "Member (owner): resolved->closed|open only; Agent/Admin: edges of workflow-ticket"
+    },
+    {
+      "App": "tenantdesk",
+      "id": "create_document",
+      "method": "POST",
+      "path": "/documents",
+      "roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "resource_type": "document",
+      "state_effect": "create",
+      "tenant_scope": "same_tenant",
+      "ownership": "none",
+      "precondition": {},
+      "postcondition": {
+        "State": "draft"
+      }
+    },
+    {
+      "App": "tenantdesk",
+      "id": "list_documents",
+      "method": "GET",
+      "path": "/documents",
+      "roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "resource_type": "document",
+      "state_effect": "read",
+      "tenant_scope": "same_tenant",
+      "ownership": "none",
+      "precondition": {},
+      "postcondition": "no_state_change",
+      "rule": "readable documents of own tenant"
+    },
+    {
+      "App": "tenantdesk",
+      "id": "get_document",
+      "method": "GET",
+      "path": "/documents/{doc_id}",
+      "roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "resource_type": "document",
+      "state_effect": "read",
+      "tenant_scope": "same_tenant",
+      "ownership": "none",
+      "precondition": {},
+      "postcondition": "no_state_change",
+      "rule": "owner | Admin | shared_with | (visibility=tenant and State=published)"
+    },
+    {
+      "App": "tenantdesk",
+      "id": "update_document",
+      "method": "PUT",
+      "path": "/documents/{doc_id}",
+      "roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "resource_type": "document",
+      "state_effect": "mutable_properties_only",
+      "tenant_scope": "same_tenant",
+      "ownership": "owner_or_admin",
+      "precondition": {
+        "State": [
+          "draft"
+        ]
+      },
+      "postcondition": "no_state_change"
+    },
+    {
+      "App": "tenantdesk",
+      "id": "delete_document",
+      "method": "DELETE",
+      "path": "/documents/{doc_id}",
+      "roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "resource_type": "document",
+      "state_effect": "delete",
+      "tenant_scope": "same_tenant",
+      "ownership": "owner_or_admin",
+      "precondition": {},
+      "postcondition": "no_state_change"
+    },
+    {
+      "App": "tenantdesk",
+      "id": "share_document",
+      "method": "POST",
+      "path": "/documents/{doc_id}/share",
+      "roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "resource_type": "document",
+      "state_effect": "relationship_change",
+      "tenant_scope": "same_tenant",
+      "ownership": "owner_or_admin",
+      "precondition": {},
+      "postcondition": "no_state_change",
+      "rule": "target user must belong to the document's tenant"
+    },
+    {
+      "App": "tenantdesk",
+      "id": "submit_document",
+      "method": "POST",
+      "path": "/documents/{doc_id}/submit",
+      "roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "resource_type": "document",
+      "state_effect": "workflow_transition",
+      "tenant_scope": "same_tenant",
+      "ownership": "owner_only",
+      "precondition": {
+        "State": [
+          "draft"
+        ]
+      },
+      "postcondition": {
+        "State": "review"
+      }
+    },
+    {
+      "App": "tenantdesk",
+      "id": "approve_document",
+      "method": "POST",
+      "path": "/documents/{doc_id}/approve",
+      "roles": [
+        "Agent",
+        "Admin"
+      ],
+      "resource_type": "document",
+      "state_effect": "workflow_transition",
+      "tenant_scope": "same_tenant",
+      "ownership": "none",
+      "precondition": {
+        "State": [
+          "review"
+        ]
+      },
+      "postcondition": {
+        "State": "published"
+      },
+      "rule": "approver must not be the document owner"
+    },
+    {
+      "App": "tenantdesk",
+      "id": "get_audit",
+      "method": "GET",
+      "path": "/admin/audit",
+      "roles": [
+        "Admin"
+      ],
+      "resource_type": "audit_log",
+      "state_effect": "read",
+      "tenant_scope": "same_tenant",
+      "ownership": "none",
+      "precondition": {},
+      "postcondition": "no_state_change",
+      "rule": "same-tenant entries only"
+    },
+    {
+      "App": "shopflow",
+      "id": "shopflow_login",
+      "method": "POST",
+      "path": "/auth/login",
+      "roles": [
+        "*"
+      ],
+      "resource_type": "none",
+      "state_effect": "session_create",
+      "tenant_scope": "none",
+      "ownership": "none",
+      "precondition": {},
+      "postcondition": "no_state_change"
+    },
+    {
+      "App": "shopflow",
+      "id": "shopflow_logout",
+      "method": "POST",
+      "path": "/auth/logout",
+      "roles": [
+        "Customer",
+        "Staff",
+        "MerchantAdmin"
+      ],
+      "resource_type": "none",
+      "state_effect": "session_destroy",
+      "tenant_scope": "none",
+      "ownership": "none",
+      "precondition": {},
+      "postcondition": "no_state_change"
+    },
+    {
+      "App": "shopflow",
+      "id": "shopflow_get_me",
+      "method": "GET",
+      "path": "/me",
+      "roles": [
+        "Customer",
+        "Staff",
+        "MerchantAdmin"
+      ],
+      "resource_type": "user",
+      "state_effect": "read",
+      "tenant_scope": "same_tenant",
+      "ownership": "self",
+      "precondition": {},
+      "postcondition": "no_state_change"
+    },
+    {
+      "App": "shopflow",
+      "id": "list_products",
+      "method": "GET",
+      "path": "/products",
+      "roles": [
+        "Customer",
+        "Staff",
+        "MerchantAdmin"
+      ],
+      "resource_type": "product",
+      "state_effect": "read",
+      "tenant_scope": "same_tenant",
+      "ownership": "none",
+      "precondition": {},
+      "postcondition": "no_state_change",
+      "rule": "same-tenant products; cost_price hidden from Customer"
+    },
+    {
+      "App": "shopflow",
+      "id": "create_product",
+      "method": "POST",
+      "path": "/products",
+      "roles": [
+        "Staff",
+        "MerchantAdmin"
+      ],
+      "resource_type": "product",
+      "state_effect": "create",
+      "tenant_scope": "same_tenant",
+      "ownership": "none",
+      "precondition": {},
+      "postcondition": "no_state_change"
+    },
+    {
+      "App": "shopflow",
+      "id": "patch_product",
+      "method": "PATCH",
+      "path": "/products/{product_id}",
+      "roles": [
+        "MerchantAdmin"
+      ],
+      "resource_type": "product",
+      "state_effect": "mutable_properties_only",
+      "tenant_scope": "same_tenant",
+      "ownership": "none",
+      "precondition": {},
+      "postcondition": "no_state_change",
+      "rule": "price/stock only"
+    },
+    {
+      "App": "shopflow",
+      "id": "create_order",
+      "method": "POST",
+      "path": "/orders",
+      "roles": [
+        "Customer"
+      ],
+      "resource_type": "order",
+      "state_effect": "create",
+      "tenant_scope": "same_tenant",
+      "ownership": "none",
+      "precondition": {},
+      "postcondition": {
+        "State": "draft"
+      },
+      "rule": "unit price comes from the catalog; client unit_price ignored; products must be same-tenant"
+    },
+    {
+      "App": "shopflow",
+      "id": "list_orders",
+      "method": "GET",
+      "path": "/orders",
+      "roles": [
+        "Customer",
+        "Staff",
+        "MerchantAdmin"
+      ],
+      "resource_type": "order",
+      "state_effect": "read",
+      "tenant_scope": "same_tenant",
+      "ownership": "owner_or_staff",
+      "precondition": {},
+      "postcondition": "no_state_change",
+      "rule": "Customer sees own orders only"
+    },
+    {
+      "App": "shopflow",
+      "id": "get_order",
+      "method": "GET",
+      "path": "/orders/{order_id}",
+      "roles": [
+        "Customer",
+        "Staff",
+        "MerchantAdmin"
+      ],
+      "resource_type": "order",
+      "state_effect": "read",
+      "tenant_scope": "same_tenant",
+      "ownership": "owner_or_staff",
+      "precondition": {},
+      "postcondition": "no_state_change"
+    },
+    {
+      "App": "shopflow",
+      "id": "patch_order",
+      "method": "PATCH",
+      "path": "/orders/{order_id}",
+      "roles": [
+        "Customer",
+        "Staff",
+        "MerchantAdmin"
+      ],
+      "resource_type": "order",
+      "state_effect": "mutable_properties_only",
+      "tenant_scope": "same_tenant",
+      "ownership": "owner_or_staff",
+      "precondition": {
+        "State": [
+          "draft"
+        ]
+      },
+      "postcondition": "no_state_change",
+      "rule": "address only; total is server-computed"
+    },
+    {
+      "App": "shopflow",
+      "id": "apply_coupon",
+      "method": "POST",
+      "path": "/orders/{order_id}/apply-coupon",
+      "roles": [
+        "Customer",
+        "Staff",
+        "MerchantAdmin"
+      ],
+      "resource_type": "order",
+      "state_effect": "workflow_transition",
+      "tenant_scope": "same_tenant",
+      "ownership": "owner_or_staff",
+      "precondition": {
+        "State": [
+          "draft"
+        ]
+      },
+      "postcondition": "no_state_change",
+      "rule": "coupon must belong to the order's tenant and have remaining uses; one coupon per order"
+    },
+    {
+      "App": "shopflow",
+      "id": "pay_order",
+      "method": "POST",
+      "path": "/orders/{order_id}/pay",
+      "roles": [
+        "Customer"
+      ],
+      "resource_type": "order",
+      "state_effect": "workflow_transition",
+      "tenant_scope": "same_tenant",
+      "ownership": "owner_only",
+      "precondition": {
+        "State": [
+          "draft"
+        ]
+      },
+      "postcondition": {
+        "State": "paid"
+      },
+      "rule": "stock must be sufficient"
+    },
+    {
+      "App": "shopflow",
+      "id": "ship_order",
+      "method": "POST",
+      "path": "/orders/{order_id}/ship",
+      "roles": [
+        "Staff",
+        "MerchantAdmin"
+      ],
+      "resource_type": "order",
+      "state_effect": "workflow_transition",
+      "tenant_scope": "same_tenant",
+      "ownership": "none",
+      "precondition": {
+        "State": [
+          "paid"
+        ]
+      },
+      "postcondition": {
+        "State": "shipped"
+      }
+    },
+    {
+      "App": "shopflow",
+      "id": "deliver_order",
+      "method": "POST",
+      "path": "/orders/{order_id}/deliver",
+      "roles": [
+        "Staff",
+        "MerchantAdmin"
+      ],
+      "resource_type": "order",
+      "state_effect": "workflow_transition",
+      "tenant_scope": "same_tenant",
+      "ownership": "none",
+      "precondition": {
+        "State": [
+          "shipped"
+        ]
+      },
+      "postcondition": {
+        "State": "delivered"
+      }
+    },
+    {
+      "App": "shopflow",
+      "id": "cancel_order",
+      "method": "POST",
+      "path": "/orders/{order_id}/cancel",
+      "roles": [
+        "Customer",
+        "Staff",
+        "MerchantAdmin"
+      ],
+      "resource_type": "order",
+      "state_effect": "workflow_transition",
+      "tenant_scope": "same_tenant",
+      "ownership": "owner_or_staff",
+      "precondition": {
+        "State": [
+          "draft",
+          "paid"
+        ]
+      },
+      "postcondition": {
+        "State": "cancelled"
+      }
+    },
+    {
+      "App": "shopflow",
+      "id": "get_invoice",
+      "method": "GET",
+      "path": "/orders/{order_id}/invoice",
+      "roles": [
+        "Customer",
+        "Staff",
+        "MerchantAdmin"
+      ],
+      "resource_type": "order",
+      "state_effect": "read",
+      "tenant_scope": "same_tenant",
+      "ownership": "owner_or_staff",
+      "precondition": {},
+      "postcondition": "no_state_change"
+    },
+    {
+      "App": "shopflow",
+      "id": "request_refund",
+      "method": "POST",
+      "path": "/orders/{order_id}/refund",
+      "roles": [
+        "Customer",
+        "Staff",
+        "MerchantAdmin"
+      ],
+      "resource_type": "refund",
+      "state_effect": "create",
+      "tenant_scope": "same_tenant",
+      "ownership": "owner_or_staff",
+      "precondition": {
+        "State": [
+          "paid",
+          "shipped",
+          "delivered"
+        ]
+      },
+      "postcondition": {
+        "State": "pending"
+      },
+      "rule": "sum of pending+approved refunds must not exceed paid_amount"
+    },
+    {
+      "App": "shopflow",
+      "id": "get_refund",
+      "method": "GET",
+      "path": "/refunds/{refund_id}",
+      "roles": [
+        "Customer",
+        "Staff",
+        "MerchantAdmin"
+      ],
+      "resource_type": "refund",
+      "state_effect": "read",
+      "tenant_scope": "same_tenant",
+      "ownership": "owner_or_staff",
+      "precondition": {},
+      "postcondition": "no_state_change"
+    },
+    {
+      "App": "shopflow",
+      "id": "approve_refund",
+      "method": "POST",
+      "path": "/refunds/{refund_id}/approve",
+      "roles": [
+        "MerchantAdmin"
+      ],
+      "resource_type": "refund",
+      "state_effect": "workflow_transition",
+      "tenant_scope": "same_tenant",
+      "ownership": "none",
+      "precondition": {
+        "State": [
+          "pending"
+        ]
+      },
+      "postcondition": {
+        "State": "approved"
+      },
+      "rule": "order becomes refunded when refunded_total >= paid_amount"
+    },
+    {
+      "App": "shopflow",
+      "id": "list_coupons",
+      "method": "GET",
+      "path": "/coupons",
+      "roles": [
+        "MerchantAdmin"
+      ],
+      "resource_type": "coupon",
+      "state_effect": "read",
+      "tenant_scope": "same_tenant",
+      "ownership": "none",
+      "precondition": {},
+      "postcondition": "no_state_change"
+    },
+    {
+      "App": "shopflow",
+      "id": "create_coupon",
+      "method": "POST",
+      "path": "/coupons",
+      "roles": [
+        "MerchantAdmin"
+      ],
+      "resource_type": "coupon",
+      "state_effect": "create",
+      "tenant_scope": "same_tenant",
+      "ownership": "none",
+      "precondition": {},
+      "postcondition": "no_state_change"
+    },
+    {
+      "App": "shopflow",
+      "id": "sales_report",
+      "method": "GET",
+      "path": "/reports/sales",
+      "roles": [
+        "MerchantAdmin"
+      ],
+      "resource_type": "report",
+      "state_effect": "read",
+      "tenant_scope": "same_tenant",
+      "ownership": "none",
+      "precondition": {},
+      "postcondition": "no_state_change",
+      "rule": "same-tenant gross only"
+    }
+  ],
+  "authorization_dimensions": [
+    "role",
+    "owner",
+    "tenant",
+    "resource_type",
+    "state",
+    "mutable_properties",
+    "relationship"
+  ],
+  "notes": [
+    "Token scopes are not enforced by this app; Scopes is empty. Authorization = role + owner + tenant + state.",
+    "ownership/tenant_scope/precondition/postcondition/rule describe the SAFE behaviour (expected-safe oracle source).",
+    "Operation ids are unique across apps. The three ShopFlow operations that share a name with TenantDesk (login, logout, get_me) are modelled as shopflow_login, shopflow_logout, shopflow_get_me; the OpenAPI operationId stays unchanged.",
+    "ShopFlow roles: Customer < Staff < MerchantAdmin. Login is by username (pw-<username>); the Email field is informational only."
+  ],
+  "vulnerability_flags": "TD-01..TD-17 (tenantdesk) and SF-01..SF-14 (shopflow) via ENABLED_FLAWS (ALL | NONE | comma list); all enabled by default; NONE = patched twin"
+}

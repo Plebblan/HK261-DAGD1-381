@@ -1,0 +1,180 @@
+{
+  "version": 2,
+  "objects": [
+    {
+      "ID": "doc-a-001",
+      "ResourceType": "document",
+      "OwnerID": "actor-customer-a",
+      "TenantID": "tenant-a",
+      "State": "private",
+      "Sensitive": true,
+      "Properties": {
+        "title": "Tenant A private document",
+        "classification": "confidential"
+      }
+    },
+    {
+      "ID": "doc-b-001",
+      "ResourceType": "document",
+      "OwnerID": "actor-customer-b",
+      "TenantID": "tenant-b",
+      "State": "private",
+      "Sensitive": true,
+      "Properties": {
+        "title": "Tenant B private document",
+        "classification": "confidential"
+      }
+    },
+    {
+      "ID": "doc-a-002",
+      "ResourceType": "document",
+      "OwnerID": "actor-customer-a2",
+      "TenantID": "tenant-a",
+      "State": "private",
+      "Sensitive": true,
+      "Properties": {
+        "title": "Same-tenant private document",
+        "classification": "internal"
+      }
+    },
+    {
+      "ID": "order-a-001",
+      "ResourceType": "order",
+      "OwnerID": "actor-customer-a",
+      "TenantID": "tenant-a",
+      "State": "delivered",
+      "Sensitive": false,
+      "Properties": {
+        "quantity": 1,
+        "refund_status": "none",
+        "total": 49.99
+      }
+    },
+    {
+      "ID": "order-heldout-001",
+      "ResourceType": "order",
+      "OwnerID": "actor-customer-a",
+      "TenantID": "tenant-a",
+      "State": "delivered",
+      "Sensitive": false,
+      "Properties": {
+        "quantity": 1,
+        "refund_status": "none",
+        "total": 69.99
+      }
+    },
+    {
+      "ID": "order-b-001",
+      "ResourceType": "order",
+      "OwnerID": "actor-customer-b",
+      "TenantID": "tenant-b",
+      "State": "created",
+      "Sensitive": false,
+      "Properties": {
+        "quantity": 1,
+        "refund_status": "none",
+        "total": 19.99
+      }
+    },
+    {
+      "ID": "ticket-a-001",
+      "ResourceType": "ticket",
+      "OwnerID": "actor-customer-a",
+      "TenantID": "tenant-a",
+      "State": "open",
+      "Sensitive": true,
+      "Properties": {
+        "subject": "Synthetic support ticket",
+        "priority": "normal"
+      }
+    },
+    {
+      "ID": "attachment-b-001",
+      "ResourceType": "attachment",
+      "OwnerID": "actor-customer-b",
+      "TenantID": "tenant-b",
+      "State": "private",
+      "Sensitive": true,
+      "Properties": {
+        "title": "Tenant B attachment",
+        "classification": "confidential"
+      }
+    },
+    {
+      "ID": "ticket-b-001",
+      "ResourceType": "ticket",
+      "OwnerID": "actor-customer-b",
+      "TenantID": "tenant-b",
+      "State": "escalated",
+      "Sensitive": true,
+      "Properties": {
+        "subject": "Synthetic escalated cross-tenant ticket",
+        "priority": "high"
+      }
+    }
+  ],
+  "auxiliary_objects": {
+    "lab_invoices": [
+      {
+        "ID": "invoice-a-001",
+        "TenantID": "tenant-a",
+        "OwnerID": "actor-supplier-a",
+        "Amount": 1250.0,
+        "LineItems": [
+          {
+            "Sku": "sku-1",
+            "Qty": 10,
+            "UnitPrice": 125.0
+          }
+        ],
+        "Status": "draft",
+        "CreatedAt": "2026-10-01T00:00:00+00:00"
+      },
+      {
+        "ID": "invoice-a-002",
+        "TenantID": "tenant-a",
+        "OwnerID": "actor-supplier-a",
+        "Amount": 500.0,
+        "LineItems": [],
+        "Status": "submitted",
+        "CreatedAt": "2026-10-05T00:00:00+00:00"
+      },
+      {
+        "ID": "invoice-b-001",
+        "TenantID": "tenant-b",
+        "OwnerID": "actor-supplier-b",
+        "Amount": 900.0,
+        "LineItems": [],
+        "Status": "approved",
+        "CreatedAt": "2026-10-03T00:00:00+00:00"
+      }
+    ],
+    "lab_payouts": [
+      {
+        "ID": "payout-a-001",
+        "TenantID": "tenant-a",
+        "OwnerID": "actor-supplier-a",
+        "Amount": 1250.0,
+        "Status": "pending"
+      },
+      {
+        "ID": "payout-b-001",
+        "TenantID": "tenant-b",
+        "OwnerID": "actor-supplier-b",
+        "Amount": 900.0,
+        "Status": "approved"
+      }
+    ],
+    "lab_reviews": [
+      {
+        "ID": "review-a-001",
+        "OrderID": "order-a-001",
+        "OwnerID": "actor-customer-a",
+        "Rating": 5,
+        "Comment": "Synthetic seeded review",
+        "Verified": true,
+        "Featured": false
+      }
+    ]
+  }
+}
