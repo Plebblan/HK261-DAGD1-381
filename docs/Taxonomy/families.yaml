@@ -1,0 +1,150 @@
+# Authorization & Business-Logic Taxonomy
+# Shared across ALL apps. Describes kinds of flaws, never specific endpoints.
+# Per-app instances live in apps/<app>/flaw_catalog.yaml.
+
+schema_version: "0.1"
+status: draft   # change to "frozen" once decisions D1-D5 are confirmed
+
+decisions:      # pending confirmation by the team
+  D1: >
+    Exactly one primary family per flaw instance. F1 = object access within the
+    same tenant; F4 = access across a tenant boundary. Any other applicable
+    family goes in secondary_families.
+  D2: >
+    "anonymous" (no credentials) is a regular actor in the role matrix.
+    Broken authentication (OTP brute force, JWT forgery) stays out of scope.
+  D3: >
+    403 and 404 are equivalent "safe" outcomes for deny checks, unless an app's
+    access policy says otherwise.
+  D4: >
+    F5 covers state-transition violations only. Volume, rate and automation
+    abuse are excluded (they conflict with the safety gateway budgets).
+  D5: >
+    Read-only leaks (F3 subtype R) count as findings, judged against the
+    app's field policy.
+
+oracle_types:
+  differential_authorization:
+    description: >
+      Run the same operation as a reference actor (allowed by policy) and as a
+      test actor (denied by policy). A violation is a test-actor outcome that
+      is not a safe response.
+    requires: [access_policy]
+  property_policy_diff:
+    description: >
+      Compare the fields in a response (R) or the fields that changed after a
+      write (W) against the actor's allowed field set.
+    requires: [access_policy.field_policy]
+  state_invariant:
+    description: >
+      Attempt a transition and check that it is rejected, or that the declared
+      invariants still hold afterwards.
+    requires: [business_state_graph, invariants]
+
+evidence_common:   # required for every family, on top of the family-specific items
+  - request            # redacted
+  - response           # redacted
+  - status
+  - body_diff
+  - before_after_state
+  - test_actor
+  - seed
+  - action_id
+  - timestamp
+  - raw_hash
+
+families:
+  - id: F1
+    name: BOLA / IDOR
+    owasp_api_2023: "API1:2023 Broken Object Level Authorization"
+    cwe: [639, 862, 863]
+    cwe_status: unverified
+    oracle: differential_authorization
+    scope_note: Same tenant. Cross-tenant access belongs to F4.
+    reproduction: >
+      Owner A creates or owns object X. A non-owner actor B (same tenant) and
+      the anonymous actor request X using the same operation.
+    safe_response: >
+      403 or 404 (D3). Response body contains no data of X.
+    evidence_required:
+      - owner_baseline_response
+      - test_actor_response
+      - object_id_origin   # which earlier response exposed the ID (object-ID flow)
+
+  - id: F2
+    name: BFLA
+    owasp_api_2023: "API5:2023 Broken Function Level Authorization"
+    cwe: [285, 862, 269]
+    cwe_status: unverified
+    oracle: differential_authorization
+    reproduction: >
+      A low-privilege actor calls a function reserved for a higher role
+      (for example an admin path or a method not granted to the role).
+    safe_response: 403 (or 404), and no state change.
+    evidence_required:
+      - role_matrix_cell   # expected deny
+      - before_after_state
+
+  - id: F3
+    name: BOPLA
+    owasp_api_2023: "API3:2023 Broken Object Property Level Authorization"
+    oracle: property_policy_diff
+    subtypes:
+      R:
+        name: Excessive data exposure
+        cwe: [213, 200]
+        cwe_status: unverified
+        reproduction: >
+          An actor reads an object they may legitimately access.
+        safe_response: >
+          Response contains only fields allowed for that actor's role.
+        evidence_required:
+          - returned_field_set
+          - allowed_field_set
+      W:
+        name: Mass assignment
+        cwe: [915]
+        cwe_status: unverified
+        reproduction: >
+          An actor updates an object they may legitimately modify, adding or
+          changing a property outside their writable set.
+        safe_response: >
+          400/403, or the property is ignored with no state change.
+        evidence_required:
+          - request_body
+          - readback_before
+          - readback_after
+
+  - id: F4
+    name: Tenant isolation breakage
+    owasp_api_2023: "No dedicated category (BOLA across a tenant boundary)"
+    cwe: [639, 284, 653]
+    cwe_status: unverified
+    oracle: differential_authorization
+    scope_note: Tenant dimension is mandatory. crAPI has no tenants, so instances come from custom apps.
+    reproduction: >
+      A tenant-1 actor requests a tenant-2 object, or lists a collection.
+    safe_response: >
+      403 or 404 (D3). Collections contain only the actor's tenant.
+    evidence_required:
+      - actor_tenant_id
+      - object_tenant_id
+      - list_contents   # for collection endpoints
+
+  - id: F5
+    name: Bounded workflow abuse
+    owasp_api_2023: "API6:2023 Unrestricted Access to Sensitive Business Flows (state-based part only)"
+    cwe: [841, 840]
+    cwe_status: unverified
+    oracle: state_invariant
+    scope_note: State-transition violations only (D4).
+    reproduction: >
+      An actor attempts a transition that is absent from the business state
+      graph or reserved for another role: skip a step, repeat a single-use
+      action, or reverse a final state.
+    safe_response: >
+      Rejected, state unchanged, invariants hold.
+    evidence_required:
+      - attempted_edge        # (from_state, to_state, actor)
+      - violated_invariant
+      - before_after_state
