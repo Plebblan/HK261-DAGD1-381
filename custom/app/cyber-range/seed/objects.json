@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "objects": [
     {
       "ID": "doc-a-001",
@@ -99,6 +99,82 @@
         "title": "Tenant B attachment",
         "classification": "confidential"
       }
+    },
+    {
+      "ID": "ticket-b-001",
+      "ResourceType": "ticket",
+      "OwnerID": "actor-customer-b",
+      "TenantID": "tenant-b",
+      "State": "escalated",
+      "Sensitive": true,
+      "Properties": {
+        "subject": "Synthetic escalated cross-tenant ticket",
+        "priority": "high"
+      }
     }
-  ]
+  ],
+  "auxiliary_objects": {
+    "lab_invoices": [
+      {
+        "ID": "invoice-a-001",
+        "TenantID": "tenant-a",
+        "OwnerID": "actor-supplier-a",
+        "Amount": 1250.0,
+        "LineItems": [
+          {
+            "Sku": "sku-1",
+            "Qty": 10,
+            "UnitPrice": 125.0
+          }
+        ],
+        "Status": "draft",
+        "CreatedAt": "2026-10-01T00:00:00+00:00"
+      },
+      {
+        "ID": "invoice-a-002",
+        "TenantID": "tenant-a",
+        "OwnerID": "actor-supplier-a",
+        "Amount": 500.0,
+        "LineItems": [],
+        "Status": "submitted",
+        "CreatedAt": "2026-10-05T00:00:00+00:00"
+      },
+      {
+        "ID": "invoice-b-001",
+        "TenantID": "tenant-b",
+        "OwnerID": "actor-supplier-b",
+        "Amount": 900.0,
+        "LineItems": [],
+        "Status": "approved",
+        "CreatedAt": "2026-10-03T00:00:00+00:00"
+      }
+    ],
+    "lab_payouts": [
+      {
+        "ID": "payout-a-001",
+        "TenantID": "tenant-a",
+        "OwnerID": "actor-supplier-a",
+        "Amount": 1250.0,
+        "Status": "pending"
+      },
+      {
+        "ID": "payout-b-001",
+        "TenantID": "tenant-b",
+        "OwnerID": "actor-supplier-b",
+        "Amount": 900.0,
+        "Status": "approved"
+      }
+    ],
+    "lab_reviews": [
+      {
+        "ID": "review-a-001",
+        "OrderID": "order-a-001",
+        "OwnerID": "actor-customer-a",
+        "Rating": 5,
+        "Comment": "Synthetic seeded review",
+        "Verified": true,
+        "Featured": false
+      }
+    ]
+  }
 }

@@ -3,7 +3,7 @@ import csv
 import json
 from pathlib import Path
 
-LAB_SEED_VERSION = 4
+LAB_SEED_VERSION = 6
 SEED_DATA = {
     "customers": [
         {"ID": "11111111-1111-4111-8111-111111111111", "Name": "Linh Nguyen", "Email": "linh@example.test", "PhoneNumber": "0901234567", "BirthDate": "1998-04-12", "Password": "demo123", "Roles": ["Customer"], "TenantID": "tenant-a", "Active": True},
@@ -54,7 +54,8 @@ SEED_DATA = {
 # Cyber Range artifacts are canonical for lab actors, objects, workflows and
 # ground truth. YAML files use the JSON-compatible YAML 1.2 subset so the
 # runtime needs only Python's standard library.
-_RANGE = Path(__file__).resolve().parents[1] / "cyber-range"
+# Trỏ đường dẫn tương đối từ vị trí file hiện tại vào thư mục cyber-range bên trong app
+_RANGE = Path(__file__).resolve().parent / "cyber-range"
 def _load_json_yaml(relative_path):
     with (_RANGE / relative_path).open(encoding="utf-8") as artifact:
         return json.load(artifact)
@@ -65,6 +66,9 @@ _objects = _load_json_yaml("seed/objects.json")
 SEED_DATA["lab_tenants"] = _rso["tenants"]
 SEED_DATA["lab_actors"] = _rso["actors"]
 SEED_DATA["lab_resources"] = _objects["objects"]
+for collection_name, documents in _objects.get("auxiliary_objects", {}).items():
+    if collection_name in {"lab_invoices", "lab_payouts", "lab_reviews"}:
+        SEED_DATA[collection_name] = documents
 SEED_DATA["lab_workflows"] = _workflows["workflows"]
 SEED_DATA["lab_ground_truth"] = []
 SEED_DATA["lab_benign_cases"] = []
@@ -72,7 +76,7 @@ with (_RANGE / "ground_truth/planted_cases.csv").open(newline="", encoding="utf-
     for row in csv.DictReader(artifact):
         benign = row["is_benign"].lower() == "true"
         case = {
-            "ID": row["case_id"] if benign else f"GT-{row['case_id'].split('-')[-1]}",
+            "ID": row["case_id"] if benign else f"GT-{row['case_id'].replace('-', '')}",
             "CaseID": row["case_id"], "App": row["app"], "Family": row["family"],
             "Scenario": row["scenario"], "OperationID": row["operation_id"],
             "Method": row["method"], "Path": row["path"],
@@ -81,6 +85,9 @@ with (_RANGE / "ground_truth/planted_cases.csv").open(newline="", encoding="utf-
             "ExpectedSafe": row["expected_safe"], "ObservedVulnerable": row["observed_vulnerable"],
             "Flag": row["flag"], "IsBenign": benign, "CWE": row["cwe"],
             "OWASP": row["owasp"], "Severity": row["severity"], "Split": row["split"],
+            "SetupSteps": json.loads(row["setup_steps"]),
+            "RequestHeaders": json.loads(row["request_headers"]),
+            "RequestBody": json.loads(row["request_body"]),
             "EvidenceRequired": json.loads(row["evidence_required"]),
             "VerificationStatus": row["verification_status"],
             "VerifiedBy": row["verified_by"] or None, "VerifiedAt": row["verified_at"] or None,

@@ -315,8 +315,8 @@ def lab_vulnerability_enabled(flag: str) -> bool:
 
 def lab_actor(request: Request) -> dict[str, Any] | None:
     actor = local_user_from_request(request)
-    return actor if actor and actor.get("_mock_role") in {"customer", "support", "admin"} else None
-
+    # dòng 318
+    return actor if actor and actor.get("_mock_role") in {"customer", "support", "admin", "supplier"} else None
 
 def lab_is_owner(actor: dict[str, Any], resource: dict[str, Any]) -> bool:
     return resource.get("OwnerID") == actor.get("ID")
@@ -645,13 +645,18 @@ async def dispatch(full_path: str, request: Request) -> JSONResponse:
                 return response(request, template, {"ErrorMessage": "Invalid email or password"}, 401)
             return response(request, template, {"Token": f"local:{role}:{user.get('Email')}", "TokenType": "Bearer"}, 200, {**user, "_mock_role": role}, expose_token=True)
 
-        if "/passwords/resets/" in template:
-            email = incoming.get("Email")
-            if template.endswith("/resets"):
-                updated = db["customers"].update_one({"Email": email}, {"$set": {"Password": incoming.get("NewPassword")}})
-                return response(request, template, {"SuccessStatus": updated.matched_count > 0}, 200, actor)
-            exists = bool(db["customers"].find_one({"Email": email}))
-            return response(request, template, {"SuccessStatus": exists}, 200, actor)
+        if template == "/api/v1/authentication/customers/passwords/resets":
+            # This mock has no email/SMS delivery or OTP verification service.
+            # Do not fall through to generic record creation or mutate a password.
+            return response(request, template,
+                            {"ErrorMessage": "Password reset is unavailable: OTP delivery/verification is not configured"},
+                            501, actor)
+
+        if template.startswith("/api/v1/authentication/customers/passwords/resets/"):
+            # No email/SMS provider is wired into this local mock.
+            return response(request, template,
+                            {"ErrorMessage": "Password reset is unavailable: OTP delivery is not configured"},
+                            501, actor)
 
         if template.endswith("/products/photo"):
             product_id = record.get("ProductID")

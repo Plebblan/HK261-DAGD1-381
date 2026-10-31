@@ -2,13 +2,14 @@
   "x-generator": "NSwag v14.0.7.0 (NJsonSchema v11.0.0.0 (Newtonsoft.Json v13.0.0.0))",
   "openapi": "3.0.0",
   "info": {
-    "title": "Inlanefreight E-Commerce Marketplace",
-    "description": "Inlanefreight E-Commerce Marketplace API Specification.<br />Maintained by superadmin@inlanefreight.htb.<br />In case you find any vulnerabilities, please respect the Responsible Disclosure process and send us an email with the information and the steps to reproduce.<br />We don't pay bug bounties, but <b>BIG</b> bounties.",
+    "title": "E-Commerce Marketplace",
+    "description": "Local E-Commerce Marketplace mock API for an authorized Cyber Range. Use only synthetic accounts and data. This contract is paired with a separate RunTrace safety allowlist; OpenAPI documentation alone is not an execution authorization policy.",
     "version": "v1"
   },
   "servers": [
     {
-      "url": "http://154.57.164.65:32103"
+      "url": "http://localhost:8000",
+      "description": "Local authorized Cyber Range instance; configure via PUBLIC_API_URL at runtime."
     }
   ],
   "paths": {
@@ -47,11 +48,33 @@
         },
         "security": [
           {
-            "JWTBearerAuth": [
-              "SupplierCompanies_Update"
-            ]
+            "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [
+          "SupplierCompanies_Update"
+        ],
+        "x-authentication-required": true,
+        "x-ownership-policy": "not-specified-by-openapi",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "The Supplier performing the update must be a staff of the Company. Role(s) required: SupplierCompanies_Update"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       },
       "get": {
         "tags": [
@@ -74,11 +97,33 @@
         },
         "security": [
           {
-            "JWTBearerAuth": [
-              "SupplierCompanies_GetAll"
-            ]
+            "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [
+          "SupplierCompanies_GetAll"
+        ],
+        "x-authentication-required": true,
+        "x-ownership-policy": "not-specified-by-openapi",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: SupplierCompanies_GetAll"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       },
       "post": {
         "tags": [
@@ -114,11 +159,33 @@
         },
         "security": [
           {
-            "JWTBearerAuth": [
-              "SupplierCompanies_Create"
-            ]
+            "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [
+          "SupplierCompanies_Create"
+        ],
+        "x-authentication-required": true,
+        "x-ownership-policy": "not-specified-by-openapi",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: SupplierCompanies_Create"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/supplier-companies/yearly-reports/{ID}": {
@@ -154,11 +221,33 @@
         },
         "security": [
           {
-            "JWTBearerAuth": [
-              "SupplierCompanies_GetYearlyReportByID"
-            ]
+            "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [
+          "SupplierCompanies_GetYearlyReportByID"
+        ],
+        "x-authentication-required": true,
+        "x-ownership-policy": "object-level-authorization-must-be-verified-at-runtime",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: SupplierCompanies_GetYearlyReportByID"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/supplier-companies/{ID}/certificates-of-incorporation": {
@@ -196,7 +285,29 @@
           {
             "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [],
+        "x-authentication-required": true,
+        "x-ownership-policy": "object-level-authorization-must-be-verified-at-runtime",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: None"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/supplier-companies/current-user": {
@@ -223,7 +334,29 @@
           {
             "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [],
+        "x-authentication-required": true,
+        "x-ownership-policy": "derive-owner-from-authenticated-principal",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: None"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/supplier-companies/yearly-reports": {
@@ -248,11 +381,33 @@
         },
         "security": [
           {
-            "JWTBearerAuth": [
-              "SupplierCompanies_GetAllYearlyReports"
-            ]
+            "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [
+          "SupplierCompanies_GetAllYearlyReports"
+        ],
+        "x-authentication-required": true,
+        "x-ownership-policy": "not-specified-by-openapi",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: SupplierCompanies_GetAllYearlyReports"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/supplier-companies/{ID}": {
@@ -288,11 +443,33 @@
         },
         "security": [
           {
-            "JWTBearerAuth": [
-              "SupplierCompanies_Get"
-            ]
+            "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [
+          "SupplierCompanies_Get"
+        ],
+        "x-authentication-required": true,
+        "x-ownership-policy": "object-level-authorization-must-be-verified-at-runtime",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: SupplierCompanies_Get"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/roles/current-user": {
@@ -319,7 +496,29 @@
           {
             "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [],
+        "x-authentication-required": true,
+        "x-ownership-policy": "derive-owner-from-authenticated-principal",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Use this endpoint to get the roles of the currently authenticated user. Role(s) required: None"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/suppliers/{Name}/count": {
@@ -354,11 +553,33 @@
         },
         "security": [
           {
-            "JWTBearerAuth": [
-              "Suppliers_GetTotalCountBySupplierNameSubstring"
-            ]
+            "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [
+          "Suppliers_GetTotalCountBySupplierNameSubstring"
+        ],
+        "x-authentication-required": true,
+        "x-ownership-policy": "not-specified-by-openapi",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: Suppliers_GetTotalCountBySupplierNameSubstring"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/suppliers/quarterly-reports/{ID}": {
@@ -394,11 +615,33 @@
         },
         "security": [
           {
-            "JWTBearerAuth": [
-              "Suppliers_GetQuarterlyReportByID"
-            ]
+            "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [
+          "Suppliers_GetQuarterlyReportByID"
+        ],
+        "x-authentication-required": true,
+        "x-ownership-policy": "object-level-authorization-must-be-verified-at-runtime",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: Suppliers_GetQuarterlyReportByID"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/suppliers/current-user": {
@@ -425,7 +668,29 @@
           {
             "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [],
+        "x-authentication-required": true,
+        "x-ownership-policy": "derive-owner-from-authenticated-principal",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: None"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/suppliers/quarterly-reports": {
@@ -450,11 +715,33 @@
         },
         "security": [
           {
-            "JWTBearerAuth": [
-              "Suppliers_GetAllQuarterlyReports"
-            ]
+            "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [
+          "Suppliers_GetAllQuarterlyReports"
+        ],
+        "x-authentication-required": true,
+        "x-ownership-policy": "not-specified-by-openapi",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: Suppliers_GetAllQuarterlyReports"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/suppliers": {
@@ -479,11 +766,33 @@
         },
         "security": [
           {
-            "JWTBearerAuth": [
-              "Suppliers_GetAll"
-            ]
+            "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [
+          "Suppliers_GetAll"
+        ],
+        "x-authentication-required": true,
+        "x-ownership-policy": "not-specified-by-openapi",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: Suppliers_GetAll"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/suppliers/{ID}": {
@@ -519,11 +828,33 @@
         },
         "security": [
           {
-            "JWTBearerAuth": [
-              "Suppliers_Get"
-            ]
+            "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [
+          "Suppliers_Get"
+        ],
+        "x-authentication-required": true,
+        "x-ownership-policy": "object-level-authorization-must-be-verified-at-runtime",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: Suppliers_Get"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/products/{Name}/count": {
@@ -558,11 +889,33 @@
         },
         "security": [
           {
-            "JWTBearerAuth": [
-              "Products_GetProductsTotalCountByNameSubstring"
-            ]
+            "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [
+          "Products_GetProductsTotalCountByNameSubstring"
+        ],
+        "x-authentication-required": true,
+        "x-ownership-policy": "not-specified-by-openapi",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: Products_GetProductsTotalCountByNameSubstring"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/products/photo": {
@@ -600,11 +953,33 @@
         },
         "security": [
           {
-            "JWTBearerAuth": [
-              "Products_UploadPhoto"
-            ]
+            "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [
+          "Products_UploadPhoto"
+        ],
+        "x-authentication-required": true,
+        "x-ownership-policy": "not-specified-by-openapi",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Use this endpoint to upload the Photo for Products in PNG format. The Product must be created by the Supplier uploading the photo for it. Upon submission, the PNG files are stored on disk indefinitely; we must make sure that Inlanefreight informs the Suppliers about this storage policy. Additionally, the Privacy Officer should ensure that this information is accurately reflected in the Privacy Policy. Role(s) required: Products_UploadPhoto"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/products/current-user": {
@@ -657,7 +1032,29 @@
           {
             "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [],
+        "x-authentication-required": true,
+        "x-ownership-policy": "derive-owner-from-authenticated-principal",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "A Product can be only updated by the Supplier that created it. Role(s) required: None"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       },
       "post": {
         "tags": [
@@ -693,11 +1090,33 @@
         },
         "security": [
           {
-            "JWTBearerAuth": [
-              "Products_CreateByCurrentUser"
-            ]
+            "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [
+          "Products_CreateByCurrentUser"
+        ],
+        "x-authentication-required": true,
+        "x-ownership-policy": "derive-owner-from-authenticated-principal",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: Products_CreateByCurrentUser"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/products": {
@@ -751,11 +1170,33 @@
         },
         "security": [
           {
-            "JWTBearerAuth": [
-              "Products_Update"
-            ]
+            "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [
+          "Products_Update"
+        ],
+        "x-authentication-required": true,
+        "x-ownership-policy": "not-specified-by-openapi",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "A Product can be updated only by the Supplier that created it. Role(s) required: Products_Update"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       },
       "get": {
         "tags": [
@@ -780,7 +1221,29 @@
           {
             "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [],
+        "x-authentication-required": true,
+        "x-ownership-policy": "not-specified-by-openapi",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: None"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       },
       "post": {
         "tags": [
@@ -816,11 +1279,33 @@
         },
         "security": [
           {
-            "JWTBearerAuth": [
-              "Products_Create"
-            ]
+            "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [
+          "Products_Create"
+        ],
+        "x-authentication-required": true,
+        "x-ownership-policy": "not-specified-by-openapi",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: Products_Create"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/products/{ID}/photo": {
@@ -858,7 +1343,29 @@
           {
             "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [],
+        "x-authentication-required": true,
+        "x-ownership-policy": "object-level-authorization-must-be-verified-at-runtime",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: None"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/products/current-supplier-company": {
@@ -885,7 +1392,29 @@
           {
             "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [],
+        "x-authentication-required": true,
+        "x-ownership-policy": "derive-owner-from-authenticated-principal",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: None"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/products/{ID}": {
@@ -923,7 +1452,29 @@
           {
             "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [],
+        "x-authentication-required": true,
+        "x-ownership-policy": "object-level-authorization-must-be-verified-at-runtime",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: None"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/products/discounts": {
@@ -950,7 +1501,29 @@
           {
             "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [],
+        "x-authentication-required": true,
+        "x-ownership-policy": "not-specified-by-openapi",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: ProductDiscounts_GetAll"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/products/{ProductID}/discounts": {
@@ -986,11 +1559,33 @@
         },
         "security": [
           {
-            "JWTBearerAuth": [
-              "ProductDiscounts_Get"
-            ]
+            "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [
+          "ProductDiscounts_Get"
+        ],
+        "x-authentication-required": true,
+        "x-ownership-policy": "object-level-authorization-must-be-verified-at-runtime",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: ProductDiscounts_Get"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/customers/current-user": {
@@ -1030,7 +1625,29 @@
           {
             "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [],
+        "x-authentication-required": true,
+        "x-ownership-policy": "derive-owner-from-authenticated-principal",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: None"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       },
       "get": {
         "tags": [
@@ -1055,7 +1672,29 @@
           {
             "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [],
+        "x-authentication-required": true,
+        "x-ownership-policy": "derive-owner-from-authenticated-principal",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: None"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/customers": {
@@ -1080,11 +1719,33 @@
         },
         "security": [
           {
-            "JWTBearerAuth": [
-              "Customers_GetAll"
-            ]
+            "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [
+          "Customers_GetAll"
+        ],
+        "x-authentication-required": true,
+        "x-ownership-policy": "not-specified-by-openapi",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: Customers_GetAll"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       },
       "post": {
         "tags": [
@@ -1120,11 +1781,33 @@
         },
         "security": [
           {
-            "JWTBearerAuth": [
-              "Customers_Create"
-            ]
+            "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [
+          "Customers_Create"
+        ],
+        "x-authentication-required": true,
+        "x-ownership-policy": "not-specified-by-openapi",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: Customers_Create"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/customers/{ID}": {
@@ -1160,11 +1843,33 @@
         },
         "security": [
           {
-            "JWTBearerAuth": [
-              "Customers_Get"
-            ]
+            "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [
+          "Customers_Get"
+        ],
+        "x-authentication-required": true,
+        "x-ownership-policy": "object-level-authorization-must-be-verified-at-runtime",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: Customers_Get"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/customers/payment-options/current-user": {
@@ -1191,7 +1896,29 @@
           {
             "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [],
+        "x-authentication-required": true,
+        "x-ownership-policy": "derive-owner-from-authenticated-principal",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: None"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/customers/payment-options": {
@@ -1216,11 +1943,33 @@
         },
         "security": [
           {
-            "JWTBearerAuth": [
-              "CustomerPaymentOptions_GetAll"
-            ]
+            "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [
+          "CustomerPaymentOptions_GetAll"
+        ],
+        "x-authentication-required": true,
+        "x-ownership-policy": "not-specified-by-openapi",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: CustomerPaymentOptions_GetAll"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       },
       "post": {
         "tags": [
@@ -1262,11 +2011,33 @@
         },
         "security": [
           {
-            "JWTBearerAuth": [
-              "CustomerPaymentOptions_Create"
-            ]
+            "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [
+          "CustomerPaymentOptions_Create"
+        ],
+        "x-authentication-required": true,
+        "x-ownership-policy": "not-specified-by-openapi",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: CustomerPaymentOptions_Create"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/customers/{CustomerID}/payment-options": {
@@ -1302,11 +2073,33 @@
         },
         "security": [
           {
-            "JWTBearerAuth": [
-              "CustomerPaymentOptions_Get"
-            ]
+            "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [
+          "CustomerPaymentOptions_Get"
+        ],
+        "x-authentication-required": true,
+        "x-ownership-policy": "object-level-authorization-must-be-verified-at-runtime",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: CustomerPaymentOptions_Get"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/supplier-companies/certificates-of-incorporation": {
@@ -1344,11 +2137,33 @@
         },
         "security": [
           {
-            "JWTBearerAuth": [
-              "SupplierCompanies_UploadCertificateOfIncorporation"
-            ]
+            "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [
+          "SupplierCompanies_UploadCertificateOfIncorporation"
+        ],
+        "x-authentication-required": true,
+        "x-ownership-policy": "not-specified-by-openapi",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Use this endpoint to upload the Certificate of Incorporation for Supplier Companies in PDF format. The Supplier performing the upload must be a staff of the Company. Upon submission, the PDF files are stored on disk indefinitely; we must make sure that Inlanefreight informs Supplier Companies about this storage policy. Additionally, the Privacy Officer should ensure that this information is accurately reflected in the Privacy Policy. Role(s) required: SupplierCompanies_UploadCertificateOfIncorpo"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/customers/orders/{ID}/items": {
@@ -1384,11 +2199,33 @@
         },
         "security": [
           {
-            "JWTBearerAuth": [
-              "CustomerOrderItems_Get"
-            ]
+            "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [
+          "CustomerOrderItems_Get"
+        ],
+        "x-authentication-required": true,
+        "x-ownership-policy": "object-level-authorization-must-be-verified-at-runtime",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: CustomerOrderItems_Get"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/customers/{CustomerID}/orders": {
@@ -1424,11 +2261,33 @@
         },
         "security": [
           {
-            "JWTBearerAuth": [
-              "CustomerOrders_GetByCustomerID"
-            ]
+            "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [
+          "CustomerOrders_GetByCustomerID"
+        ],
+        "x-authentication-required": true,
+        "x-ownership-policy": "object-level-authorization-must-be-verified-at-runtime",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: CustomerOrders_GetByCustomerID"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/customers/orders/current-user": {
@@ -1455,7 +2314,29 @@
           {
             "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [],
+        "x-authentication-required": true,
+        "x-ownership-policy": "derive-owner-from-authenticated-principal",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: None"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/customers/orders": {
@@ -1480,11 +2361,33 @@
         },
         "security": [
           {
-            "JWTBearerAuth": [
-              "CustomerOrders_GetAll"
-            ]
+            "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [
+          "CustomerOrders_GetAll"
+        ],
+        "x-authentication-required": true,
+        "x-ownership-policy": "not-specified-by-openapi",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: CustomerOrders_GetAll"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       },
       "post": {
         "tags": [
@@ -1520,11 +2423,33 @@
         },
         "security": [
           {
-            "JWTBearerAuth": [
-              "CustomerOrders_Create"
-            ]
+            "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [
+          "CustomerOrders_Create"
+        ],
+        "x-authentication-required": true,
+        "x-ownership-policy": "not-specified-by-openapi",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: CustomerOrders_Create"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/customers/orders/{ID}": {
@@ -1560,11 +2485,33 @@
         },
         "security": [
           {
-            "JWTBearerAuth": [
-              "CustomerOrders_Get"
-            ]
+            "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [
+          "CustomerOrders_Get"
+        ],
+        "x-authentication-required": true,
+        "x-ownership-policy": "object-level-authorization-must-be-verified-at-runtime",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: CustomerOrders_Get"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/customers/orders/items": {
@@ -1608,11 +2555,33 @@
         },
         "security": [
           {
-            "JWTBearerAuth": [
-              "CustomerOrderItems_Create"
-            ]
+            "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [
+          "CustomerOrderItems_Create"
+        ],
+        "x-authentication-required": true,
+        "x-ownership-policy": "not-specified-by-openapi",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "After the customer adds items through the front end, we process the transaction and charge the customer based on the NetSum field in the database, which should be calculated by a trigger. Role(s) required: CustomerOrderItems_Create"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/customers/{CustomerID}/{City}/billing-addresses": {
@@ -1656,11 +2625,33 @@
         },
         "security": [
           {
-            "JWTBearerAuth": [
-              "CustomerBillingAddresses_GetByCustomerIDAndCity"
-            ]
+            "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [
+          "CustomerBillingAddresses_GetByCustomerIDAndCity"
+        ],
+        "x-authentication-required": true,
+        "x-ownership-policy": "object-level-authorization-must-be-verified-at-runtime",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: CustomerBillingAddresses_GetByCustomerIDAndCity"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/customers/{CustomerID}/billing-addresses": {
@@ -1696,11 +2687,33 @@
         },
         "security": [
           {
-            "JWTBearerAuth": [
-              "CustomerBillingAddresses_GetByCustomerID"
-            ]
+            "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [
+          "CustomerBillingAddresses_GetByCustomerID"
+        ],
+        "x-authentication-required": true,
+        "x-ownership-policy": "object-level-authorization-must-be-verified-at-runtime",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: CustomerBillingAddresses_GetByCustomerID"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/customers/billing-addresses/current-user": {
@@ -1727,7 +2740,29 @@
           {
             "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [],
+        "x-authentication-required": true,
+        "x-ownership-policy": "derive-owner-from-authenticated-principal",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: None"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/customers/billing-addresses": {
@@ -1754,7 +2789,29 @@
           {
             "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [],
+        "x-authentication-required": true,
+        "x-ownership-policy": "not-specified-by-openapi",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: CustomerBillingAddresses_GetAll"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       },
       "post": {
         "tags": [
@@ -1796,11 +2853,33 @@
         },
         "security": [
           {
-            "JWTBearerAuth": [
-              "CustomerBillingAddresses_Create"
-            ]
+            "JWTBearerAuth": []
           }
-        ]
+        ],
+        "x-required-roles": [
+          "CustomerBillingAddresses_Create"
+        ],
+        "x-authentication-required": true,
+        "x-ownership-policy": "not-specified-by-openapi",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Role(s) required: CustomerBillingAddresses_Create"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
+        }
       }
     },
     "/api/v1/authentication/customers/passwords/resets/email-otps": {
@@ -1809,7 +2888,7 @@
           "Authentication"
         ],
         "summary": "Sends a password-reset OTP to a Customer's email",
-        "description": "This endpoint sends an OTP via email to the Customer's email address when they want to reset their password.<br />Role(s) required: <b>None</b>",
+        "description": "This endpoint sends an OTP via email to the Customer's email address when they want to reset their password.<br />Role(s) required: <b>None</b> Local mock returns 501 until an OTP provider is configured.",
         "operationId": "API_AttacksFeaturesUsersAuthenticationCustomersSendResetPasswordEmailOTPEndpoint",
         "requestBody": {
           "x-name": "CreatePasswordResetOTPCommand",
@@ -1834,7 +2913,39 @@
                 }
               }
             }
+          },
+          "501": {
+            "description": "Unavailable in local mock because OTP delivery/verification is not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/API_AttacksEntitiesDTOsErrorDTO"
+                }
+              }
+            }
           }
+        },
+        "x-required-roles": [],
+        "x-authentication-required": false,
+        "x-ownership-policy": "not-specified-by-openapi",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "This endpoint sends an OTP via email to the Customer's email address when they want to reset their password. Role(s) required: None"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
         }
       }
     },
@@ -1843,8 +2954,8 @@
         "tags": [
           "Authentication"
         ],
-        "summary": "Signs in a Supplier and returns a JWT",
-        "description": "Use this endpoint to sign with the credentials of a Supplier",
+        "summary": "Signs in a Supplier and returns a local mock Bearer token",
+        "description": "Authenticates a seeded Supplier account in the local mock API. The returned token uses the local:supplier:<email> format and is not a JWT.",
         "operationId": "API_AttacksFeaturesAuthenticationSuppliersSignInEndpoint",
         "requestBody": {
           "x-name": "SignInCommand",
@@ -1865,11 +2976,42 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "$ref": "#/components/schemas/API_AttacksEntitiesResultsSignInResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid email or password",
+            "content": {
+              "application/json": {
+                "schema": {
                   "$ref": "#/components/schemas/API_AttacksEntitiesDTOsErrorDTO"
                 }
               }
             }
           }
+        },
+        "x-required-roles": [],
+        "x-authentication-required": false,
+        "x-ownership-policy": "not-specified-by-openapi",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Use this endpoint to sign with the credentials of a Supplier"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": false,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
         }
       }
     },
@@ -1878,8 +3020,8 @@
         "tags": [
           "Authentication"
         ],
-        "summary": "Signs in a Customer and returns a JWT",
-        "description": "Use this endpoint to sign with the credentials of a Customer",
+        "summary": "Signs in a Customer and returns a local mock Bearer token",
+        "description": "Authenticates a seeded Customer account in the local mock API. The returned token uses the local:customer:<email> format and is not a JWT.",
         "operationId": "API_AttacksFeaturesAuthenticationCustomersSignInEndpoint",
         "requestBody": {
           "x-name": "SignInCommand",
@@ -1900,11 +3042,42 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "$ref": "#/components/schemas/API_AttacksEntitiesResultsSignInResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid email or password",
+            "content": {
+              "application/json": {
+                "schema": {
                   "$ref": "#/components/schemas/API_AttacksEntitiesDTOsErrorDTO"
                 }
               }
             }
           }
+        },
+        "x-required-roles": [],
+        "x-authentication-required": false,
+        "x-ownership-policy": "not-specified-by-openapi",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Use this endpoint to sign with the credentials of a Customer"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": false,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
         }
       }
     },
@@ -1914,7 +3087,7 @@
           "Authentication"
         ],
         "summary": "Sends a password-reset OTP to a Customer's phone number",
-        "description": "This endpoint sends an OTP via SMS to the Customer's phone number when they want to reset their password.<br />The SMS provider we are working with charges us a significant amount per message. We need to request a discount from them; otherwise, our revenues will decrease.<br />Role(s) required: <b>None</b>",
+        "description": "This endpoint sends an OTP via SMS to the Customer's phone number when they want to reset their password.<br />The SMS provider we are working with charges us a significant amount per message. We need to request a discount from them; otherwise, our revenues will decrease.<br />Role(s) required: <b>None</b> Local mock returns 501 until an OTP provider is configured.",
         "operationId": "API_AttacksFeaturesAuthenticationCustomersSendResetPasswordSMSOTPEndpoint",
         "requestBody": {
           "x-name": "CreatePasswordResetOTPCommand",
@@ -1939,7 +3112,39 @@
                 }
               }
             }
+          },
+          "501": {
+            "description": "Unavailable in local mock because OTP delivery/verification is not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/API_AttacksEntitiesDTOsErrorDTO"
+                }
+              }
+            }
           }
+        },
+        "x-required-roles": [],
+        "x-authentication-required": false,
+        "x-ownership-policy": "not-specified-by-openapi",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "This endpoint sends an OTP via SMS to the Customer's phone number when they want to reset their password. The SMS provider we are working with charges us a significant amount per message. We need to request a discount from them; otherwise, our revenues will decrease. Role(s) required: None"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
         }
       }
     },
@@ -1949,7 +3154,7 @@
           "Authentication"
         ],
         "summary": "Confirms Resetting a Customer's password",
-        "description": "Use this endpoint to confirm resetting a Customer's password. The OTP sent via email or SMS must be supplied.<br />OTPs are valid for only 5 minutes.<br />Role(s) required: <b>None</b>",
+        "description": "Use this endpoint to confirm resetting a Customer's password. The OTP sent via email or SMS must be supplied.<br />OTPs are valid for only 5 minutes.<br />Role(s) required: <b>None</b> Local mock returns 501 until an OTP provider is configured.",
         "operationId": "API_AttacksFeaturesAuthenticationCustomersResetPasswordEndpoint",
         "requestBody": {
           "x-name": "ResetCustomerPasswordCommand",
@@ -1974,7 +3179,39 @@
                 }
               }
             }
+          },
+          "501": {
+            "description": "Unavailable in local mock because OTP delivery/verification is not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/API_AttacksEntitiesDTOsErrorDTO"
+                }
+              }
+            }
           }
+        },
+        "x-required-roles": [],
+        "x-authentication-required": false,
+        "x-ownership-policy": "not-specified-by-openapi",
+        "x-runtrace": {
+          "traffic_class": "legitimate-business-traffic",
+          "allowlist_candidate": true,
+          "requires_synthetic_data": true,
+          "description_evidence": "Use this endpoint to confirm resetting a Customer's password. The OTP sent via email or SMS must be supplied. OTPs are valid for only 5 minutes. Role(s) required: None"
+        },
+        "x-documentation-review": {
+          "response_schema_needs_verification": true,
+          "expected_error_statuses_need_runtime_confirmation": [
+            400,
+            401,
+            403,
+            404,
+            409,
+            429,
+            500
+          ],
+          "request_schema_required_fields_need_runtime_confirmation": true
         }
       }
     }
@@ -2560,7 +3797,11 @@
           "Password": {
             "type": "string"
           }
-        }
+        },
+        "required": [
+          "Email",
+          "Password"
+        ]
       },
       "API_AttacksEntitiesResultsResetCustomerPasswordResult": {
         "type": "object",
@@ -2585,6 +3826,25 @@
             "type": "string"
           }
         }
+      },
+      "API_AttacksEntitiesResultsSignInResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "Token",
+          "TokenType"
+        ],
+        "properties": {
+          "Token": {
+            "type": "string"
+          },
+          "TokenType": {
+            "type": "string",
+            "enum": [
+              "Bearer"
+            ]
+          }
+        }
       }
     },
     "securitySchemes": {
@@ -2595,5 +3855,12 @@
         "bearerFormat": "JWT"
       }
     }
+  },
+  "x-runtrace-policy": {
+    "target": "local-only",
+    "default_host": "localhost:8000",
+    "never_use_uploaded_external_server_for_automated_replay": true,
+    "allowlist_file": "runtrace_allowlist.json",
+    "note": "The allowlist is the execution gate; OpenAPI describes contract and semantics only."
   }
 }
