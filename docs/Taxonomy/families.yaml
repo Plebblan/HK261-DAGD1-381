@@ -35,16 +35,22 @@ oracle_types:
       test actor (denied by policy). A violation is a test-actor outcome that
       is not a safe response.
     requires: [access_policy]
+    actors: {reference: allowed, test: [denied]}
+    lint_against: rules
   property_policy_diff:
     description: >
       Compare the fields in a response (R) or the fields that changed after a
       write (W) against the actor's allowed field set.
     requires: [access_policy.field_policy]
+    actors: {actor: one}
+    lint_against: field_policy
   state_invariant:
     description: >
       Attempt a transition and check that it is rejected, or that the declared
       invariants still hold afterwards.
     requires: [business_state_graph, invariants]
+    actors: {actor: one, attempted_edge: required}
+    lint_against: state_graph
 
 evidence_common:   # required for every family, on top of the family-specific items
   - request            # redacted
