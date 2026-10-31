@@ -380,3 +380,58 @@ Với dữ liệu mẫu ở mục 3 (4 actor, 3 object, 6 operation, 2 workflow,
 - [ ] Có `coverage_report.json` đầu tiên (kể cả khi chưa đạt KPI)
 - [ ] Ground truth và `split` được tag phiên bản
 - [ ] Danh sách giới hạn đã biết (mục 5.2) được ghi lại để xử lý ở W7+
+
+---
+
+## 9. Cyber Range hiện có trong `app/` (đối chiếu implementation)
+
+Phần này cập nhật mô hình và phạm vi theo code đang có trong `app/main.py`, `app/lab_extensions.py`, `app/seed.py` và artifact dưới `cyber-range/`. Khi có khác biệt với ví dụ tổng quát ở các mục trước, dùng tên trường, ID, route và trạng thái ở phần này làm chuẩn cho **range hiện tại**. Các ví dụ `alice`, `get_order`, `WF_PURCHASE` ở mục 3 chỉ là ví dụ minh họa, không phải dữ liệu seed đang chạy.
+
+### 9.1 Thành phần và cách khởi tạo
+
+| Thành phần | Hiện trạng trong repository | Ý nghĩa với coverage |
+|---|---|---|
+| API | FastAPI, MongoDB; API mock theo OpenAPI cùng route `/lab/v1/*` | Ghi `app=custom_mock`; traffic range phải hướng vào local service |
+| Actor và tenant | `cyber-range/model/rso.yaml`; 7 actor: customer, support, admin và supplier ở hai tenant | ID phân biệt hoa/thường và lấy nguyên văn từ artifact |
+| Resource seed | `cyber-range/seed/objects.json`; 9 `lab_resources` và 6 fixture phụ cho invoice, payout, review | Các cặp actor-resource tính từ `ID`, `OwnerID`, `TenantID`; chỉ tính actor-resource có ý nghĩa theo role/resource/action |
+| Workflow | `cyber-range/workflows/workflows.yaml`; 5 workflow cho order, ticket, invoice và payout | Mỗi step có operation, actor, object, precondition và postcondition; giữ cùng object qua các bước |
+| Ground truth | `cyber-range/ground_truth/planted_cases.csv`; 28 planted cases và 8 benign cases | Tổng 36 dòng; 23 development, 5 held-out planted; benign hiện ở development |
+| Runtime seed | `app/seed.py` nạp trực tiếp RSO, workflows, objects và CSV vào các collection `lab_*` | CSV/schema là nguồn ground truth; API status chỉ công bố số lượng, không trả nhãn chi tiết |
+| Reset | `POST /__lab/reset`, yêu cầu `LAB_MODE`, `LAB_ADMIN_TOKEN` và client local/private | Reset đưa collection về seed; execution log cần ghi reset/run/seed để replay |
+
+API phát hành token giả lập qua `POST /__lab/auth/token` bằng credential từ actor seed. Lỗ hổng mặc định tắt; bật có chọn lọc qua `LAB_VULNERABILITIES` (danh sách flag phân tách dấu phẩy, hoặc `*`). Ghi lại chính xác cấu hình flag cho mỗi run vì response 200 chỉ là bằng chứng có hành vi, không đủ để kết luận nếu không biết trạng thái cấu hình và before/after.
+
+### 9.2 Bề mặt thao tác được cài trong range
+
+| Nhóm | Route/mẫu route | Hành vi và liên hệ ground truth |
+|---|---|---|
+| Resource | `GET /lab/v1/resources`, `GET/PATCH/DELETE /lab/v1/resources/{resource_id}` | Đọc/list, cập nhật thuộc tính, xóa; AUTHZ-001–004, 007–012, 016–019 |
+| Admin action | `POST /lab/v1/admin/actions/{action}` | `archive`, `export`; AUTHZ-005–006 |
+| State transition | `POST /lab/v1/resources/{resource_id}/actions/{action}` | `request_return`, `refund`, `approve_refund`, `assign`, `close`; AUTHZ-013–015, 020 |
+| Invoice | `/lab/v1/invoices`, `/lab/v1/invoices/{invoice_id}` và `submit/approve/pay/void` | Draft → submitted → approved → paid; AUTHZ-INV-01–03 |
+| Payout | `/lab/v1/payouts`, `/lab/v1/payouts/{payout_id}` và `approve/release` | Pending → approved → released; AUTHZ-PAY-01–02 |
+| Ticket mở rộng | `POST /lab/v1/tickets/{resource_id}/escalate` và `/resolve` | Assigned → escalated → resolved; AUTHZ-TCK-01 |
+| Review | `POST/GET /lab/v1/orders/{resource_id}/reviews`, `PATCH/DELETE /lab/v1/reviews/{review_id}` | Thuộc tính Verified/Featured; AUTHZ-REV-01–02 |
+| History | `GET /lab/v1/invoices/{invoice_id}/history`, `/lab/v1/payouts/{payout_id}/history`, `/lab/v1/resources/{resource_id}/history` | Đọc event history đã redacted; operation hợp lệ để tính endpoint coverage |
+
+Các route extension được đăng ký qua `app/__init__.py`, không xuất hiện trong OpenAPI gốc do `include_in_schema=False`. RSO hiện khai báo 30 action ở lớp Cyber Range; catalog này bao gồm cả query variant và thao tác nghiệp vụ trên extension, nên mẫu số operation nên được định nghĩa theo action ID trong RSO. Không lấy OpenAPI gốc làm mẫu số duy nhất.
+
+### 9.3 Mapping case và workflow
+
+Ground truth dùng field `operation_id` (không phải `op_id`), `scenario`, `severity`, `verification_status`; `split` là `development` hoặc `held-out`. Các cột `setup_steps`, `request_headers`, `request_body` và `evidence_required` chứa JSON được serialize trong cell CSV; loader parse thành cấu trúc khi seed. Nhóm 28 planted case gồm BOLA 6, BFLA 7, BOPLA 7, TENANT 4, WORKFLOW 4; có 8 benign case để tính false positive.
+
+Các workflow khai báo bằng tên bước nghiệp vụ (`read_order`, `request_return`, `create_ticket`, …), trong khi RSO hiện chưa có các action ID tương ứng và một số bước là thao tác fixture/seed chứ không có route tạo riêng. Khi đo workflow coverage, log cần lưu `workflow_id`, `step_idx`, `action`/`operation_id`, `sequence_id`, `object_id`, actor, valid flag, state trước/sau; kiểm tra đúng thứ tự, precondition, postcondition và cùng object. Không thể suy ra workflow coverage chỉ bằng tìm một chuỗi `op_id` trong log như ví dụ script ban đầu.
+
+### 9.4 Các điểm cần xử lý trước khi báo cáo KPI chính thức
+
+| Phát hiện khi đọc code và artifact | Tác động | Cách ghi nhận/điều chỉnh trong lần cập nhật kế tiếp |
+|---|---|---|
+| Ví dụ schema/mẫu số đầu tài liệu không khớp RSO/CSV thật | Script theo ví dụ cũ không đọc được key hiện tại và có thể báo sai coverage | Dùng RSO, workflows, objects và planted CSV trong `cyber-range/`; cập nhật validator/script theo field thật |
+| Actor supplier và fixture tài chính/review trước đây chỉ có trong app code | Không thể phát hành token/replay nhất quán từ artifact | Đã đồng bộ 2 supplier actor, 3 invoice, 2 payout và 1 review fixture vào RSO/`objects.json`; loader nạp chúng theo seed version 6 |
+| Ticket extension cần ticket khác tenant ở trạng thái escalated; workflow trước đó thiếu mapping route/actor/object | Case AUTHZ-TCK-01 và sequence coverage không replay được từ seed | Đã thêm `ticket-b-001` ở trạng thái escalated và gắn operation/actor/object/precondition/postcondition vào workflow |
+| API catch-all được đăng ký trước các route extension | Request invoice/payout/review/history bị dispatcher trả 404 | Đã chuyển catch-all dispatcher xuống cuối danh sách route trong `app/__init__.py`; smoke test xác nhận route extension hoạt động |
+| `reset_database()` reset mọi collection trong `SEED_DATA`, bao gồm collection app ngoài `lab_*`; trong khi `seed_database()` chỉ seed `lab_*` theo phiên bản | Reset có thể làm rỗng dữ liệu mock API chính; phép đo giữa run phụ thuộc hành vi reset | Chốt quy trình reset riêng cho lab, ghi lại hash snapshot trước/sau; chưa coi reset là idempotent cho toàn app |
+| `verified_by` và `verified_at` của cả 28 planted case đang rỗng; status là `pending-human-review` | Chưa thỏa điều kiện ground truth đã verify độc lập | Ghi coverage riêng cho case được probe và case đã xác minh; không mô tả planted case là đã human-verified |
+| Audit event có request/response evidence ở app, nhưng coverage schema cũ chỉ có `raw_hash` | Provenance KPI không thể tính thống nhất từ log app nếu extractor chưa định nghĩa | Định nghĩa extraction/export của audit event, hash canonical request/response và liên kết `run_id`, `case_id`, `sequence_id`; không suy `raw_hash` từ status/response |
+
+Do đó KPI trong mục 4 vẫn là mục tiêu thiết kế, chưa phải kết quả được xác nhận. Báo cáo đầu tiên cần nêu rõ denominator thực tế, các case chưa replay được, trạng thái verify và phiên bản flag/seed; chỉ so KPI sau khi các vấn đề khả năng thực thi và mapping đã được chốt trước run đánh giá.
