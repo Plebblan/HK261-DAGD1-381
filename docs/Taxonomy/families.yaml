@@ -11,10 +11,15 @@ decisions:      # pending confirmation by the team
     same tenant; F4 = access across a tenant boundary. Any other applicable
     family goes in secondary_families.
   D2: >
-    "anonymous" (no credentials) is a regular actor in the role matrix.
-    Broken authentication (OTP brute force, JWT forgery) stays out of scope.
+    "anonymous" (no credentials) is a regular actor in the role matrix and must
+    be evaluated against the same authorization policies as authenticated actors.
+    Unauthorized anonymous access to protected objects or functions is in scope
+    as an authorization violation (F1/F2/F3, depending on the violated boundary).
+    Broken authentication mechanisms (e.g., OTP brute force, JWT forgery, or
+    authentication bypass) remain out of scope. The absence of credentials alone
+    does not make a finding a broken authentication vulnerability.
   D3: >
-    403 and 404 are equivalent "safe" outcomes for deny checks, unless an app's
+    401, 403 and 404 are equivalent "safe" outcomes for deny checks, unless an app's
     access policy says otherwise.
   D4: >
     F5 covers state-transition violations only. Volume, rate and automation

@@ -4,7 +4,7 @@
 
 schema_version: "0.1"
 app: crapi
-taxonomy_ref: docs/taxonomy/families.yaml
+taxonomy_ref: docs/Taxonomy/families.yaml
 
 # Actor names are placeholders until apps/crapi/access_policy.yaml exists.
 actors: [owner_a, user_b, admin, anonymous]
@@ -22,7 +22,7 @@ flaws:
       method: GET
       endpoint: /community/api/v2/community/posts/recent
       note: Response leaks vehicle IDs of other users (object-ID flow).
-    expected_safe_response: "403 or 404, no location data"
+    expected_safe_response: "401/403/404, no location data"
     observed_in_survey: "Location and vehicle details returned for another user's vehicle"
     oracle: differential_authorization
     verified: false
@@ -38,6 +38,18 @@ flaws:
     observed_in_survey: "Order data returned without an Authorization header"
     oracle: differential_authorization
     note: Anonymous actor per decision D2. Not treated as broken authentication.
+    verified: false
+
+  - id: CRAPI-F1-03
+    survey_ref: "Unauthorized Access, Challenge 2"
+    family: F1
+    in_scope: true
+    method: GET
+    endpoint: /workshop/api/mechanic/mechanic_report?report_id={report_id}
+    actors: {reference: owner_a, test: user_b}
+    expected_safe_response: "401/403/404, no order data"
+    observed_in_survey: "Order data returned without an Authorization header"
+    oracle: differential_authorization
     verified: false
 
   - id: CRAPI-F2-01
@@ -64,7 +76,7 @@ flaws:
     endpoint: /community/api/v2/community/posts/recent
     actors: {reference: owner_a, test: user_b}
     expected_safe_response: "Only fields in the post author's public field set"
-    allowed_fields_ref: apps/crapi/access_policy.yaml#field_policy.community_post   # to be written
+    allowed_fields_ref: access_policy.yaml#field_policy.community_post   # to be written
     observed_in_survey: "Sensitive data of other users, including vehicle ID, in the response"
     oracle: property_policy_diff
     verified: false
@@ -78,7 +90,7 @@ flaws:
     endpoint: /identity/api/v2/user/videos/{video_id}
     actors: {reference: owner_a, test: owner_a}
     expected_safe_response: "No internal properties in the response"
-    allowed_fields_ref: apps/crapi/access_policy.yaml#field_policy.video   # to be written
+    allowed_fields_ref: access_policy.yaml#field_policy.video   # to be written
     observed_in_survey: "Internal video property exposed to its own owner"
     oracle: property_policy_diff
     note: Even the owner should not see internal properties, so the policy decides, not the actor pair.
@@ -124,6 +136,7 @@ flaws:
     attempted_edge: {from: "return pending", to: "returned", actor: owner_a}
     expected_safe_response: "Rejected, order state unchanged"
     observed_in_survey: "200 and refund issued; error message also leaks the valid status values"
+    state_graph_ref: business_state_graph.yaml#entities.order
     oracle: state_invariant
     note: >
       Labeling decision: primary F5 because the harm is an illegal transition.
