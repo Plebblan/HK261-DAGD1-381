@@ -1,0 +1,68 @@
+schema_version: "0.1"
+app: crapi
+taxonomy_ref: docs/Taxonomy/families.yaml
+              docs/Taxonomy/crAPI/flaw_catalog.yaml
+
+roles: [anonymous, user, admin]
+relations: [owner, non-owner, privileged, unauthenticated]
+default: deny
+role-relation mapping to flaw_catalog:
+| Catalog actor | Policy role | Relationship |
+| ------------- | ----------- | ------------ |
+| owner_a | user | owner |
+| user_b | user | non-owner |
+| admin | admin | privileged |
+| anonymous | anonymous | unauthenticated |
+
+rules:
+  - op: GET /community/api/v2/community/posts/recent
+    allow: [{role: anonymous}, {role: user}, {role: admin}]
+  - op: GET /identity/api/v2/vehicle/{vehicle_id}/location
+    allow: [{role: user, relation: owner}, {role: admin}]
+  - op: GET /identity/api/v2/user/videos/{video_id}
+    allow: [{role: user, relation: owner}, {role: admin}]
+  - op: PUT /identity/api/v2/user/videos/{video_id}
+    allow: [{role: user, relation: owner}, {role: admin}]
+  - op: GET /workshop/api/shop/orders/{order_id}
+    allow: [{role: user, relation: owner}, {role: admin}]
+  - op: PUT /workshop/api/shop/orders/{order_id}
+    allow: [{role: user, relation: owner}, {role: admin}]
+  - op: DELETE /identity/api/v2/admin/videos/{video_id}
+    allow: [{role: admin}]
+
+field_policy:
+  community_post:
+    read:
+      anonymous: [id, author, title, content, created_at]
+      user: [id, author, title, content, created_at]
+      admin: [id, author, title, content, created_at, vehicle_id]
+  order:
+    read:
+      user: [id, status, quantity, total_amount, item_name]
+      admin: [id, status, quantity, total_amount, item_name, refund_history]
+    write:
+      user: [status]
+      admin: [status, quantity]
+  video:
+    read:  
+      user: [id, video_name] 
+      admin: [id, video_name, conversion_params]
+    write: 
+      user: [video_name]
+      admin: [conversion_params]
+
+business_state_graph:
+  order:
+    states:
+      - delivered
+      - return pending
+      - returned
+
+    transitions:
+      - from: delivered
+        to: return pending
+        actor: user
+
+      - from: return pending
+        to: returned
+        actor: admin

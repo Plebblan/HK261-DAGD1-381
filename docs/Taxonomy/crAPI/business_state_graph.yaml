@@ -1,0 +1,71 @@
+
+schema_version: "0.1"
+app: crapi
+status: draft
+
+taxonomy_ref: docs/Taxonomy/families.yaml
+access_policy_ref: docs/Taxonomy/crAPI/access_policy.yaml
+flaw_catalog_ref: docs/Taxonomy/crAPI/flaw_catalog.yaml
+
+entities:
+  order:
+    description: A purchased item and its return lifecycle.
+
+    state_field: status
+
+    states:
+      delivered:
+        description: Order has been delivered.
+        terminal: false
+
+      "return pending":
+        description: A return has been requested.
+        terminal: false
+
+      returned:
+        description: Return has been completed.
+        terminal: true
+
+    transitions:
+      - id: ORDER-T01
+        from: delivered
+        to: "return pending"
+        actor:
+          role: user
+          relation: owner
+        status: draft
+
+      - id: ORDER-T02
+        from: "return pending"
+        to: returned
+        actor:
+          role: admin
+        status: draft
+
+    invariants:
+      - id: ORDER-I01
+        description: A completed return cannot be processed again.
+        condition: returned_is_terminal
+        status: proposed
+
+      - id: ORDER-I02
+        description: A return must not be completed more than once.
+        condition: refund_issued_at_most_once
+        status: proposed
+
+evaluation:
+  oracle: state_invariant
+
+  rules:
+    - An attempted transition must exist in the declared transition graph.
+    - The actor must satisfy the transition's authorization requirements.
+    - All applicable invariants must hold after the transition.
+    - A rejected transition must leave the business state unchanged.
+
+  evidence:
+    - attempted_edge
+    - actor
+    - before_state
+    - after_state
+    - response
+    - invariant_results

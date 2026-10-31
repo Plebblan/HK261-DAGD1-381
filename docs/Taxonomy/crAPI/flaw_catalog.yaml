@@ -1,0 +1,164 @@
+# crAPI flaw catalog: concrete instances of the shared taxonomy
+# Source: docs/threat_model/crAPI_survey.md (survey-derived).
+# Every entry is verified: false until replayed in our own range with evidence.
+
+schema_version: "0.1"
+app: crapi
+taxonomy_ref: docs/Taxonomy/families.yaml
+
+# Actor names are placeholders until apps/crapi/access_policy.yaml exists.
+actors: [owner_a, user_b, admin, anonymous]
+
+flaws:
+  - id: CRAPI-F1-01
+    survey_ref: "BOLA, Challenge 1"
+    family: F1
+    secondary_families: [F3]      # the ID leaks via an excessive-exposure endpoint (see CRAPI-F3R-01)
+    in_scope: true
+    method: GET
+    endpoint: /identity/api/v2/vehicle/{vehicle_id}/location
+    actors: {reference: owner_a, test: user_b}
+    object_id_origin:
+      method: GET
+      endpoint: /community/api/v2/community/posts/recent
+      note: Response leaks vehicle IDs of other users (object-ID flow).
+    expected_safe_response: "401/403/404, no location data"
+    observed_in_survey: "Location and vehicle details returned for another user's vehicle"
+    oracle: differential_authorization
+    verified: false
+
+  - id: CRAPI-F1-02
+    survey_ref: "Unauthorized Access, Challenge 14"
+    family: F1
+    in_scope: true
+    method: GET
+    endpoint: /workshop/api/shop/orders/{order_id}
+    actors: {reference: owner_a, test: anonymous}
+    expected_safe_response: "401/403/404, no order data"
+    observed_in_survey: "Order data returned without an Authorization header"
+    oracle: differential_authorization
+    note: Anonymous actor per decision D2. Not treated as broken authentication.
+    verified: false
+
+  - id: CRAPI-F1-03
+    survey_ref: "Unauthorized Access, Challenge 2"
+    family: F1
+    in_scope: true
+    method: GET
+    endpoint: /workshop/api/mechanic/mechanic_report?report_id={report_id}
+    actors: {reference: owner_a, test: user_b}
+    expected_safe_response: "401/403/404, no order data"
+    observed_in_survey: "Order data returned without an Authorization header"
+    oracle: differential_authorization
+    verified: false
+
+  - id: CRAPI-F2-01
+    survey_ref: "BFLA, Challenge 7"
+    family: F2
+    in_scope: true
+    method: DELETE
+    endpoint: /identity/api/v2/admin/videos/{video_id}
+    actors: {reference: admin, test: user_b}
+    probe_note: >
+      DELETE on the /user/ path returns 403 ("admin function"). The same
+      operation on the /admin/ path succeeds for a normal user.
+    expected_safe_response: "403, video not deleted"
+    observed_in_survey: "200, video deleted"
+    oracle: differential_authorization
+    verified: false
+
+  - id: CRAPI-F3R-01
+    survey_ref: "Excessive Data Exposure, Challenge 4"
+    family: F3
+    subtype: R
+    in_scope: true
+    method: GET
+    endpoint: /community/api/v2/community/posts/recent
+    actors: {reference: owner_a, test: user_b}
+    expected_safe_response: "Only fields in the post author's public field set"
+    allowed_fields_ref: access_policy.yaml#field_policy.community_post   # to be written
+    observed_in_survey: "Sensitive data of other users, including vehicle ID, in the response"
+    oracle: property_policy_diff
+    verified: false
+
+  - id: CRAPI-F3R-02
+    survey_ref: "Excessive Data Exposure, Challenge 5"
+    family: F3
+    subtype: R
+    in_scope: true
+    method: GET
+    endpoint: /identity/api/v2/user/videos/{video_id}
+    actors: {reference: owner_a, test: owner_a}
+    expected_safe_response: "No internal properties in the response"
+    allowed_fields_ref: access_policy.yaml#field_policy.video   # to be written
+    observed_in_survey: "Internal video property exposed to its own owner"
+    oracle: property_policy_diff
+    note: Even the owner should not see internal properties, so the policy decides, not the actor pair.
+    verified: false
+
+  - id: CRAPI-F3W-01
+    survey_ref: "Mass Assignment, Challenge 10"
+    family: F3
+    subtype: W
+    in_scope: true
+    method: PUT
+    endpoint: /identity/api/v2/user/videos/{video_id}
+    actors: {reference: owner_a, test: owner_a}
+    mutation: 'Add property "conversion_params" to the body'
+    expected_safe_response: "Property ignored or rejected, readback unchanged"
+    observed_in_survey: "Internal property changed, no restriction on the value"
+    oracle: property_policy_diff
+    verified: false
+
+  - id: CRAPI-F3W-02
+    survey_ref: "Mass Assignment, Challenge 9"
+    family: F3
+    subtype: W
+    secondary_families: [F5]
+    in_scope: true
+    method: PUT
+    endpoint: /workshop/api/shop/orders/{order_id}
+    actors: {reference: owner_a, test: owner_a}
+    mutation: 'Set "quantity" to a large value before the return'
+    expected_safe_response: "Quantity not writable after purchase"
+    observed_in_survey: "Quantity accepted, refund scales with it"
+    oracle: property_policy_diff
+    verified: false
+
+  - id: CRAPI-F5-01
+    survey_ref: "Mass Assignment, Challenge 8"
+    family: F5
+    secondary_families: [F3]      # D1 case: status is both a state and a property
+    in_scope: true
+    method: PUT
+    endpoint: /workshop/api/shop/orders/{order_id}
+    actors: {reference: admin, test: owner_a}
+    attempted_edge: {from: "return pending", to: "returned", actor: owner_a}
+    expected_safe_response: "Rejected, order state unchanged"
+    observed_in_survey: "200 and refund issued; error message also leaks the valid status values"
+    state_graph_ref: business_state_graph.yaml#entities.order
+    oracle: state_invariant
+    note: >
+      Labeling decision: primary F5 because the harm is an illegal transition.
+      Confirm the actor who may perform "return pending" -> "returned" in the
+      business state graph.
+    verified: false
+
+# Boundary table: survey items intentionally outside the project scope
+out_of_scope:
+  - survey_ref: "Broken User Authentication (OTP reset), Challenge 3"
+    reason: Broken authentication
+  - survey_ref: "JWT Vulnerabilities, Challenge 15"
+    reason: Broken authentication
+  - survey_ref: "Rate limiting, Challenge 6"
+    reason: Volume abuse (D4)
+  - survey_ref: "SSRF, Challenge 11"
+    reason: Injection / SSRF class
+  - survey_ref: "NoSQL injection, Challenge 12"
+    reason: Injection class
+  - survey_ref: "SQL injection, Challenge 13"
+    reason: Injection class
+
+pending_from_survey:
+  - survey_ref: "BOLA, Challenge 2 (mechanic report)"
+    note: Candidate F1 entry. Needs the endpoint pair /workshop/api/merchant/contact_mechanic and /workshop/api/mechanic/mechanic_report?report_id= written up.
