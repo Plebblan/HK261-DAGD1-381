@@ -1,0 +1,297 @@
+{
+  "version": 1,
+  "workflows": [
+    {
+      "App": "tenantdesk",
+      "ID": "workflow-ticket",
+      "Name": "Support ticket lifecycle",
+      "Steps": [
+        {
+          "Action": "create_ticket",
+          "Precondition": {
+            "Role": [
+              "Member",
+              "Agent",
+              "Admin"
+            ]
+          },
+          "Postcondition": {
+            "State": "open"
+          }
+        },
+        {
+          "Action": "assign_ticket",
+          "Precondition": {
+            "Role": [
+              "Agent",
+              "Admin"
+            ]
+          },
+          "Postcondition": "no_state_change"
+        },
+        {
+          "Action": "transition_ticket:start",
+          "Precondition": {
+            "Role": [
+              "Agent",
+              "Admin"
+            ],
+            "State": [
+              "open"
+            ]
+          },
+          "Postcondition": {
+            "State": "in_progress"
+          }
+        },
+        {
+          "Action": "transition_ticket:resolve",
+          "Precondition": {
+            "Role": [
+              "Agent",
+              "Admin"
+            ],
+            "State": [
+              "in_progress"
+            ]
+          },
+          "Postcondition": {
+            "State": "resolved"
+          }
+        },
+        {
+          "Action": "transition_ticket:revert",
+          "Precondition": {
+            "Role": [
+              "Agent",
+              "Admin"
+            ],
+            "State": [
+              "in_progress"
+            ]
+          },
+          "Postcondition": {
+            "State": "open"
+          }
+        },
+        {
+          "Action": "transition_ticket:close",
+          "Precondition": {
+            "Role": [
+              "Member",
+              "Agent",
+              "Admin"
+            ],
+            "State": [
+              "resolved"
+            ]
+          },
+          "Postcondition": {
+            "State": "closed"
+          }
+        },
+        {
+          "Action": "transition_ticket:reopen",
+          "Precondition": {
+            "Role": [
+              "Member",
+              "Agent",
+              "Admin"
+            ],
+            "State": [
+              "resolved"
+            ]
+          },
+          "Postcondition": {
+            "State": "open"
+          }
+        }
+      ]
+    },
+    {
+      "App": "tenantdesk",
+      "ID": "workflow-document",
+      "Name": "Document review lifecycle",
+      "Steps": [
+        {
+          "Action": "create_document",
+          "Precondition": {
+            "Role": [
+              "Member",
+              "Agent",
+              "Admin"
+            ]
+          },
+          "Postcondition": {
+            "State": "draft"
+          }
+        },
+        {
+          "Action": "update_document",
+          "Precondition": {
+            "State": [
+              "draft"
+            ],
+            "Owner": true
+          },
+          "Postcondition": "no_state_change"
+        },
+        {
+          "Action": "submit_document",
+          "Precondition": {
+            "State": [
+              "draft"
+            ],
+            "Owner": true
+          },
+          "Postcondition": {
+            "State": "review"
+          }
+        },
+        {
+          "Action": "approve_document",
+          "Precondition": {
+            "Role": [
+              "Agent",
+              "Admin"
+            ],
+            "State": [
+              "review"
+            ],
+            "NotOwner": true
+          },
+          "Postcondition": {
+            "State": "published"
+          }
+        }
+      ]
+    },
+    {
+      "App": "shopflow",
+      "ID": "workflow-order",
+      "Name": "Order lifecycle",
+      "Steps": [
+        {
+          "Action": "create_order",
+          "Precondition": {
+            "Role": [
+              "Customer"
+            ]
+          },
+          "Postcondition": {
+            "State": "draft"
+          }
+        },
+        {
+          "Action": "apply_coupon",
+          "Precondition": {
+            "State": [
+              "draft"
+            ]
+          },
+          "Postcondition": "no_state_change"
+        },
+        {
+          "Action": "pay_order",
+          "Precondition": {
+            "Role": [
+              "Customer"
+            ],
+            "State": [
+              "draft"
+            ]
+          },
+          "Postcondition": {
+            "State": "paid"
+          }
+        },
+        {
+          "Action": "ship_order",
+          "Precondition": {
+            "Role": [
+              "Staff",
+              "MerchantAdmin"
+            ],
+            "State": [
+              "paid"
+            ]
+          },
+          "Postcondition": {
+            "State": "shipped"
+          }
+        },
+        {
+          "Action": "deliver_order",
+          "Precondition": {
+            "Role": [
+              "Staff",
+              "MerchantAdmin"
+            ],
+            "State": [
+              "shipped"
+            ]
+          },
+          "Postcondition": {
+            "State": "delivered"
+          }
+        },
+        {
+          "Action": "cancel_order:from_draft",
+          "Precondition": {
+            "State": [
+              "draft"
+            ]
+          },
+          "Postcondition": {
+            "State": "cancelled"
+          }
+        },
+        {
+          "Action": "cancel_order:from_paid",
+          "Precondition": {
+            "State": [
+              "paid"
+            ]
+          },
+          "Postcondition": {
+            "State": "cancelled"
+          }
+        }
+      ]
+    },
+    {
+      "App": "shopflow",
+      "ID": "workflow-refund",
+      "Name": "Refund lifecycle",
+      "Steps": [
+        {
+          "Action": "request_refund",
+          "Precondition": {
+            "State": [
+              "paid",
+              "shipped",
+              "delivered"
+            ]
+          },
+          "Postcondition": {
+            "State": "pending"
+          }
+        },
+        {
+          "Action": "approve_refund",
+          "Precondition": {
+            "Role": [
+              "MerchantAdmin"
+            ],
+            "State": [
+              "pending"
+            ]
+          },
+          "Postcondition": {
+            "State": "approved"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,483 @@
+{
+  "version": 1,
+  "objects": [
+    {
+      "App": "tenantdesk",
+      "ID": "user-1",
+      "ResourceType": "user",
+      "OwnerID": "actor-alice",
+      "TenantID": "tenant-acme",
+      "State": "active",
+      "Sensitive": true,
+      "Properties": {
+        "role": "admin",
+        "has_api_key": true
+      }
+    },
+    {
+      "App": "tenantdesk",
+      "ID": "user-2",
+      "ResourceType": "user",
+      "OwnerID": "actor-adam",
+      "TenantID": "tenant-acme",
+      "State": "active",
+      "Sensitive": true,
+      "Properties": {
+        "role": "agent",
+        "has_api_key": true
+      }
+    },
+    {
+      "App": "tenantdesk",
+      "ID": "user-3",
+      "ResourceType": "user",
+      "OwnerID": "actor-amy",
+      "TenantID": "tenant-acme",
+      "State": "active",
+      "Sensitive": true,
+      "Properties": {
+        "role": "member",
+        "has_api_key": true
+      }
+    },
+    {
+      "App": "tenantdesk",
+      "ID": "user-4",
+      "ResourceType": "user",
+      "OwnerID": "actor-ann",
+      "TenantID": "tenant-acme",
+      "State": "active",
+      "Sensitive": true,
+      "Properties": {
+        "role": "member",
+        "has_api_key": true
+      }
+    },
+    {
+      "App": "tenantdesk",
+      "ID": "user-5",
+      "ResourceType": "user",
+      "OwnerID": "actor-gina",
+      "TenantID": "tenant-globex",
+      "State": "active",
+      "Sensitive": true,
+      "Properties": {
+        "role": "admin",
+        "has_api_key": true
+      }
+    },
+    {
+      "App": "tenantdesk",
+      "ID": "user-6",
+      "ResourceType": "user",
+      "OwnerID": "actor-greg",
+      "TenantID": "tenant-globex",
+      "State": "active",
+      "Sensitive": true,
+      "Properties": {
+        "role": "agent",
+        "has_api_key": true
+      }
+    },
+    {
+      "App": "tenantdesk",
+      "ID": "user-7",
+      "ResourceType": "user",
+      "OwnerID": "actor-gus",
+      "TenantID": "tenant-globex",
+      "State": "active",
+      "Sensitive": true,
+      "Properties": {
+        "role": "member",
+        "has_api_key": true
+      }
+    },
+    {
+      "App": "tenantdesk",
+      "ID": "ticket-1001",
+      "ResourceType": "ticket",
+      "OwnerID": "actor-amy",
+      "TenantID": "tenant-acme",
+      "State": "open",
+      "Sensitive": true,
+      "Properties": {
+        "title": "Printer jammed",
+        "priority": "normal",
+        "assignee": null
+      }
+    },
+    {
+      "App": "tenantdesk",
+      "ID": "ticket-1002",
+      "ResourceType": "ticket",
+      "OwnerID": "actor-ann",
+      "TenantID": "tenant-acme",
+      "State": "in_progress",
+      "Sensitive": true,
+      "Properties": {
+        "title": "VPN down",
+        "priority": "normal",
+        "assignee": "actor-adam"
+      }
+    },
+    {
+      "App": "tenantdesk",
+      "ID": "ticket-1003",
+      "ResourceType": "ticket",
+      "OwnerID": "actor-gus",
+      "TenantID": "tenant-globex",
+      "State": "open",
+      "Sensitive": true,
+      "Properties": {
+        "title": "Invoice mismatch",
+        "priority": "normal",
+        "assignee": null
+      }
+    },
+    {
+      "App": "tenantdesk",
+      "ID": "comment-1",
+      "ResourceType": "comment",
+      "OwnerID": "actor-adam",
+      "TenantID": "tenant-acme",
+      "State": "internal",
+      "Sensitive": true,
+      "Properties": {
+        "ticket_id": "ticket-1002",
+        "body": "Suspect expired cert"
+      }
+    },
+    {
+      "App": "tenantdesk",
+      "ID": "comment-2",
+      "ResourceType": "comment",
+      "OwnerID": "actor-ann",
+      "TenantID": "tenant-acme",
+      "State": "public",
+      "Sensitive": false,
+      "Properties": {
+        "ticket_id": "ticket-1002",
+        "body": "Still down"
+      }
+    },
+    {
+      "App": "tenantdesk",
+      "ID": "document-2001",
+      "ResourceType": "document",
+      "OwnerID": "actor-amy",
+      "TenantID": "tenant-acme",
+      "State": "draft",
+      "Sensitive": true,
+      "Properties": {
+        "title": "Amy private notes",
+        "visibility": "private",
+        "shared_with": [],
+        "approved_by": null
+      }
+    },
+    {
+      "App": "tenantdesk",
+      "ID": "document-2002",
+      "ResourceType": "document",
+      "OwnerID": "actor-ann",
+      "TenantID": "tenant-acme",
+      "State": "published",
+      "Sensitive": false,
+      "Properties": {
+        "title": "Acme onboarding handbook",
+        "visibility": "tenant",
+        "shared_with": [],
+        "approved_by": null
+      }
+    },
+    {
+      "App": "tenantdesk",
+      "ID": "document-2003",
+      "ResourceType": "document",
+      "OwnerID": "actor-gus",
+      "TenantID": "tenant-globex",
+      "State": "draft",
+      "Sensitive": true,
+      "Properties": {
+        "title": "Gus private notes",
+        "visibility": "private",
+        "shared_with": [],
+        "approved_by": null
+      }
+    },
+    {
+      "App": "tenantdesk",
+      "ID": "document-2004",
+      "ResourceType": "document",
+      "OwnerID": "actor-gina",
+      "TenantID": "tenant-globex",
+      "State": "published",
+      "Sensitive": false,
+      "Properties": {
+        "title": "Globex payroll policy",
+        "visibility": "tenant",
+        "shared_with": [],
+        "approved_by": null
+      }
+    },
+    {
+      "App": "shopflow",
+      "ID": "sf-user-1",
+      "ResourceType": "user",
+      "OwnerID": "actor-olga",
+      "TenantID": "tenant-acme-shop",
+      "State": "active",
+      "Sensitive": true,
+      "Properties": {
+        "role": "merchant_admin"
+      }
+    },
+    {
+      "App": "shopflow",
+      "ID": "sf-user-2",
+      "ResourceType": "user",
+      "OwnerID": "actor-sam",
+      "TenantID": "tenant-acme-shop",
+      "State": "active",
+      "Sensitive": true,
+      "Properties": {
+        "role": "staff"
+      }
+    },
+    {
+      "App": "shopflow",
+      "ID": "sf-user-3",
+      "ResourceType": "user",
+      "OwnerID": "actor-cathy",
+      "TenantID": "tenant-acme-shop",
+      "State": "active",
+      "Sensitive": true,
+      "Properties": {
+        "role": "customer"
+      }
+    },
+    {
+      "App": "shopflow",
+      "ID": "sf-user-4",
+      "ResourceType": "user",
+      "OwnerID": "actor-carl",
+      "TenantID": "tenant-acme-shop",
+      "State": "active",
+      "Sensitive": true,
+      "Properties": {
+        "role": "customer"
+      }
+    },
+    {
+      "App": "shopflow",
+      "ID": "sf-user-5",
+      "ResourceType": "user",
+      "OwnerID": "actor-greta",
+      "TenantID": "tenant-globex-shop",
+      "State": "active",
+      "Sensitive": true,
+      "Properties": {
+        "role": "merchant_admin"
+      }
+    },
+    {
+      "App": "shopflow",
+      "ID": "sf-user-6",
+      "ResourceType": "user",
+      "OwnerID": "actor-steve",
+      "TenantID": "tenant-globex-shop",
+      "State": "active",
+      "Sensitive": true,
+      "Properties": {
+        "role": "staff"
+      }
+    },
+    {
+      "App": "shopflow",
+      "ID": "sf-user-7",
+      "ResourceType": "user",
+      "OwnerID": "actor-chris",
+      "TenantID": "tenant-globex-shop",
+      "State": "active",
+      "Sensitive": true,
+      "Properties": {
+        "role": "customer"
+      }
+    },
+    {
+      "App": "shopflow",
+      "ID": "product-501",
+      "ResourceType": "product",
+      "OwnerID": "actor-olga",
+      "TenantID": "tenant-acme-shop",
+      "State": "active",
+      "Sensitive": true,
+      "Properties": {
+        "name": "Acme Mug",
+        "price": 1500,
+        "cost_price": 600,
+        "stock": 50
+      }
+    },
+    {
+      "App": "shopflow",
+      "ID": "product-502",
+      "ResourceType": "product",
+      "OwnerID": "actor-olga",
+      "TenantID": "tenant-acme-shop",
+      "State": "active",
+      "Sensitive": true,
+      "Properties": {
+        "name": "Acme Shirt",
+        "price": 3000,
+        "cost_price": 1100,
+        "stock": 20
+      }
+    },
+    {
+      "App": "shopflow",
+      "ID": "product-601",
+      "ResourceType": "product",
+      "OwnerID": "actor-greta",
+      "TenantID": "tenant-globex-shop",
+      "State": "active",
+      "Sensitive": true,
+      "Properties": {
+        "name": "Globex Lamp",
+        "price": 5000,
+        "cost_price": 2000,
+        "stock": 10
+      }
+    },
+    {
+      "App": "shopflow",
+      "ID": "coupon-ACME10",
+      "ResourceType": "coupon",
+      "OwnerID": "actor-olga",
+      "TenantID": "tenant-acme-shop",
+      "State": "active",
+      "Sensitive": false,
+      "Properties": {
+        "percent": 10,
+        "max_uses": 1,
+        "uses": 0
+      }
+    },
+    {
+      "App": "shopflow",
+      "ID": "coupon-GLOBEX15",
+      "ResourceType": "coupon",
+      "OwnerID": "actor-greta",
+      "TenantID": "tenant-globex-shop",
+      "State": "active",
+      "Sensitive": false,
+      "Properties": {
+        "percent": 15,
+        "max_uses": 5,
+        "uses": 0
+      }
+    },
+    {
+      "App": "shopflow",
+      "ID": "order-7001",
+      "ResourceType": "order",
+      "OwnerID": "actor-cathy",
+      "TenantID": "tenant-acme-shop",
+      "State": "draft",
+      "Sensitive": true,
+      "Properties": {
+        "total": 1500,
+        "paid_amount": 0,
+        "refunded_total": 0,
+        "coupon": null
+      }
+    },
+    {
+      "App": "shopflow",
+      "ID": "order-7002",
+      "ResourceType": "order",
+      "OwnerID": "actor-carl",
+      "TenantID": "tenant-acme-shop",
+      "State": "draft",
+      "Sensitive": true,
+      "Properties": {
+        "total": 3000,
+        "paid_amount": 0,
+        "refunded_total": 0,
+        "coupon": null
+      }
+    },
+    {
+      "App": "shopflow",
+      "ID": "order-7003",
+      "ResourceType": "order",
+      "OwnerID": "actor-cathy",
+      "TenantID": "tenant-acme-shop",
+      "State": "paid",
+      "Sensitive": true,
+      "Properties": {
+        "total": 3000,
+        "paid_amount": 3000,
+        "refunded_total": 0,
+        "coupon": null
+      }
+    },
+    {
+      "App": "shopflow",
+      "ID": "order-7004",
+      "ResourceType": "order",
+      "OwnerID": "actor-chris",
+      "TenantID": "tenant-globex-shop",
+      "State": "draft",
+      "Sensitive": true,
+      "Properties": {
+        "total": 5000,
+        "paid_amount": 0,
+        "refunded_total": 0,
+        "coupon": null
+      }
+    },
+    {
+      "App": "shopflow",
+      "ID": "order-7005",
+      "ResourceType": "order",
+      "OwnerID": "actor-cathy",
+      "TenantID": "tenant-acme-shop",
+      "State": "shipped",
+      "Sensitive": true,
+      "Properties": {
+        "total": 1500,
+        "paid_amount": 1500,
+        "refunded_total": 0,
+        "coupon": null
+      }
+    }
+  ],
+  "runtime_objects": [
+    {
+      "ID": "document-2005",
+      "App": "tenantdesk",
+      "Case": "AUTHZ-113",
+      "Setup": "adam: POST /documents, then POST /documents/{id}/submit (id is allocated as 2005 on a fresh reset)"
+    },
+    {
+      "ID": "refund-9001",
+      "App": "shopflow",
+      "Case": "AUTHZ-207",
+      "Setup": "cathy: POST /orders/7003/refund (id is allocated as 9001 on a fresh reset)"
+    }
+  ],
+  "case_preconditions": [
+    {
+      "Case": "AUTHZ-211",
+      "Setup": "cathy applies ACME10 to order 7001 first so the single-use coupon is exhausted, then carl applies it to 7002"
+    },
+    {
+      "Case": "AUTHZ-210",
+      "Setup": "cathy requests two refunds on order 7003 (e.g. 3000 + 3000); the second must be rejected when patched"
+    }
+  ],
+  "notes": [
+    "Call POST /_lab/reset (X-Lab-Key header) before every case: cases share mutable seed state (e.g. AUTHZ-206 ships order 7003, which BENIGN-202 expects to be paid)."
+  ]
+}
