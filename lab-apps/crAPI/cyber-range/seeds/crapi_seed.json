@@ -1,0 +1,73 @@
+{
+  "schema_version": "1.0",
+  "description": "Synthetic scenario records using crAPI's default test account as owner_a.",
+  "mechanic_api_url": "https://localhost:8443/workshop/api/mechanic/receive_report",
+  "actors": [
+    {
+      "key": "owner_a",
+      "email": "test@example.com",
+      "name": "Test",
+      "number": "9876540001",
+      "password": "Test!123",
+      "vehicle": {
+        "pincode": "123456",
+        "vin": "8IGEF39BZUJ159285"
+      },
+      "community_post": {
+        "title": "Synthetic vehicle service update",
+        "content": "Routine service update for the crAPI seed scenario."
+      },
+      "mechanic_request": {
+        "problem_details": "Routine synthetic diagnostic request for seed data."
+      },
+      "video": {
+        "filename": "crapi-seed-video.mp4"
+      }
+    },
+    {
+      "key": "user_b",
+      "email": "crapi-seed-user-b@example.com",
+      "name": "crAPI Seed User B",
+      "number": "5550101002",
+      "password": "CrAPI-Seed-User-B-2026!"
+    }
+  ],
+  "created": {
+    "owner_a": {
+      "email": "test@example.com",
+      "vehicle": {
+        "id": 4,
+        "uuid": "1929186d-8b67-4163-a208-de52a41f7301",
+        "vin": "8IGEF39BZUJ159285"
+      },
+      "community_post": {
+        "id": "aW44HLfyXxFjc8YQUhtrdk",
+        "title": "Synthetic vehicle service update"
+      },
+      "mechanic_report": {
+        "id": 13,
+        "mechanic_code": "TRAC_JHN"
+      },
+      "video": {
+        "id": 4,
+        "filename": "crapi-seed-video.mp4"
+      },
+      "orders": {
+        "delivered": {
+          "id": 12,
+          "status": "delivered",
+          "product_id": 2
+        },
+        "return_pending": {
+          "id": 13,
+          "status": "return pending",
+          "product_id": 2
+        }
+      }
+    },
+    "user_b": {
+      "email": "crapi-seed-user-b@example.com"
+    }
+  },
+  "last_seeded_at": "2026-11-01T15:56:17.261477+07:00"
+}
