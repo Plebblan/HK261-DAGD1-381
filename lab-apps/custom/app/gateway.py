@@ -13,6 +13,8 @@ from typing import Any
 from urllib.parse import urlparse
 
 import httpx
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import Response
 
 
 class GatewayDenied(RuntimeError): pass
@@ -243,9 +245,6 @@ def create_proxy_app(*, allowlist: str = "runtrace_allowlist.json",
                      events: str = "runtrace_proxy_events.jsonl",
                      profile_id: str = "custom_mock", upstream_base_url: str | None = None):
     """Create a local reverse-proxy listener; upstream is fixed by the app allowlist."""
-    from fastapi import FastAPI, HTTPException, Request
-    from fastapi.responses import Response
-
     engine = SafetyGateway(allowlist, base_url=upstream_base_url, rso_path=rso,
                            event_log=events, profile_id=profile_id)
     app = FastAPI(title=f"Safety Gateway: {profile_id}", docs_url=None, redoc_url=None)
