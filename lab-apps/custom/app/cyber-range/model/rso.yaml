@@ -471,7 +471,8 @@
       "AUTHZ-INV-01..03",
       "AUTHZ-PAY-01..02",
       "AUTHZ-TCK-01",
-      "AUTHZ-REV-01..02"
+      "AUTHZ-REV-01..02",
+      "AUTHZ-021..022"
     ]
   }
 }

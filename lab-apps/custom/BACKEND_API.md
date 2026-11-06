@@ -79,7 +79,9 @@ LAB_VULNERABILITIES=AUTHZ-001 docker compose up -d --force-recreate api
 LAB_VULNERABILITIES= docker compose up -d --force-recreate api
 ```
 
-Seed có 20 case với operation, actor, object, oracle, expected/observed behavior, mapping CWE/OWASP và split development/held-out; có thêm 8 benign cases. `lab_ground_truth` không được expose qua API target. Request/response hashes, actor, operation, case ID và state evidence được ghi vào `http_audit_events`.
+Ground truth duy nhất nằm ở `app/cyber-range/ground_truth/ground_truth.yaml`, gồm 30 planted case và 8 benign case. `family` dùng taxonomy F1–F5 trong `docs/Taxonomy/families.yaml`; `flaw_catalog.yaml` là index trỏ tới nguồn này. Các flaw flag mặc định tắt; `lab_ground_truth` không được expose qua API target. Request/response hashes, actor, operation, case ID, workflow ID, sequence ID, step index và state evidence được ghi vào `http_audit_events`.
+
+Ba trace JSON có sẵn trong `app/cyber-range/traces/`. Chạy từ thư mục `app/` bằng `python runtrace.py --scenario cyber-range/traces/<trace>.json`; runner gửi toàn bộ sequence qua Safety Gateway và gắn metadata sequence vào audit log. Trace tài chính và ticket có state change, nên reset fixture trước mỗi lần replay. Chi tiết về case mapping, family counts và evidence contract nằm trong [`../../docs/GroundTruth_Metrics_Coverage.md`](../../docs/GroundTruth_Metrics_Coverage.md).
 
 Reset toàn bộ seed mock (bao gồm lab sessions) chỉ hoạt động khi bật `LAB_MODE=true` và đặt secret `LAB_ADMIN_TOKEN`; gọi `POST /__lab/reset` với header `X-Lab-Admin-Token`. Mặc định reset bị khóa. Có thể truyền `LAB_MODE` và `LAB_ADMIN_TOKEN` qua environment khi chạy Compose.
 

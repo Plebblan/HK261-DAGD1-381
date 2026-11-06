@@ -12,6 +12,16 @@ from typing import Any
 from gateway import SafetyGateway, GatewayResult
 
 
+def _public_result(value: Any) -> Any:
+    if is_dataclass(value):
+        record = asdict(value)
+        # The proxy needs raw bytes to preserve the target response, but they are
+        # never part of RunTrace evidence (which could otherwise contain tokens).
+        record.pop("response_body", None)
+        return record
+    return value
+
+
 # Use synthetic development identities only. Override with environment variables.
 ACTORS = {
     "customer_a": {"email_env": "LAB_CUSTOMER_A_EMAIL", "password_env": "LAB_CUSTOMER_A_PASSWORD"},
@@ -22,6 +32,7 @@ ACTORS = {
     "admin": {"email_env": "LAB_ADMIN_EMAIL", "password_env": "LAB_ADMIN_PASSWORD"},
     # Aliases used verbatim by workflows.yaml
     "actor-customer-a": {"email_env": "LAB_CUSTOMER_A_EMAIL", "password_env": "LAB_CUSTOMER_A_PASSWORD"},
+    "actor-customer-a2": {"email_env": "LAB_CUSTOMER_A2_EMAIL", "password_env": "LAB_CUSTOMER_A2_PASSWORD"},
     "actor-customer-b": {"email_env": "LAB_CUSTOMER_B_EMAIL", "password_env": "LAB_CUSTOMER_B_PASSWORD"},
     "actor-supplier-a": {"email_env": "LAB_SUPPLIER_A_EMAIL", "password_env": "LAB_SUPPLIER_A_PASSWORD"},
     "actor-supplier-b": {"email_env": "LAB_SUPPLIER_B_EMAIL", "password_env": "LAB_SUPPLIER_B_PASSWORD"},
@@ -46,10 +57,13 @@ DEFAULT_SCENARIO = [
 
 
 class DSLExecutor:
-    def __init__(self, gateway: SafetyGateway, *, run_id: str | None = None):
+    def __init__(self, gateway: SafetyGateway, *, run_id: str | None = None,
+                 workflow_id: str = "trace"):
         self.gateway = gateway
         self.run_id = run_id or str(uuid.uuid4())
-        self.sequence = 0
+        self.workflow_id = workflow_id
+        self.sequence_id = f"{self.run_id}-sequence-001"
+        self.step_idx = 0
         self.tokens: dict[str, str] = {}
         self.results: list[dict] = []
         self.current_actor: str | None = None
@@ -57,9 +71,10 @@ class DSLExecutor:
         self.last_response_by_step: dict[str, Any] = {}
         self.last_http_result: Any = None
 
-    def _next(self): 
-        self.sequence += 1
-        return f"{self.run_id}-{self.sequence:04d}"
+    def _next(self):
+        current = self.step_idx
+        self.step_idx += 1
+        return current
 
     def login(self, actor: str) -> dict:
         cfg = ACTORS.get(actor)
@@ -78,17 +93,25 @@ class DSLExecutor:
                 password = actor_row.get("Password")
             if not email or not password:
                 raise RuntimeError(f"Missing credentials: set {cfg['email_env']}/{cfg['password_env']} or provide actor in rso.yaml.")
-            token = self.gateway.issue_token(actor, email, password, self.run_id)
+            step_idx = self._next()
+            token = self.gateway.issue_token(actor, email, password, self.run_id,
+                                             sequence_id=self.sequence_id, step_idx=step_idx,
+                                             workflow_id=self.workflow_id)
         self.tokens[actor] = token
         self.current_actor = actor
         return {"actor": actor, "authenticated": True}
 
     def call(self, actor: str, method: str, path: str, *, body=None, params=None, headers=None, approval=False):
         if actor not in self.tokens: raise RuntimeError(f"Actor {actor} has no session; call login first.")
+        step_idx = self._next()
+        request_headers = dict(headers or {})
+        request_headers["x-lab-step-index"] = str(step_idx)
+        request_headers["x-lab-workflow-id"] = self.workflow_id
+        request_headers.setdefault("x-lab-valid-request", "true")
         result = self.gateway.send(actor=actor, method=method, path=path, token=self.tokens[actor],
-                                   json_body=body, params=params, headers=headers, run_id=self.run_id,
-                                   sequence_id=self._next(), approval=approval)
-        record = asdict(result) if is_dataclass(result) else result
+                                   json_body=body, params=params, headers=request_headers, run_id=self.run_id,
+                                   sequence_id=self.sequence_id, approval=approval)
+        record = _public_result(result)
         self.results.append(self.gateway.redact(record))
         return result
 
@@ -185,7 +208,7 @@ class DSLExecutor:
                 self.delete(actor, step["path"], step.get("approval", False)) if kind == "delete" else self.read(actor, step["path"]))
         else: raise ValueError(f"Unsupported DSL command: {kind}")
         return {"step_id": step["id"], "dsl": kind, "actor": actor,
-                "result": self.gateway.redact(asdict(value) if is_dataclass(value) else value),
+                "result": self.gateway.redact(_public_result(value)),
                 "assertions": self.assertions[-2:]}
 
     def export_evidence(self, output: str):
@@ -195,10 +218,11 @@ class DSLExecutor:
 
 
 def run_trace(scenario: list[dict] | None = None, *, allowlist="runtrace_allowlist.json",
-              rso="cyber-range/model/rso.yaml", evidence_out="runtrace_evidence.json", dry_run=False) -> list[dict]:
+              rso="cyber-range/model/rso.yaml", evidence_out="runtrace_evidence.json", dry_run=False,
+              workflow_id="trace", proxy_url="http://127.0.0.1:8088") -> list[dict]:
     """Execute a pre-authored trace. Does not inspect planner state or ground truth."""
-    gateway = SafetyGateway(allowlist, dry_run=dry_run, rso_path=rso)
-    dsl = DSLExecutor(gateway)
+    gateway = SafetyGateway(allowlist, dry_run=dry_run, rso_path=rso, proxy_url=None if dry_run else proxy_url)
+    dsl = DSLExecutor(gateway, workflow_id=workflow_id)
     outputs = []
     try:
         for step in scenario or DEFAULT_SCENARIO:
@@ -218,7 +242,10 @@ def main():
     parser.add_argument("--scenario-id", help="Select exactly one scenario from --suite (run each stateful workflow after a clean reset)")
     parser.add_argument("--evidence", default="runtrace_evidence.json")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--proxy-url", default=os.getenv("RUNTRACE_GATEWAY_URL", "http://127.0.0.1:8088"),
+                        help="local Safety Gateway URL (default: %(default)s)")
     args = parser.parse_args()
+    workflow_id = "default-safe-trace"
     if args.suite:
         suite = json.loads(Path(args.suite).read_text(encoding="utf-8"))
         scenarios = suite.get("scenarios", [])
@@ -231,9 +258,15 @@ def main():
         if selected is None:
             raise SystemExit(f"Unknown scenario id: {args.scenario_id}")
         scenario = selected["steps"]
+        workflow_id = selected["id"]
     else:
-        scenario = json.loads(Path(args.scenario).read_text(encoding="utf-8")) if args.scenario else None
-    outputs = run_trace(scenario, allowlist=args.allowlist, rso=args.rso, evidence_out=args.evidence, dry_run=args.dry_run)
+        loaded_scenario = json.loads(Path(args.scenario).read_text(encoding="utf-8")) if args.scenario else None
+        # Trace artifacts may carry metadata beside their ordered `steps` list.
+        scenario = loaded_scenario.get("steps", []) if isinstance(loaded_scenario, dict) else loaded_scenario
+        if isinstance(loaded_scenario, dict):
+            workflow_id = loaded_scenario.get("id", workflow_id)
+    outputs = run_trace(scenario, allowlist=args.allowlist, rso=args.rso, evidence_out=args.evidence,
+                        dry_run=args.dry_run, workflow_id=workflow_id, proxy_url=args.proxy_url)
     for item in outputs:
         print(json.dumps(item, ensure_ascii=False, default=str))
     evidence = json.loads(Path(args.evidence).read_text(encoding="utf-8"))

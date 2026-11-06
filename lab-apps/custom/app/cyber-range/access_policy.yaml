@@ -1,0 +1,86 @@
+schema_version: "0.1"
+app: custom_mock
+status: draft
+taxonomy_ref: docs/Taxonomy/families.yaml
+rso_ref: model/rso.yaml
+default: deny
+
+roles: [anonymous, Customer, Support, Supplier, Admin]
+tenants: [tenant-a, tenant-b, platform]
+relations: [owner, same_tenant_non_owner, cross_tenant, privileged, unauthenticated]
+
+rules:
+  - op: "GET /lab/v1/resources/{resource_id}"
+    allow: [{role: Customer, relation: owner}, {role: Support, relation: same_tenant_non_owner, resource_type: ticket}, {role: Admin}]
+    deny: [{role: Customer, relation: same_tenant_non_owner}, {role: Customer, relation: cross_tenant}]
+  - op: "GET /lab/v1/resources"
+    allow: [{role: Customer, tenant_scope: self}, {role: Support, tenant_scope: self}, {role: Admin, tenant_scope: all}]
+  - op: "PATCH /lab/v1/resources/{resource_id}"
+    allow: [{role: Customer, relation: owner, fields: [Properties.title]}, {role: Support, relation: same_tenant_non_owner, fields: [Properties.priority]}, {role: Admin, fields: [OwnerID, TenantID, State, Properties]}]
+    deny_fields: [OwnerID, TenantID, State, Properties.refund_status, Properties.is_privileged]
+  - op: "DELETE /lab/v1/resources/{resource_id}"
+    allow: [{role: Customer, relation: owner}, {role: Admin}]
+  - op: "POST /lab/v1/resources/{resource_id}/actions/{action}"
+    allow: [{role: Customer, relation: owner, actions: [request_return, refund]}, {role: Support, tenant_scope: self, actions: [assign, close]}, {role: Admin}]
+  - op: "POST /lab/v1/admin/actions/{action}"
+    allow: [{role: Admin}]
+  - op: "GET /lab/v1/invoices"
+    allow: [{role: Supplier, tenant_scope: self}, {role: Admin, tenant_scope: all}]
+  - op: "POST /lab/v1/invoices"
+    allow: [{role: Supplier}, {role: Admin}]
+  - op: "GET /lab/v1/invoices/{invoice_id}"
+    allow: [{role: Supplier, relation: same_tenant_non_owner}, {role: Admin}]
+    deny: [{role: Supplier, relation: cross_tenant}]
+  - op: "PATCH /lab/v1/invoices/{invoice_id}"
+    allow: [{role: Supplier, relation: owner, fields: [LineItems]}, {role: Admin, fields: [Amount, LineItems]}]
+    deny_fields: [Amount]
+  - op: "DELETE /lab/v1/invoices/{invoice_id}"
+    allow: [{role: Supplier, relation: owner, state: draft}, {role: Admin}]
+  - op: "POST /lab/v1/invoices/{invoice_id}/submit"
+    allow: [{role: Supplier, relation: owner}, {role: Admin}]
+  - op: "POST /lab/v1/invoices/{invoice_id}/approve"
+    allow: [{role: Admin}]
+  - op: "POST /lab/v1/invoices/{invoice_id}/pay"
+    allow: [{role: Admin}]
+  - op: "POST /lab/v1/invoices/{invoice_id}/void"
+    allow: [{role: Supplier, relation: owner, state: [draft, submitted]}, {role: Admin}]
+  - op: "GET /lab/v1/payouts"
+    allow: [{role: Admin}]
+  - op: "GET /lab/v1/payouts/{payout_id}"
+    allow: [{role: Customer, tenant_scope: self}, {role: Support, tenant_scope: self}, {role: Supplier, tenant_scope: self}, {role: Admin}]
+  - op: "POST /lab/v1/payouts/{payout_id}/approve"
+    allow: [{role: Admin}]
+  - op: "POST /lab/v1/payouts/{payout_id}/release"
+    allow: [{role: Admin}]
+  - op: "POST /lab/v1/tickets/{resource_id}/escalate"
+    allow: [{role: Support, relation: same_tenant_non_owner}, {role: Admin}]
+  - op: "POST /lab/v1/tickets/{resource_id}/resolve"
+    allow: [{role: Admin}]
+  - op: "GET /lab/v1/orders/{resource_id}/reviews"
+    allow: [{role: Customer}, {role: Support}, {role: Supplier}, {role: Admin}]
+  - op: "POST /lab/v1/orders/{resource_id}/reviews"
+    allow: [{role: Customer, relation: owner, fields: [Rating, Comment]}]
+    deny_fields: [Verified, Featured]
+  - op: "PATCH /lab/v1/reviews/{review_id}"
+    allow: [{role: Customer, relation: owner, fields: [Rating, Comment]}, {role: Admin, fields: [Rating, Comment, Verified, Featured]}]
+    deny_fields: [Verified, Featured]
+
+field_policy:
+  resource:
+    customer_read: [ID, ResourceType, State, Properties.title, Properties.classification]
+    support_read: [ID, ResourceType, State, Properties.subject, Properties.priority]
+    customer_write: [Properties.title]
+    support_write: [Properties.priority]
+    admin_write: [OwnerID, TenantID, State, Properties]
+  invoice:
+    supplier_read: [ID, TenantID, OwnerID, Amount, LineItems, Status, CreatedAt]
+    supplier_write: [LineItems]
+    admin_write: [Amount, LineItems]
+  review:
+    customer_read: [ID, OrderID, OwnerID, Rating, Comment, Verified, Featured]
+    customer_write: [Rating, Comment]
+    admin_write: [Rating, Comment, Verified, Featured]
+
+notes:
+  - "Authorization rules describe intended safe behavior; catalog cases describe deliberately gated flaws."
+  - "Anonymous authentication bypass and rate/volume abuse are out of scope per taxonomy decisions D2 and D4."

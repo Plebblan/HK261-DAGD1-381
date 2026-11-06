@@ -1,0 +1,123 @@
+{
+  "schema_version": "1.0",
+  "app": "custom_mock",
+  "status": "draft",
+  "taxonomy_ref": "docs/Taxonomy/families.yaml",
+  "evidence_common": [
+    "request",
+    "response",
+    "status",
+    "body_diff",
+    "before_after_state",
+    "test_actor",
+    "seed",
+    "action_id",
+    "timestamp",
+    "raw_hash"
+  ],
+  "defaults": {
+    "verification_status": "pending-human-review",
+    "verified_by": null,
+    "verified_at": null
+  },
+  "family_profiles": {
+    "F1": {
+      "oracle_type": "differential_authorization",
+      "mapping": {
+        "cwe": "CWE-639",
+        "owasp_api_2023": "API1:2023"
+      },
+      "evidence_required": [
+        "owner_baseline_response",
+        "test_actor_response",
+        "object_id_origin"
+      ]
+    },
+    "F2": {
+      "oracle_type": "differential_authorization",
+      "mapping": {
+        "cwe": "CWE-285",
+        "owasp_api_2023": "API5:2023"
+      },
+      "evidence_required": [
+        "role_matrix_cell",
+        "before_after_state"
+      ]
+    },
+    "F3": {
+      "oracle_type": "property_policy_diff",
+      "mapping": {
+        "cwe": "CWE-915",
+        "owasp_api_2023": "API3:2023"
+      },
+      "evidence_required": [
+        "request_body",
+        "readback_before",
+        "readback_after"
+      ]
+    },
+    "F4": {
+      "oracle_type": "differential_authorization",
+      "mapping": {
+        "cwe": "CWE-639",
+        "owasp_api_2023": "API1:2023"
+      },
+      "evidence_required": [
+        "actor_tenant_id",
+        "object_tenant_id"
+      ]
+    },
+    "F5": {
+      "oracle_type": "state_invariant",
+      "mapping": {
+        "cwe": "CWE-841",
+        "owasp_api_2023": "API6:2023"
+      },
+      "evidence_required": [
+        "attempted_edge",
+        "violated_invariant",
+        "before_after_state"
+      ]
+    }
+  },
+  "cases": [
+    {"case_id":"AUTHZ-001","family":"F4","scenario":"read cross-tenant private document","operation_id":"get_resource","method":"GET","path":"/lab/v1/resources/doc-b-001","oracle_type":"differential_authorization","expected_safe":"403","is_benign":false,"split":"development","attacker":"actor-customer-a","victim":"actor-customer-b","object_id":"doc-b-001","observed_when_enabled":"200 + victim data","flag":"AUTHZ-001"},
+    {"case_id":"AUTHZ-002","family":"F4","scenario":"read another customer's order","operation_id":"get_resource","method":"GET","path":"/lab/v1/resources/order-a-001","oracle_type":"differential_authorization","expected_safe":"403","is_benign":false,"split":"development","attacker":"actor-customer-b","victim":"actor-customer-a","object_id":"order-a-001","observed_when_enabled":"200 + victim data","flag":"AUTHZ-002"},
+    {"case_id":"AUTHZ-003","family":"F4","scenario":"read another customer's ticket","operation_id":"get_resource","method":"GET","path":"/lab/v1/resources/ticket-a-001","oracle_type":"differential_authorization","expected_safe":"403","is_benign":false,"split":"development","attacker":"actor-customer-b","victim":"actor-customer-a","object_id":"ticket-a-001","observed_when_enabled":"200 + victim data","flag":"AUTHZ-003"},
+    {"case_id":"AUTHZ-004","family":"F1","scenario":"same-tenant non-owner document read","operation_id":"get_resource","method":"GET","path":"/lab/v1/resources/doc-a-002","oracle_type":"differential_authorization","expected_safe":"403","is_benign":false,"split":"development","attacker":"actor-customer-a","victim":"actor-customer-a2","object_id":"doc-a-002","observed_when_enabled":"200 + victim data","flag":"AUTHZ-004"},
+    {"case_id":"AUTHZ-005","family":"F2","scenario":"customer invokes admin archive action","operation_id":"admin_action","method":"POST","path":"/lab/v1/admin/actions/archive","oracle_type":"differential_authorization","expected_safe":"403","is_benign":false,"split":"development","attacker":"actor-customer-a","observed_when_enabled":"200 + action accepted","flag":"AUTHZ-005"},
+    {"case_id":"AUTHZ-006","family":"F2","scenario":"support invokes admin export action","operation_id":"admin_action","method":"POST","path":"/lab/v1/admin/actions/export","oracle_type":"differential_authorization","expected_safe":"403","is_benign":false,"split":"development","attacker":"actor-support-a","observed_when_enabled":"200 + action accepted","flag":"AUTHZ-006"},
+    {"case_id":"AUTHZ-007","family":"F4","scenario":"customer deletes another actor resource","operation_id":"delete_resource","method":"DELETE","path":"/lab/v1/resources/doc-b-001","oracle_type":"differential_authorization","expected_safe":"403","is_benign":false,"split":"development","attacker":"actor-customer-a","victim":"actor-customer-b","object_id":"doc-b-001","observed_when_enabled":"204 + resource deleted","flag":"AUTHZ-007"},
+    {"case_id":"AUTHZ-008","family":"F3","scenario":"customer changes resource owner","operation_id":"update_resource","method":"PATCH","path":"/lab/v1/resources/doc-a-001","oracle_type":"property_policy_diff","expected_safe":"400 + field rejected","is_benign":false,"split":"development","attacker":"actor-customer-a","victim":"actor-customer-a","object_id":"doc-a-001","observed_when_enabled":"200 + OwnerID changed","flag":"AUTHZ-008","request_body":{"OwnerID":"actor-customer-b"},"subtype":"W"},
+    {"case_id":"AUTHZ-009","family":"F3","scenario":"customer changes tenant identifier","operation_id":"update_resource","method":"PATCH","path":"/lab/v1/resources/doc-a-001","oracle_type":"property_policy_diff","expected_safe":"400 + field rejected","is_benign":false,"split":"development","attacker":"actor-customer-a","victim":"actor-customer-a","object_id":"doc-a-001","observed_when_enabled":"200 + TenantID changed","flag":"AUTHZ-009","request_body":{"TenantID":"tenant-b"},"subtype":"W"},
+    {"case_id":"AUTHZ-010","family":"F3","scenario":"customer changes refund status","operation_id":"update_resource","method":"PATCH","path":"/lab/v1/resources/order-a-001","oracle_type":"property_policy_diff","expected_safe":"400 + field rejected","is_benign":false,"split":"development","attacker":"actor-customer-a","victim":"actor-customer-a","object_id":"order-a-001","observed_when_enabled":"200 + refund_status changed","flag":"AUTHZ-010","request_body":{"Properties":{"refund_status":"settled"}},"subtype":"W"},
+    {"case_id":"AUTHZ-011","family":"F4","scenario":"list leaks resources from another tenant","operation_id":"list_resources","method":"GET","path":"/lab/v1/resources","oracle_type":"differential_authorization","expected_safe":"tenant-a resources only","is_benign":false,"split":"development","attacker":"actor-customer-a","victim":"tenant-b","object_id":"tenant-b","observed_when_enabled":"200 + tenant-b resources","flag":"AUTHZ-011","evidence_required":["list_contents"]},
+    {"case_id":"AUTHZ-012","family":"F4","scenario":"search crosses tenant boundary","operation_id":"search_resources","method":"GET","path":"/lab/v1/resources?tenant_id=tenant-b","oracle_type":"differential_authorization","expected_safe":"empty or 403","is_benign":false,"split":"development","attacker":"actor-customer-a","victim":"tenant-b","object_id":"tenant-b","observed_when_enabled":"200 + tenant-b matches","flag":"AUTHZ-012","evidence_required":["list_contents"]},
+    {"case_id":"AUTHZ-013","family":"F5","scenario":"refund before delivery","operation_id":"transition_resource","method":"POST","path":"/lab/v1/resources/order-b-001/actions/refund","oracle_type":"state_invariant","expected_safe":"409 + state unchanged","is_benign":false,"split":"development","attacker":"actor-customer-b","victim":"actor-customer-b","object_id":"order-b-001","observed_when_enabled":"200 + state returned","flag":"AUTHZ-013"},
+    {"case_id":"AUTHZ-014","family":"F5","scenario":"repeat refund after owner return flow has reached returned state (request_return then admin approve_refund)","operation_id":"transition_resource","method":"POST","path":"/lab/v1/resources/order-a-001/actions/refund","oracle_type":"state_invariant","expected_safe":"409 + state unchanged","is_benign":false,"split":"development","attacker":"actor-customer-a","victim":"actor-customer-a","object_id":"order-a-001","observed_when_enabled":"200 + repeated transition","flag":"AUTHZ-014","setup_steps":[{"method":"POST","path":"/lab/v1/resources/order-a-001/actions/request_return","actor":"actor-customer-a"},{"method":"POST","path":"/lab/v1/resources/order-a-001/actions/approve_refund","actor":"actor-admin-a"}],"request_headers":{"x-lab-case-id":"AUTHZ-014"}},
+    {"case_id":"AUTHZ-015","family":"F5","scenario":"close ticket before assignment","operation_id":"transition_resource","method":"POST","path":"/lab/v1/resources/ticket-a-001/actions/close","oracle_type":"state_invariant","expected_safe":"403 or 409 + unchanged","is_benign":false,"split":"development","attacker":"actor-customer-a","victim":"actor-customer-a","object_id":"ticket-a-001","observed_when_enabled":"200 + state closed","flag":"AUTHZ-015"},
+    {"case_id":"AUTHZ-016","family":"F4","scenario":"read cross-tenant private attachment","operation_id":"get_resource","method":"GET","path":"/lab/v1/resources/attachment-b-001","oracle_type":"differential_authorization","expected_safe":"403","is_benign":false,"split":"held-out","attacker":"actor-customer-a","victim":"actor-customer-b","object_id":"attachment-b-001","observed_when_enabled":"200 + victim data","flag":"AUTHZ-016"},
+    {"case_id":"AUTHZ-017","family":"F3","scenario":"support changes admin-only property","operation_id":"update_resource","method":"PATCH","path":"/lab/v1/resources/doc-a-001","oracle_type":"property_policy_diff","expected_safe":"403 + unchanged","is_benign":false,"split":"held-out","attacker":"actor-support-a","victim":"actor-customer-a","object_id":"doc-a-001","observed_when_enabled":"200 + privileged field changed","flag":"AUTHZ-017","request_body":{"Properties":{"is_privileged":true}},"subtype":"W"},
+    {"case_id":"AUTHZ-018","family":"F3","scenario":"mass assignment of privileged flag","operation_id":"update_resource","method":"PATCH","path":"/lab/v1/resources/doc-a-001","oracle_type":"property_policy_diff","expected_safe":"400 + field rejected","is_benign":false,"split":"held-out","attacker":"actor-customer-a","victim":"actor-customer-a","object_id":"doc-a-001","observed_when_enabled":"200 + is_privileged changed","flag":"AUTHZ-018","request_body":{"Properties":{"is_privileged":true}},"subtype":"W"},
+    {"case_id":"AUTHZ-019","family":"F4","scenario":"enumerate orders across tenant","operation_id":"list_resources","method":"GET","path":"/lab/v1/resources?resource_type=order","oracle_type":"differential_authorization","expected_safe":"tenant-a orders only","is_benign":false,"split":"held-out","attacker":"actor-customer-a","victim":"tenant-b","object_id":"order-b-001","observed_when_enabled":"200 + tenant-b order","flag":"AUTHZ-019","evidence_required":["list_contents"]},
+    {"case_id":"AUTHZ-020","family":"F5","scenario":"held-out: repeat refund after owner return flow has reached returned state (request_return then admin approve_refund)","operation_id":"transition_resource","method":"POST","path":"/lab/v1/resources/order-heldout-001/actions/refund","oracle_type":"state_invariant","expected_safe":"409 + state unchanged","is_benign":false,"split":"held-out","attacker":"actor-customer-a","victim":"actor-customer-a","object_id":"order-heldout-001","observed_when_enabled":"200 + repeated transition","flag":"AUTHZ-020","setup_steps":[{"method":"POST","path":"/lab/v1/resources/order-heldout-001/actions/request_return","actor":"actor-customer-a"},{"method":"POST","path":"/lab/v1/resources/order-heldout-001/actions/approve_refund","actor":"actor-admin-a"}],"request_headers":{"x-lab-case-id":"AUTHZ-020"}},
+    {"case_id":"BENIGN-001","family":"F1","scenario":"200 + own resource","operation_id":"get_resource","method":"GET","path":"/lab/v1/resources/doc-a-001","oracle_type":"benign_behavior","expected_safe":"200 + own resource","is_benign":true,"split":"development","attacker":"actor-customer-a","object_id":"doc-a-001","verification_status":"fixture"},
+    {"case_id":"BENIGN-002","family":"F4","scenario":"403 + no resource data","operation_id":"get_resource","method":"GET","path":"/lab/v1/resources/doc-b-001","oracle_type":"benign_behavior","expected_safe":"403 + no resource data","is_benign":true,"split":"development","attacker":"actor-customer-a","object_id":"doc-b-001","verification_status":"fixture"},
+    {"case_id":"BENIGN-003","family":"F2","scenario":"200 + action accepted","operation_id":"admin_action","method":"POST","path":"/lab/v1/admin/actions/archive","oracle_type":"benign_behavior","expected_safe":"200 + action accepted","is_benign":true,"split":"development","attacker":"actor-admin-a","verification_status":"fixture"},
+    {"case_id":"BENIGN-004","family":"F2","scenario":"403 + action not executed","operation_id":"admin_action","method":"POST","path":"/lab/v1/admin/actions/archive","oracle_type":"benign_behavior","expected_safe":"403 + action not executed","is_benign":true,"split":"development","attacker":"actor-customer-a","verification_status":"fixture"},
+    {"case_id":"BENIGN-005","family":"F3","scenario":"200 + permitted title update","operation_id":"update_resource","method":"PATCH","path":"/lab/v1/resources/doc-a-001","oracle_type":"benign_behavior","expected_safe":"200 + permitted title update","is_benign":true,"split":"development","attacker":"actor-customer-a","object_id":"doc-a-001","request_body":{"Properties":{"title":"Updated synthetic title"}},"verification_status":"fixture"},
+    {"case_id":"BENIGN-006","family":"F4","scenario":"tenant-a resources only","operation_id":"list_resources","method":"GET","path":"/lab/v1/resources","oracle_type":"benign_behavior","expected_safe":"tenant-a resources only","is_benign":true,"split":"development","attacker":"actor-customer-a","verification_status":"fixture","evidence_required":["list_contents"]},
+    {"case_id":"BENIGN-007","family":"F5","scenario":"valid delivered-to-return_pending transition","operation_id":"transition_resource","method":"POST","path":"/lab/v1/resources/order-a-001/actions/request_return","oracle_type":"benign_behavior","expected_safe":"valid delivered-to-return_pending transition","is_benign":true,"split":"development","attacker":"actor-customer-a","object_id":"order-a-001","verification_status":"fixture"},
+    {"case_id":"BENIGN-008","family":"F5","scenario":"valid assigned-to-closed transition; first assign ticket-a-001 with actor-support-a","operation_id":"transition_resource","method":"POST","path":"/lab/v1/resources/ticket-a-001/actions/close","oracle_type":"benign_behavior","expected_safe":"valid assigned-to-closed transition","is_benign":true,"split":"development","attacker":"actor-support-a","object_id":"ticket-a-001","setup_steps":[{"method":"POST","path":"/lab/v1/resources/ticket-a-001/actions/assign","actor":"actor-support-a"}],"verification_status":"fixture"},
+    {"case_id":"AUTHZ-INV-01","family":"F4","scenario":"supplier from tenant-a reads tenant-b invoice","operation_id":"get_invoice","method":"GET","path":"/lab/v1/invoices/invoice-b-001","oracle_type":"differential_authorization","expected_safe":"403","is_benign":false,"split":"development","attacker":"actor-supplier-a","victim":"actor-supplier-b","object_id":"invoice-b-001","observed_when_enabled":"200 + tenant-b invoice data","flag":"AUTHZ-INV-01"},
+    {"case_id":"AUTHZ-INV-02","family":"F3","scenario":"supplier changes draft invoice Amount directly","operation_id":"update_invoice","method":"PATCH","path":"/lab/v1/invoices/invoice-a-001","oracle_type":"property_policy_diff","expected_safe":"400 + Amount rejected","is_benign":false,"split":"development","attacker":"actor-supplier-a","victim":"actor-supplier-a","object_id":"invoice-a-001","observed_when_enabled":"200 + Amount changed","flag":"AUTHZ-INV-02","request_body":{"Amount":1251.0},"subtype":"W"},
+    {"case_id":"AUTHZ-INV-03","family":"F2","scenario":"supplier approves submitted invoice","operation_id":"approve_invoice","method":"POST","path":"/lab/v1/invoices/invoice-a-002/approve","oracle_type":"differential_authorization","expected_safe":"403","is_benign":false,"split":"development","attacker":"actor-supplier-a","victim":"actor-supplier-a","object_id":"invoice-a-002","observed_when_enabled":"200 + state approved","flag":"AUTHZ-INV-03"},
+    {"case_id":"AUTHZ-PAY-01","family":"F2","scenario":"supplier lists admin-only payouts","operation_id":"list_payouts","method":"GET","path":"/lab/v1/payouts","oracle_type":"differential_authorization","expected_safe":"403","is_benign":false,"split":"development","attacker":"actor-supplier-a","observed_when_enabled":"200 + payout list","flag":"AUTHZ-PAY-01"},
+    {"case_id":"AUTHZ-PAY-02","family":"F2","scenario":"supplier approves own-tenant payout","operation_id":"approve_payout","method":"POST","path":"/lab/v1/payouts/payout-a-001/approve","oracle_type":"differential_authorization","expected_safe":"403","is_benign":false,"split":"development","attacker":"actor-supplier-a","victim":"actor-supplier-a","object_id":"payout-a-001","observed_when_enabled":"200 + state approved","flag":"AUTHZ-PAY-02"},
+    {"case_id":"AUTHZ-TCK-01","family":"F4","scenario":"support resolves escalated ticket from another tenant","operation_id":"resolve_ticket","method":"POST","path":"/lab/v1/tickets/ticket-b-001/resolve","oracle_type":"differential_authorization","expected_safe":"403","is_benign":false,"split":"development","attacker":"actor-support-a","victim":"actor-customer-b","object_id":"ticket-b-001","observed_when_enabled":"200 + state resolved","flag":"AUTHZ-TCK-01","secondary_families":["F5"]},
+    {"case_id":"AUTHZ-REV-01","family":"F3","scenario":"customer attempts to set Featured while creating review on own delivered order","operation_id":"create_review","method":"POST","path":"/lab/v1/orders/order-a-001/reviews","oracle_type":"property_policy_diff","expected_safe":"201 + Featured ignored","is_benign":false,"split":"development","attacker":"actor-customer-a","victim":"actor-customer-a","object_id":"order-a-001","observed_when_enabled":"201 + Featured true","flag":"AUTHZ-REV-01","request_body":{"Rating":5,"Comment":"Synthetic test review","Featured":true},"subtype":"W"},
+    {"case_id":"AUTHZ-REV-02","family":"F3","scenario":"customer sets Verified or Featured on own review after creating it","operation_id":"update_review","method":"PATCH","path":"/lab/v1/reviews/review-a-001","oracle_type":"property_policy_diff","expected_safe":"400 + privileged fields rejected","is_benign":false,"split":"development","attacker":"actor-customer-a","victim":"actor-customer-a","object_id":"review-a-001","observed_when_enabled":"200 + privileged field changed","flag":"AUTHZ-REV-02","request_body":{"Featured":true},"subtype":"W"},
+    {"case_id":"AUTHZ-021","family":"F1","scenario":"same-tenant non-owner reads another customer order","operation_id":"get_resource","method":"GET","path":"/lab/v1/resources/order-a-001","oracle_type":"differential_authorization","expected_safe":"403","is_benign":false,"split":"development","attacker":"actor-customer-a2","victim":"actor-customer-a","object_id":"order-a-001","observed_when_enabled":"200 + same-tenant victim order data","flag":"AUTHZ-021","request_headers":{"x-lab-case-id":"AUTHZ-021"}},
+    {"case_id":"AUTHZ-022","family":"F1","scenario":"same-tenant non-owner reads another customer private document","operation_id":"get_resource","method":"GET","path":"/lab/v1/resources/doc-a-001","oracle_type":"differential_authorization","expected_safe":"403","is_benign":false,"split":"development","attacker":"actor-customer-a2","victim":"actor-customer-a","object_id":"doc-a-001","observed_when_enabled":"200 + same-tenant victim document data","flag":"AUTHZ-022","request_headers":{"x-lab-case-id":"AUTHZ-022"}}
+  ]
+}

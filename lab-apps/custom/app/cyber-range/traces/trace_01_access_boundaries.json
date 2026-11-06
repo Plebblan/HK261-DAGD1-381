@@ -1,0 +1,18 @@
+{
+  "id": "custom-trace-01-access-boundaries",
+  "name": "Owner baseline, same-tenant F1, and cross-tenant F4 probes",
+  "reset_required": false,
+  "flags": "disabled",
+  "steps": [
+    {"id": "login_customer_a", "dsl": "login", "actor": "actor-customer-a"},
+    {"id": "owner_reads_own_document", "dsl": "request", "actor": "actor-customer-a", "method": "GET", "path": "/lab/v1/resources/doc-a-001", "expect_status": 200},
+    {"id": "same_tenant_non_owner_denied", "dsl": "request", "actor": "actor-customer-a", "method": "GET", "path": "/lab/v1/resources/doc-a-002", "headers": {"x-lab-case-id": "AUTHZ-004"}, "expect_status": 403},
+    {"id": "login_customer_a2", "dsl": "login", "actor": "actor-customer-a2"},
+    {"id": "same_tenant_order_non_owner_denied", "dsl": "request", "actor": "actor-customer-a2", "method": "GET", "path": "/lab/v1/resources/order-a-001", "headers": {"x-lab-case-id": "AUTHZ-021"}, "expect_status": 403},
+    {"id": "same_tenant_document_non_owner_denied", "dsl": "request", "actor": "actor-customer-a2", "method": "GET", "path": "/lab/v1/resources/doc-a-001", "headers": {"x-lab-case-id": "AUTHZ-022"}, "expect_status": 403},
+    {"id": "cross_tenant_document_denied", "dsl": "request", "actor": "actor-customer-a", "method": "GET", "path": "/lab/v1/resources/doc-b-001", "headers": {"x-lab-case-id": "AUTHZ-001"}, "expect_status": 403},
+    {"id": "login_customer_b", "dsl": "login", "actor": "actor-customer-b"},
+    {"id": "cross_tenant_order_denied", "dsl": "request", "actor": "actor-customer-b", "method": "GET", "path": "/lab/v1/resources/order-a-001", "headers": {"x-lab-case-id": "AUTHZ-002"}, "expect_status": 403},
+    {"id": "customer_a_lists_own_tenant", "dsl": "request", "actor": "actor-customer-a", "method": "GET", "path": "/lab/v1/resources", "expect_status": 200}
+  ]
+}
