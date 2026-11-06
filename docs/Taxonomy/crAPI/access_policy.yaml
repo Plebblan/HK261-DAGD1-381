@@ -1,18 +1,16 @@
 schema_version: "0.1"
 app: crapi
 taxonomy_ref: docs/Taxonomy/families.yaml
-              docs/Taxonomy/crAPI/flaw_catalog.yaml
+flaw_catalog_ref: docs/Taxonomy/crAPI/flaw_catalog.yaml
 
-roles: [anonymous, user, admin]
-relations: [owner, non-owner, privileged, unauthenticated]
 default: deny
 role-relation mapping to flaw_catalog:
-| Catalog actor | Policy role | Relationship |
-| ------------- | ----------- | ------------ |
-| owner_a | user | owner |
-| user_b | user | non-owner |
-| admin | admin | privileged |
-| anonymous | anonymous | unauthenticated |
+actors:
+  owner_a:   {role: user}
+  user_b:    {role: user}
+  admin:     {role: admin}
+  anonymous: {role: anonymous}
+relations: [owner, non_owner]
 
 rules:
   - op: GET /community/api/v2/community/posts/recent
@@ -29,13 +27,23 @@ rules:
     allow: [{role: user, relation: owner}, {role: admin}]
   - op: DELETE /identity/api/v2/admin/videos/{video_id}
     allow: [{role: admin}]
+  - op: GET /workshop/api/mechanic/mechanic_report?report_id={report_id}
+    allow: [{role: user, relation: owner}, {role: admin}]
 
 field_policy:
   community_post:
+    allowed_set_source: captured_reference   # build from owner_a's real response, don't hand-write
     read:
-      anonymous: [id, author, title, content, created_at]
-      user: [id, author, title, content, created_at]
-      admin: [id, author, title, content, created_at, vehicle_id]
+      anonymous: [id, title, content, created_at, author.nickname, author.email, author.profile_pic_url]  
+      user:      [id, title, content, created_at, author.nickname, author.email, author.profile_pic_url]
+      admin:     [id, title, content, created_at, author.nickname, author.email, author.profile_pic_url, author.vehicleid]
+  video:
+    read:
+      user:  [id, video_name]
+      admin: [id, video_name, conversion_params]
+    write:
+      user:  [video_name]
+      admin: [video_name, conversion_params]   # admin keeps user's writable set
   order:
     read:
       user: [id, status, quantity, total_amount, item_name]
@@ -43,26 +51,3 @@ field_policy:
     write:
       user: [status]
       admin: [status, quantity]
-  video:
-    read:  
-      user: [id, video_name] 
-      admin: [id, video_name, conversion_params]
-    write: 
-      user: [video_name]
-      admin: [conversion_params]
-
-business_state_graph:
-  order:
-    states:
-      - delivered
-      - return pending
-      - returned
-
-    transitions:
-      - from: delivered
-        to: return pending
-        actor: user
-
-      - from: return pending
-        to: returned
-        actor: admin

@@ -25,32 +25,40 @@ entities:
       returned:
         description: Return has been completed.
         terminal: true
+    
+    initial: delivered
 
     transitions:
       - id: ORDER-T01
         from: delivered
         to: "return pending"
-        actor:
-          role: user
-          relation: owner
+        operation: "POST /workshop/api/shop/orders/return_order?order_id={order_id}"
+        actor: {role: user, relation: owner}
         status: draft
 
       - id: ORDER-T02
         from: "return pending"
         to: returned
-        actor:
-          role: admin
-        status: draft
+        operation: "PUT /workshop/api/shop/orders/{order_id}"
+        request_body: {status: returned}
+        actor: {role: admin}
+        status: draft   # reference run must confirm admin can do this
+
+    negative_edges:
+      generate: true            # every (from, to) pair not in transitions, including skip and repeat
+      exclude: []               # list pairs the app handles as legitimate no-ops
 
     invariants:
       - id: ORDER-I01
         description: A completed return cannot be processed again.
-        condition: returned_is_terminal
+        observe: {read: "GET /workshop/api/shop/orders/{order_id}", field: status}
+        holds_if: "status == returned after any further transition attempt"
         status: proposed
 
       - id: ORDER-I02
         description: A return must not be completed more than once.
-        condition: refund_issued_at_most_once
+        observe: {read: "GET /workshop/api/shop/orders/{order_id}", field: refund_history}   # admin-readable per field_policy
+        holds_if: "len(refund_history) <= 1"
         status: proposed
 
 evaluation:

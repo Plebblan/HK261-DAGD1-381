@@ -36,7 +36,16 @@ python runtrace.py \
   --allowlist runtrace_allowlist.json \
   --rso cyber-range/model/rso.yaml \
   --evidence /tmp/custom-trace-01.json
+
+#venv
+python runtrace.py \
+  --proxy-url http://127.0.0.1:8088 \
+  --scenario cyber-range/traces/trace_01_access_boundaries.json \
+  --allowlist runtrace_allowlist.json \
+  --rso cyber-range/model/rso.yaml \
+  --evidence /tmp/custom-trace-01.json
 ```
+
 
 The proxy writes redacted capture events to `app/runtrace_proxy_events.jsonl`.
 `gateway_profile.json` is the per-app runtime profile; `access_policy.yaml` and
