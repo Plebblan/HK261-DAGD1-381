@@ -1,46 +1,55 @@
-# Inlanefreight API mock backend
+# Inlanefreight API mock and custom authorization range
 
-MongoDB-backed backend for locally exercising the endpoints in `docs/app1/openapi.json`.
-It is a mock implementation: it accepts the contract's routes and common JSON CRUD flows,
-but does not reproduce the original service's business rules or authentication.
-
-## Run with Docker
+This folder contains the FastAPI/MongoDB mock target. The root compose file is
+`../docker-compose.yml`; run commands from `lab-apps/`:
 
 ```sh
-docker compose up --build
+docker compose up --build -d
 ```
 
-- Swagger UI: <http://localhost:8000/docs>
-- API health: <http://localhost:8000/health>
-- MongoDB: `mongodb://localhost:27017` (database `inlanefreight_api`)
+The API is available on `http://localhost:8000`. See [BACKEND_API.md](BACKEND_API.md)
+for seeded sign-in accounts and API examples.
 
-Example:
+## Cyber Range
+
+The app-specific model, policy, state graph, flaw catalog, seed objects, ground
+truth, workflows, and traces are under `app/cyber-range/`. Ground truth follows
+the shared F1–F5 taxonomy and contains 30 planted cases plus 8 benign cases.
+Planted vulnerability flags are disabled by default.
+
+Run the app-scoped Safety Gateway after starting the API. It listens only on
+loopback and forwards to the fixed custom API upstream in its profile. RunTrace
+must send through the proxy so each request gets an event correlated with the
+API audit log by request ID:
 
 ```sh
-curl -X POST http://localhost:8000/api/v1/customers \
-  -H 'Content-Type: application/json' \
-  -d '{"NewCustomer":{"Name":"Demo Customer","Email":"demo@example.test","PhoneNumber":"0900000000","BirthDate":"2000-01-01","Password":"demo"}}'
-curl http://localhost:8000/api/v1/customers
+cd app
+python gateway.py --serve --profile gateway_profile.json
 ```
 
-Demo data and sign-in accounts are loaded automatically from `app/seed.py`. See [BACKEND_API.md](BACKEND_API.md) for the seed accounts and route examples. Data persists in the `mongo_data` Docker volume.
-To clear the local test database, run `docker compose down -v`.
-
-## Custom Cyber Range apps (TenantDesk and ShopFlow)
-
-Two self-contained, in-memory FastAPI apps live in `app/custom/` (no MongoDB needed). Each planted flaw is a named switch.
+In a second terminal, run one ordered trace:
 
 ```sh
-docker compose --profile custom up --build tenantdesk shopflow
+cd app
+python runtrace.py \
+  --scenario cyber-range/traces/trace_01_access_boundaries.json \
+  --allowlist runtrace_allowlist.json \
+  --rso cyber-range/model/rso.yaml \
+  --evidence /tmp/custom-trace-01.json
 ```
 
-| App | URL | Flaws | Accounts (password `pw-<username>`) |
-| --- | --- | --- | --- |
-| TenantDesk | <http://localhost:8001/docs> | `TD-01`..`TD-17` | alice, adam, amy, ann (acme); gina, greg, gus (globex) |
-| ShopFlow | <http://localhost:8002/docs> | `SF-01`..`SF-14` | olga, sam, cathy, carl (acme-shop); greta, steve, chris (globex-shop) |
+The proxy writes redacted capture events to `app/runtrace_proxy_events.jsonl`.
+`gateway_profile.json` is the per-app runtime profile; `access_policy.yaml` and
+`business_state_graph.yaml` are oracle inputs and do not control forwarding.
+Use `python runtrace.py --dry-run ...` to validate trace policy without a
+running listener or API.
 
-- Choose flaws with `TD_ENABLED_FLAWS` / `SF_ENABLED_FLAWS`: `ALL` (default), `NONE` (patched twin) or a list such as `TD-01,TD-04`.
-- Control plane (header `X-Lab-Key`, default `lab-only-synthetic-key`): `POST /_lab/reset`, `GET /_lab/state`, `GET /_lab/audit`, `GET /_lab/health`. Reset before every case, because cases share mutable seed state.
-- Ground truth: `cyber-range/ground_truth/planted_cases_custom.csv` and `cyber-range/schema/ground_truth.json`; model, workflows and seed objects are the `*_custom` files under `cyber-range/`. Cases AUTHZ-113, AUTHZ-207 and AUTHZ-211 need setup steps, listed in `seed/objects_custom.json`.
-- Checks: `python cyber-range/validate_custom.py` (stdlib only) verifies that the artifacts, code and OpenAPI docs agree; `pytest tests` replays every planted and benign case (needs `pip install pytest httpx`).
+Repeat with `trace_02_financial_workflow.json` or
+`trace_03_ticket_state_and_tenant.json`. Reset/reseed the lab fixtures before
+each stateful trace. Keep each trace run isolated; traces share one `run_id`,
+`workflow_id`, `sequence_id`, and ordered `step_idx` values in the audit log.
+Use one `LAB_VULNERABILITIES` flag at a time for vulnerable-side evidence, then
+return to the default safe configuration.
 
+For the taxonomy and coverage contract, see
+[`../../docs/GroundTruth_Metrics_Coverage.md`](../../docs/GroundTruth_Metrics_Coverage.md).

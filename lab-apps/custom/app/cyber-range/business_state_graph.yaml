@@ -1,0 +1,78 @@
+schema_version: "0.1"
+app: custom_mock
+status: draft
+taxonomy_ref: docs/Taxonomy/families.yaml
+access_policy_ref: access_policy.yaml
+flaw_catalog_ref: flaw_catalog.yaml
+
+entities:
+  order:
+    state_field: State
+    states:
+      created: {terminal: false}
+      delivered: {terminal: false}
+      return_pending: {terminal: false}
+      returned: {terminal: true}
+    transitions:
+      - {id: ORDER-T01, from: delivered, to: return_pending, action: request_return, role: Customer, relation: owner}
+      - {id: ORDER-T02, from: return_pending, to: returned, action: approve_refund, role: Admin}
+      - {id: ORDER-T03, from: return_pending, to: returned, action: refund, role: Admin}
+    invariants:
+      - {id: ORDER-I01, condition: refund_requires_return_pending, description: Refund cannot precede a return request.}
+      - {id: ORDER-I02, condition: returned_is_terminal, description: A returned order cannot be refunded again.}
+      - {id: ORDER-I03, condition: refund_at_most_once, description: Refund transition may not be replayed.}
+  ticket:
+    state_field: State
+    states:
+      open: {terminal: false}
+      assigned: {terminal: false}
+      escalated: {terminal: false}
+      resolved: {terminal: true}
+      closed: {terminal: true}
+    transitions:
+      - {id: TICKET-T01, from: open, to: assigned, action: assign, role: Support, relation: same_tenant}
+      - {id: TICKET-T02, from: assigned, to: escalated, action: escalate, role: Support, relation: same_tenant}
+      - {id: TICKET-T03, from: escalated, to: resolved, action: resolve, role: Admin}
+      - {id: TICKET-T04, from: assigned, to: closed, action: close, role: Support, relation: same_tenant}
+    invariants:
+      - {id: TICKET-I01, condition: close_requires_assigned, description: Ticket must be assigned before close.}
+      - {id: TICKET-I02, condition: resolve_requires_escalated, description: Ticket must be escalated before resolve.}
+      - {id: TICKET-I03, condition: resolved_is_terminal, description: A resolved ticket cannot transition again.}
+  invoice:
+    state_field: Status
+    states:
+      draft: {terminal: false}
+      submitted: {terminal: false}
+      approved: {terminal: false}
+      paid: {terminal: true}
+      voided: {terminal: true}
+    transitions:
+      - {id: INVOICE-T01, from: draft, to: submitted, action: submit, role: Supplier, relation: owner}
+      - {id: INVOICE-T02, from: submitted, to: approved, action: approve, role: Admin}
+      - {id: INVOICE-T03, from: approved, to: paid, action: pay, role: Admin}
+      - {id: INVOICE-T04, from: [draft, submitted], to: voided, action: void, role: Supplier, relation: owner}
+    invariants:
+      - {id: INVOICE-I01, condition: payment_requires_approval, description: Invoice cannot be paid before approval.}
+      - {id: INVOICE-I02, condition: paid_is_terminal, description: A paid invoice cannot be paid again.}
+      - {id: INVOICE-I03, condition: supplier_cannot_self_approve, description: Supplier cannot perform the approval transition.}
+  payout:
+    state_field: Status
+    states:
+      pending: {terminal: false}
+      approved: {terminal: false}
+      released: {terminal: true}
+    transitions:
+      - {id: PAYOUT-T01, from: pending, to: approved, action: approve, role: Admin}
+      - {id: PAYOUT-T02, from: approved, to: released, action: release, role: Admin}
+    invariants:
+      - {id: PAYOUT-I01, condition: release_requires_approval, description: Payout cannot be released before approval.}
+      - {id: PAYOUT-I02, condition: released_is_terminal, description: A released payout cannot be released again.}
+
+evaluation:
+  oracle: state_invariant
+  rules:
+    - Every attempted transition must be declared and satisfy its state precondition.
+    - The actor must satisfy the role and relation constraints.
+    - A rejected transition must leave the state unchanged.
+    - A 2xx response alone is not a finding; compare before/after state and enabled flag.
+  evidence: [attempted_edge, actor, before_state, after_state, response, invariant_results, raw_hash]

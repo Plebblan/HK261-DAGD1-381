@@ -204,6 +204,7 @@ def audit(request: Request, template: str, status: int, actor: dict[str, Any] | 
             "actor_role": actor.get("_mock_role") if actor else None,
             "request_id": getattr(request.state, "request_id", request.headers.get("x-request-id", str(uuid.uuid4()))),
             "run_id": request.headers.get("x-lab-run-id"),
+            "workflow_id": request.headers.get("x-lab-workflow-id"),
             "sequence_id": request.headers.get("x-lab-sequence-id"),
             "step_idx": request.headers.get("x-lab-step-index"),
             "seed": request.headers.get("x-lab-seed"),
@@ -404,8 +405,16 @@ def lab_get_resource(resource_id: str, request: Request) -> JSONResponse:
         "doc-a-002": ("AUTHZ-004", "actor-customer-a"),
         "attachment-b-001": ("AUTHZ-016", "actor-customer-a"),
     }
-    case = per_object_cases.get(resource_id)
-    vulnerable = bool(case and lab_vulnerability_enabled(case[0]) and lab_case_actor(actor, case[1]))
+    extra_same_tenant_cases = {
+        "order-a-001": ("AUTHZ-021", "actor-customer-a2"),
+        "doc-a-001": ("AUTHZ-022", "actor-customer-a2"),
+    }
+    case_candidates = [per_object_cases[resource_id]] if resource_id in per_object_cases else []
+    if resource_id in extra_same_tenant_cases:
+        case_candidates.append(extra_same_tenant_cases[resource_id])
+    case = next((candidate for candidate in case_candidates
+                 if lab_vulnerability_enabled(candidate[0]) and lab_case_actor(actor, candidate[1])), None)
+    vulnerable = case is not None
     if not lab_can_read(actor, resource) and not vulnerable:
         return response(request, "/lab/v1/resources/{resource_id}", {"ErrorMessage": "Forbidden"}, 403, actor,
                         {"resource_id": resource_id, "owner_id": resource.get("OwnerID"), "tenant_id": resource.get("TenantID")})

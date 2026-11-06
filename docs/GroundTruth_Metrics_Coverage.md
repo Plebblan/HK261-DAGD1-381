@@ -1,4 +1,4 @@
-# Phần việc của Bac: Ground Truth Schema, Metrics & Script kiểm đếm Coverage
+# Ground Truth, Metrics và Coverage cho Stateful API Testing
 
 > **Dự án:** AI-Assisted Stateful Web/API Security Testing System
 > **Giai đoạn:** Phase 1 – W5–W6 (10/2026) | **Vai trò:** Xuan Bac – data, ranking model, metrics, ablation, phân tích kết quả
@@ -10,7 +10,7 @@
 
 | # | Công việc | Đầu ra | Phụ thuộc |
 |---|---|---|---|
-| B1 | Thiết kế schema ground truth (planted cases) | `ground_truth/planted_cases.csv` + `schema/ground_truth.schema.json` | Flaw cards từ Vu |
+| B1 | Chuẩn hóa ground truth theo taxonomy | `ground_truth/ground_truth.yaml` (một file JSON-compatible YAML) | Taxonomy và app flaw catalog |
 | B2 | Chuẩn hóa cấu trúc dữ liệu cho model, workflow, object seed, execution log | `model/rso.yaml`, `workflows/workflows.yaml`, `seed/objects.json`, `logs/executions.jsonl` | Range của Duc An |
 | B3 | Định nghĩa công thức metrics (mẫu số, tử số, điều kiện "valid") | Mục 4 của tài liệu này | B1, B2 |
 | B4 | Script kiểm đếm coverage ban đầu | `scripts/coverage.py` | B2, B3 |
@@ -31,9 +31,8 @@ cyber-range/
 ├── seed/
 │   └── objects.json            # Object được seed: id, type, owner, tenant (mẫu số cho pair coverage)
 ├── ground_truth/
-│   └── planted_cases.csv       # Danh sách lỗi đã cài + case benign
-├── schema/
-│   └── ground_truth.schema.json
+│   └── ground_truth.yaml       # Một nguồn case planted + benign, theo taxonomy
+├── flaw_catalog.yaml           # Index taxonomy, trỏ tới ground_truth.yaml
 ├── logs/
 │   └── executions.jsonl        # Mỗi dòng = một request đã thực thi
 ├── scripts/
@@ -46,36 +45,46 @@ cyber-range/
 
 ## 3. Schema dữ liệu
 
-### 3.1 Ground truth – `planted_cases.csv`
+### 3.1 Ground truth – `ground_truth/ground_truth.yaml`
 
-| Cột | Kiểu | Bắt buộc | Mô tả |
-|---|---|---|---|
-| `case_id` | string | ✔ | ID duy nhất, dạng `<FAMILY>-<NN>` (vd `BOLA-01`) |
-| `app` | string | ✔ | App chứa lỗi (vd `custom_shop`, `crapi`) |
-| `family` | enum | ✔ | `BOLA`, `BFLA`, `BOPLA`, `TENANT`, `WORKFLOW` |
-| `op_id` | string | ✔ | Operation liên quan (khớp `actions[].id` trong `rso.yaml`) |
-| `method` / `path` | string | ✔ | HTTP method và path template |
-| `attacker` | string | ✔ | Actor thực hiện hành vi vi phạm |
-| `victim` | string | | Actor/tenant sở hữu object (rỗng nếu BFLA thuần) |
-| `object_id` | string | | Object bị tác động (nếu có) |
-| `oracle_type` | enum | ✔ | `differential_authz`, `role_matrix`, `state_invariant`, `property_diff` |
-| `expected_safe` | string | ✔ | Response an toàn kỳ vọng (vd `403`, `404`, `400`, `field_ignored`) |
-| `observed_vulnerable` | string | ✔ | Hành vi khi lỗi được bật (vd `200 + data của victim`) |
-| `flag` | string | ✔ | Cờ bật/tắt lỗi trong app (vd `BOLA_01`) |
-| `is_benign` | bool | ✔ | `true` nếu là case KHÔNG có lỗi (đo false positive) |
-| `cwe` | string | ✔ | vd `CWE-639` |
-| `owasp` | string | ✔ | vd `API1:2023` |
-| `split` | enum | ✔ | `dev` hoặc `heldout` – **chốt một lần, không đổi** |
-| `evidence_required` | string | ✔ | Bằng chứng cần có để tính là finding hợp lệ (vd `replay + before/after`) |
-| `verified_by` | string | ✔ | Người verify (khác người cài lỗi) |
-| `verified_at` | date | ✔ | Ngày verify |
+Ground truth là một file JSON-compatible YAML để app loader đọc bằng Python
+standard library. File chứa metadata và defaults chung (`app`, `schema_version`,
+`taxonomy_ref`, `evidence_common`, `family_profiles`) cùng danh sách `cases`.
+Family profile định nghĩa oracle, mapping và evidence riêng cho family; mỗi
+case chỉ ghi phần context/replay khác biệt như ID, scenario, operation,
+actor/object, expected-safe, flag, split, và setup/request tùy chọn.
+`secondary_families` chỉ dùng khi có family phụ theo D1.
 
-**Ràng buộc kiểm tra tự động (nên viết thành test):**
+```yaml
+schema_version: "1.0"
+app: custom_mock
+taxonomy_ref: docs/Taxonomy/families.yaml
+evidence_common: [request, response, status, body_diff, before_after_state,
+                  test_actor, seed, action_id, timestamp, raw_hash]
+cases:
+  - case_id: AUTHZ-021
+    family: F1
+    operation_id: get_resource
+    method: GET
+    path: /lab/v1/resources/order-a-001
+    attacker: actor-customer-a2
+    victim: actor-customer-a
+    object_id: order-a-001
+    oracle_type: differential_authorization
+    expected_safe: "403"
+    observed_when_enabled: "200 + same-tenant victim order data"
+    flag: AUTHZ-021
+    is_benign: false
+    mapping: {cwe: CWE-639, owasp_api_2023: API1:2023}
+    split: development
+    evidence_required: [owner_baseline_response, test_actor_response, object_id_origin]
+```
 
-- `case_id` không trùng; `op_id` tồn tại trong `rso.yaml`; `attacker`/`victim` tồn tại trong `actors`.
-- Mỗi `family` có ≥ 3 case; tổng ≥ 20; có ít nhất vài case `is_benign = true`.
-- Phân chia `split`: theo **app hoặc scenario**, không trộn cùng scenario vào cả dev và heldout.
-- `verified_by` ≠ người cài lỗi.
+Các family và oracle phải khớp `docs/Taxonomy/families.yaml`. Case ID phải
+duy nhất; operation/actor/object/flag phải tồn tại trong model hoặc app; mỗi
+flaw có đúng một primary family. Giữ held-out scenario tách khỏi development.
+Chỉ đổi case sau khi tăng version và ghi lý do; không sửa ground truth sau khi
+đã xem kết quả đánh giá.
 
 ### 3.2 Model – `model/rso.yaml` (trích phần dùng cho metrics)
 
@@ -146,10 +155,12 @@ Một request được tính là **valid** khi: (i) đúng schema/cú pháp, (ii
 |---|---|---|---|
 | **Endpoint-operation coverage** | `\|ops có ≥1 request valid\| / \|ops\|` | `rso.yaml → actions` | báo cáo |
 | **Workflow coverage** | `\|workflow được chạy đủ step, đúng thứ tự, trong 1 sequence valid\| / \|workflows\|` | `workflows.yaml` | **≥ 70%** |
+| **State-transition coverage** | `\|cạnh hợp lệ đã thực hiện đúng pre/postcondition\| / \|cạnh hợp lệ trong graph\|` | `business_state_graph.yaml` + execution log | báo cáo |
+| **Invalid-edge probe coverage** | `\|probe cạnh/invariant sai đã chạy\| / \|probe âm đã định nghĩa trước\|` | Negative probe set + execution log | báo cáo |
 | **Role/object-pair coverage** | `\|(actor, object) cross-tested valid\| / \|(actor, object) với actor ≠ owner\|` | `actors × objects` | **≥ 60%** |
 | **Valid-sequence rate** | `\|sequence mà mọi step valid\| / \|sequence\|` | log | báo cáo |
 | **Provenance rate** | `\|request có raw_hash\| / \|request\|` | log | **≥ 95%** |
-| **Planted-case coverage** | `\|case_id được probe ít nhất 1 lần\| / \|planted cases\|` (theo family) | `planted_cases.csv` | báo cáo |
+| **Planted-case coverage** | `\|case_id planted được probe ít nhất 1 lần\| / \|planted cases\|` (theo family) | `ground_truth.yaml → cases` với `is_benign=false` | báo cáo |
 | **Safety-gate violations** | Số request ngoài allowlist / crash không phục hồi | audit log | **= 0** |
 
 **Ghi chú về mẫu số role/object-pair:** bản ban đầu dùng toàn bộ `actors × objects` loại trừ cặp owner. Khi model trưởng thành, nên thu hẹp mẫu số vào các cặp **có ý nghĩa** (action áp dụng được cho resource type đó), và ghi rõ thay đổi này ở M1/M2 — **trước** khi xem kết quả.
@@ -168,11 +179,26 @@ Một request được tính là **valid** khi: (i) đúng schema/cú pháp, (ii
 
 Thống kê: chạy ≥ 10 seeds/configurations; báo cáo mean/median, SD/IQR, bootstrap 95% CI.
 
+### 4.4 Oracle detection accuracy
+
+Coverage đo hệ thống đã thử gì; detection accuracy đo oracle kết luận đúng đến đâu. Tính theo **case ID duy nhất** sau khi gộp các report trùng case:
+
+| Kết quả | Định nghĩa |
+|---|---|
+| True positive (TP) | Planted case được probe với evidence đầy đủ và oracle phát hiện đúng case đó |
+| False negative (FN) | Planted case không được phát hiện, kể cả khi run không probe tới case đó |
+| False positive (FP) | Benign case bị báo thành flaw, hoặc report không khớp ground truth nào sau triage |
+| True negative (TN) | Benign case được probe và oracle không báo flaw |
+
+`Precision = TP / (TP + FP)`; `Recall = TP / (TP + FN)`; `False-positive rate = FP / (FP + TN)`. Nếu mẫu số bằng 0, ghi `N/A` thay vì 0%. Planted case chưa probe là FN khi báo end-to-end recall; benign case chưa probe không phải TN. Báo thêm planted-case coverage và benign-case coverage để tách khả năng khám phá khỏi độ chính xác của oracle trên các case đã chạy.
+
+State-transition coverage tính các cạnh hợp lệ đã hoàn tất đúng precondition và postcondition; invalid-edge probe coverage đo riêng các cạnh/invariant bị thử có chủ đích. Workflow coverage yêu cầu chuỗi đầy đủ theo đúng thứ tự, cùng object và precondition/postcondition trong một sequence. Probe sai trạng thái không được xem là bước hợp lệ trong workflow baseline.
+
 ---
 
 ## 5. Script kiểm đếm coverage ban đầu
 
-**Cài đặt:** Python 3.9+, `pip install pyyaml`.
+**Cài đặt:** Python 3.9+; các artifact YAML dùng JSON-compatible subset nên loader mẫu không cần thư viện YAML.
 
 **Chạy:**
 
@@ -182,7 +208,7 @@ python scripts/coverage.py \
   --workflows workflows/workflows.yaml \
   --objects seed/objects.json \
   --log logs/executions.jsonl \
-  --cases ground_truth/planted_cases.csv \
+  --cases ground_truth/ground_truth.yaml \
   --out reports/coverage_report.json
 ```
 
@@ -196,9 +222,8 @@ Doc: model/rso.yaml, workflows/workflows.yaml, seed/objects.json, logs/execution
 Tinh: operation coverage, workflow coverage, role-object pair coverage,
       valid-sequence rate, provenance rate, planted-case coverage.
 """
-import argparse, csv, json, sys
+import argparse, json, sys
 from pathlib import Path
-import yaml
 
 KPI = {"workflow_coverage": 0.70, "role_object_pair_coverage": 0.60, "provenance_rate": 0.95}
 
@@ -261,12 +286,12 @@ def main():
     ap.add_argument("--workflows", required=True)
     ap.add_argument("--objects", required=True)
     ap.add_argument("--log", required=True)
-    ap.add_argument("--cases", help="ground_truth/planted_cases.csv (tuy chon)")
+    ap.add_argument("--cases", help="ground_truth/ground_truth.yaml (tuy chon)")
     ap.add_argument("--out", default="coverage_report.json")
     a = ap.parse_args()
 
-    model = yaml.safe_load(Path(a.model).read_text(encoding="utf-8"))
-    workflows = yaml.safe_load(Path(a.workflows).read_text(encoding="utf-8"))["workflows"]
+    model = json.loads(Path(a.model).read_text(encoding="utf-8"))
+    workflows = json.loads(Path(a.workflows).read_text(encoding="utf-8"))["workflows"]
     objects = json.loads(Path(a.objects).read_text(encoding="utf-8"))
     log = load_jsonl(a.log)
 
@@ -296,13 +321,16 @@ def main():
     }
 
     if a.cases:
-        with open(a.cases, newline="", encoding="utf-8") as f:
-            cases = list(csv.DictReader(f))
+        ground_truth = json.loads(Path(a.cases).read_text(encoding="utf-8"))
+        cases = ground_truth["cases"]
+        planted = [c for c in cases if not c.get("is_benign", False)]
+        benign = [c for c in cases if c.get("is_benign", False)]
         touched = {r.get("case_id") for r in log if r.get("case_id")}
-        report["planted_cases_total"] = len(cases)
-        report["planted_cases_touched"] = len({c["case_id"] for c in cases} & touched)
+        report["planted_cases_total"] = len(planted)
+        report["planted_cases_touched"] = len({c["case_id"] for c in planted} & touched)
+        report["benign_cases_total"] = len(benign)
         by_fam = {}
-        for c in cases:
+        for c in planted:
             by_fam.setdefault(c["family"], [0, 0])
             by_fam[c["family"]][0] += 1
             by_fam[c["family"]][1] += c["case_id"] in touched
@@ -346,8 +374,8 @@ Với dữ liệu mẫu ở mục 3 (4 actor, 3 object, 6 operation, 2 workflow,
 ## 6. Kế hoạch theo tuần
 
 ### W5
-- [ ] Chốt cột và kiểu dữ liệu của `planted_cases.csv` cùng Vu và Duc An
-- [ ] Viết JSON Schema + test ràng buộc (mục 3.1)
+- [ ] Chốt record fields trong `ground_truth/ground_truth.yaml` cùng nhóm
+- [ ] Kiểm tra ID duy nhất và tham chiếu family/operation/actor/object/flag
 - [ ] Chốt định nghĩa `valid_request` với Duc An (harness ghi cờ này)
 - [ ] Soạn `workflows.yaml` và `objects.json` khớp với range
 - [ ] Hoàn thiện công thức metrics (mục 4) và gửi nhóm review
@@ -373,8 +401,7 @@ Với dữ liệu mẫu ở mục 3 (4 actor, 3 object, 6 operation, 2 workflow,
 
 ## 8. Checklist nghiệm thu phần của Bac (cuối W6)
 
-- [ ] `planted_cases.csv` ≥ 20 dòng, đủ 5 family, có case benign, qua bộ test ràng buộc
-- [ ] JSON Schema + test validate chạy được
+- [ ] `ground_truth/ground_truth.yaml` có planted/benign cases theo 5 family và qua kiểm tra tham chiếu
 - [ ] Công thức metrics có văn bản, mẫu số khớp `rso.yaml`/`workflows.yaml`/`objects.json`
 - [ ] `coverage.py` chạy được trên log thật và khớp tính tay
 - [ ] Có `coverage_report.json` đầu tiên (kể cả khi chưa đạt KPI)
@@ -395,8 +422,8 @@ Phần này cập nhật mô hình và phạm vi theo code đang có trong `app/
 | Actor và tenant | `cyber-range/model/rso.yaml`; 7 actor: customer, support, admin và supplier ở hai tenant | ID phân biệt hoa/thường và lấy nguyên văn từ artifact |
 | Resource seed | `cyber-range/seed/objects.json`; 9 `lab_resources` và 6 fixture phụ cho invoice, payout, review | Các cặp actor-resource tính từ `ID`, `OwnerID`, `TenantID`; chỉ tính actor-resource có ý nghĩa theo role/resource/action |
 | Workflow | `cyber-range/workflows/workflows.yaml`; 5 workflow cho order, ticket, invoice và payout | Mỗi step có operation, actor, object, precondition và postcondition; giữ cùng object qua các bước |
-| Ground truth | `cyber-range/ground_truth/planted_cases.csv`; 28 planted cases và 8 benign cases | Tổng 36 dòng; 23 development, 5 held-out planted; benign hiện ở development |
-| Runtime seed | `app/seed.py` nạp trực tiếp RSO, workflows, objects và CSV vào các collection `lab_*` | CSV/schema là nguồn ground truth; API status chỉ công bố số lượng, không trả nhãn chi tiết |
+| Ground truth | `cyber-range/ground_truth/ground_truth.yaml`; 30 planted cases và 8 benign cases | Tổng 38 cases; 25 development, 5 held-out planted; benign hiện ở development |
+| Runtime seed | `app/seed.py` nạp trực tiếp RSO, workflows, objects và YAML ground truth vào các collection `lab_*` | Một file là nguồn truth và seed; API status chỉ công bố số lượng, không trả nhãn chi tiết |
 | Reset | `POST /__lab/reset`, yêu cầu `LAB_MODE`, `LAB_ADMIN_TOKEN` và client local/private | Reset đưa collection về seed; execution log cần ghi reset/run/seed để replay |
 
 API phát hành token giả lập qua `POST /__lab/auth/token` bằng credential từ actor seed. Lỗ hổng mặc định tắt; bật có chọn lọc qua `LAB_VULNERABILITIES` (danh sách flag phân tách dấu phẩy, hoặc `*`). Ghi lại chính xác cấu hình flag cho mỗi run vì response 200 chỉ là bằng chứng có hành vi, không đủ để kết luận nếu không biết trạng thái cấu hình và before/after.
@@ -405,7 +432,7 @@ API phát hành token giả lập qua `POST /__lab/auth/token` bằng credential
 
 | Nhóm | Route/mẫu route | Hành vi và liên hệ ground truth |
 |---|---|---|
-| Resource | `GET /lab/v1/resources`, `GET/PATCH/DELETE /lab/v1/resources/{resource_id}` | Đọc/list, cập nhật thuộc tính, xóa; AUTHZ-001–004, 007–012, 016–019 |
+| Resource | `GET /lab/v1/resources`, `GET/PATCH/DELETE /lab/v1/resources/{resource_id}` | Đọc/list, cập nhật thuộc tính, xóa; AUTHZ-001–004, 007–012, 016–019, 021–022 |
 | Admin action | `POST /lab/v1/admin/actions/{action}` | `archive`, `export`; AUTHZ-005–006 |
 | State transition | `POST /lab/v1/resources/{resource_id}/actions/{action}` | `request_return`, `refund`, `approve_refund`, `assign`, `close`; AUTHZ-013–015, 020 |
 | Invoice | `/lab/v1/invoices`, `/lab/v1/invoices/{invoice_id}` và `submit/approve/pay/void` | Draft → submitted → approved → paid; AUTHZ-INV-01–03 |
@@ -418,7 +445,17 @@ Các route extension được đăng ký qua `app/__init__.py`, không xuất hi
 
 ### 9.3 Mapping case và workflow
 
-Ground truth dùng field `operation_id` (không phải `op_id`), `scenario`, `severity`, `verification_status`; `split` là `development` hoặc `held-out`. Các cột `setup_steps`, `request_headers`, `request_body` và `evidence_required` chứa JSON được serialize trong cell CSV; loader parse thành cấu trúc khi seed. Nhóm 28 planted case gồm BOLA 6, BFLA 7, BOPLA 7, TENANT 4, WORKFLOW 4; có 8 benign case để tính false positive.
+Ground truth dùng một cấu trúc record generic với `case_id`, `family`, `operation_id`, `method`, `path`, actor/object context, `oracle_type`, expected/observed behavior, flag, split, evidence và verification status. `setup_steps`, `request_headers`, `request_body`, mapping và secondary family chỉ xuất hiện khi cần; các giá trị này là YAML/JSON values, không còn JSON nhúng trong CSV cell. `family` theo taxonomy trong `docs/Taxonomy/families.yaml`: 30 planted case gồm F1=3, F2=5, F3=8, F4=10, F5=4; có 8 benign case. AUTHZ-021/022 bổ sung cùng-tenant non-owner read; AUTHZ-TCK-01 có secondary family F5 nhưng primary family F4 theo D1.
+
+Ba trace JSON có thể chạy trực tiếp bằng `app/runtrace.py` và Safety Gateway:
+
+| Trace | Mục tiêu | Trình tự chính |
+|---|---|---|
+| `cyber-range/traces/trace_01_access_boundaries.json` | F1/F4 và benign owner baseline | owner read → same-tenant non-owner probes → cross-tenant probe → list |
+| `cyber-range/traces/trace_02_financial_workflow.json` | F4/F3 probes và workflow nghiệp vụ hợp lệ | owned invoice read → cross-tenant deny → restricted Amount write deny → submit → approve → pay → history |
+| `cyber-range/traces/trace_03_ticket_state_and_tenant.json` | F4 và workflow ticket | cross-tenant resolve deny trên ticket đã escalated → assign ticket A → escalate → admin resolve → readback |
+
+Stateful trace yêu cầu seed sạch trước mỗi lần chạy; không chạy đồng thời. Các trace đặt flag về trạng thái mặc định tắt, kỳ vọng safe response và gắn `x-lab-case-id`. Runner ghi cùng `run_id`, `workflow_id`, `sequence_id`, và `step_idx` qua các request (kể cả sign-in), đồng thời đánh dấu `valid_request`; trace 2 và 3 thực hiện mutation hợp lệ trên fixture nên cần seed sạch trước khi replay. Endpoint reset hiện thay thế mọi collection có trong `SEED_DATA`, gồm cả dữ liệu mock API chính, nên chỉ reset trên database disposable.
 
 Các workflow khai báo bằng tên bước nghiệp vụ (`read_order`, `request_return`, `create_ticket`, …), trong khi RSO hiện chưa có các action ID tương ứng và một số bước là thao tác fixture/seed chứ không có route tạo riêng. Khi đo workflow coverage, log cần lưu `workflow_id`, `step_idx`, `action`/`operation_id`, `sequence_id`, `object_id`, actor, valid flag, state trước/sau; kiểm tra đúng thứ tự, precondition, postcondition và cùng object. Không thể suy ra workflow coverage chỉ bằng tìm một chuỗi `op_id` trong log như ví dụ script ban đầu.
 
@@ -426,12 +463,24 @@ Các workflow khai báo bằng tên bước nghiệp vụ (`read_order`, `reques
 
 | Phát hiện khi đọc code và artifact | Tác động | Cách ghi nhận/điều chỉnh trong lần cập nhật kế tiếp |
 |---|---|---|
-| Ví dụ schema/mẫu số đầu tài liệu không khớp RSO/CSV thật | Script theo ví dụ cũ không đọc được key hiện tại và có thể báo sai coverage | Dùng RSO, workflows, objects và planted CSV trong `cyber-range/`; cập nhật validator/script theo field thật |
-| Actor supplier và fixture tài chính/review trước đây chỉ có trong app code | Không thể phát hành token/replay nhất quán từ artifact | Đã đồng bộ 2 supplier actor, 3 invoice, 2 payout và 1 review fixture vào RSO/`objects.json`; loader nạp chúng theo seed version 6 |
+| Ví dụ schema/mẫu số đầu tài liệu không khớp RSO và ground truth runtime | Script theo ví dụ cũ có thể báo sai coverage | Dùng RSO, workflows, objects và `ground_truth/ground_truth.yaml`; kiểm tra đúng operation/actor/state trước khi tính metric |
+| Actor supplier và fixture tài chính/review trước đây chỉ có trong app code | Không thể phát hành token/replay nhất quán từ artifact | Đã đồng bộ 2 supplier actor, 3 invoice, 2 payout và 1 review fixture vào RSO/`objects.json`; loader nạp chúng theo seed version 8 |
 | Ticket extension cần ticket khác tenant ở trạng thái escalated; workflow trước đó thiếu mapping route/actor/object | Case AUTHZ-TCK-01 và sequence coverage không replay được từ seed | Đã thêm `ticket-b-001` ở trạng thái escalated và gắn operation/actor/object/precondition/postcondition vào workflow |
 | API catch-all được đăng ký trước các route extension | Request invoice/payout/review/history bị dispatcher trả 404 | Đã chuyển catch-all dispatcher xuống cuối danh sách route trong `app/__init__.py`; smoke test xác nhận route extension hoạt động |
 | `reset_database()` reset mọi collection trong `SEED_DATA`, bao gồm collection app ngoài `lab_*`; trong khi `seed_database()` chỉ seed `lab_*` theo phiên bản | Reset có thể làm rỗng dữ liệu mock API chính; phép đo giữa run phụ thuộc hành vi reset | Chốt quy trình reset riêng cho lab, ghi lại hash snapshot trước/sau; chưa coi reset là idempotent cho toàn app |
-| `verified_by` và `verified_at` của cả 28 planted case đang rỗng; status là `pending-human-review` | Chưa thỏa điều kiện ground truth đã verify độc lập | Ghi coverage riêng cho case được probe và case đã xác minh; không mô tả planted case là đã human-verified |
-| Audit event có request/response evidence ở app, nhưng coverage schema cũ chỉ có `raw_hash` | Provenance KPI không thể tính thống nhất từ log app nếu extractor chưa định nghĩa | Định nghĩa extraction/export của audit event, hash canonical request/response và liên kết `run_id`, `case_id`, `sequence_id`; không suy `raw_hash` từ status/response |
+| `verified_by` và `verified_at` của cả 30 planted case đang rỗng; status là `pending-human-review` | Chưa thỏa điều kiện ground truth đã verify độc lập | Ghi coverage riêng cho case được probe và case đã xác minh; không mô tả planted case là đã human-verified |
+| Audit event đã lưu run/workflow/sequence/step metadata và request/response evidence, nhưng chưa có extractor xuất execution JSONL theo schema coverage | Provenance KPI chưa tính trực tiếp được từ log DB; request raw hash hiện hash body, còn gateway fingerprint là hash canonical khác nhau | Chốt extractor, ý nghĩa từng hash và cách liên kết `run_id`, `workflow_id`, `sequence_id`, `case_id`; không suy `raw_hash` từ status/response |
 
 Do đó KPI trong mục 4 vẫn là mục tiêu thiết kế, chưa phải kết quả được xác nhận. Báo cáo đầu tiên cần nêu rõ denominator thực tế, các case chưa replay được, trạng thái verify và phiên bản flag/seed; chỉ so KPI sau khi các vấn đề khả năng thực thi và mapping đã được chốt trước run đánh giá.
+
+### 9.5 Tệp taxonomy và trace cho custom mock
+
+`cyber-range/access_policy.yaml` và `business_state_graph.yaml` chứa policy/transition riêng của app. `flaw_catalog.yaml` là index theo taxonomy và trỏ tới `ground_truth/ground_truth.yaml`, nguồn case duy nhất có 30 planted và 8 benign. Tệp này dùng JSON-compatible YAML để app loader có thể nạp bằng standard library; CSV planted cases và JSON Schema cũ đã được gỡ bỏ.
+
+Hai flaw F1 mới được cài theo flag `AUTHZ-021` và `AUTHZ-022`: customer-a2 (cùng tenant-a) có thể đọc order/document của customer-a nếu flag tương ứng được bật. Cả hai flag tắt mặc định; seed version tăng lên 8 để môi trường MongoDB hiện có nạp lại ground truth mới. Kế hoạch tổng thể về capture, crawl, graph, oracle và evaluation nằm trong `docs/stateful_api_testing_plan.md`.
+
+### 9.6 Proxy capture và mô hình cần cho oracle
+
+Gateway dùng chung một engine, cấu hình theo app bằng profile riêng. Với custom app, `gateway_profile.json` cố định listener tại `127.0.0.1:8088`, upstream tại `localhost:8000`, Safety allowlist, actor registry và event JSONL. RunTrace đi qua listener (`DSLExecutor → gateway client → local proxy → API`), không gọi API trực tiếp. Gateway safety allowlist chỉ kiểm tra phạm vi forward, host, route, method, budget và approval; `access_policy.yaml`, state graph và ground truth là oracle/model độc lập, không được dùng để chặn probe trước khi target nhận request. Một request event đã redact liên kết bằng `x-request-id` với audit event của API. Gateway event chỉ chứng minh request/response quan sát được; state trước/sau phải lấy từ audit/state adapter của target, không được giả định từ HTTP status. Profile cho app khác tái sử dụng engine nhưng trỏ tới policy/config/artifact riêng.
+
+Oracle tối thiểu cần các model liên kết nhưng tách riêng: (1) operation/API schema và producer-consumer IDs; (2) actor/session, role, tenant và scope; (3) object graph với owner/tenant/parent/state; (4) access/property policy; (5) state machine với guards, precondition, postcondition/effects; (6) cross-request invariants; (7) seed/reset, flags và version môi trường. Graph quan sát được từ crawler/trace chỉ tạo candidate; graph chuẩn tắc do người review xác nhận mới quyết định đúng/sai. Chi tiết request boundary, event record và crawl procedure nằm ở `docs/stateful_api_testing_plan.md`.

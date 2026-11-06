@@ -1,0 +1,17 @@
+{
+  "id": "custom-trace-02-financial-workflow",
+  "name": "Invoice tenant/property probes followed by a valid invoice lifecycle",
+  "reset_required": true,
+  "flags": "disabled",
+  "steps": [
+    {"id": "login_supplier_a", "dsl": "login", "actor": "actor-supplier-a"},
+    {"id": "supplier_reads_owned_draft", "dsl": "request", "actor": "actor-supplier-a", "method": "GET", "path": "/lab/v1/invoices/invoice-a-001", "expect_status": 200, "expect_state": "draft"},
+    {"id": "cross_tenant_invoice_denied", "dsl": "request", "actor": "actor-supplier-a", "method": "GET", "path": "/lab/v1/invoices/invoice-b-001", "headers": {"x-lab-case-id": "AUTHZ-INV-01"}, "expect_status": 403},
+    {"id": "restricted_amount_rejected", "dsl": "request", "actor": "actor-supplier-a", "method": "PATCH", "path": "/lab/v1/invoices/invoice-a-001", "body": {"Amount": 1251.0}, "headers": {"x-lab-case-id": "AUTHZ-INV-02"}, "expect_status": 400},
+    {"id": "supplier_submits_invoice", "dsl": "request", "actor": "actor-supplier-a", "method": "POST", "path": "/lab/v1/invoices/invoice-a-001/submit", "expect_status": 200, "expect_state": "submitted"},
+    {"id": "login_admin", "dsl": "login", "actor": "actor-admin-a"},
+    {"id": "admin_approves_invoice", "dsl": "request", "actor": "actor-admin-a", "method": "POST", "path": "/lab/v1/invoices/invoice-a-001/approve", "expect_status": 200, "expect_state": "approved"},
+    {"id": "admin_pays_invoice", "dsl": "request", "actor": "actor-admin-a", "method": "POST", "path": "/lab/v1/invoices/invoice-a-001/pay", "expect_status": 200, "expect_state": "paid"},
+    {"id": "invoice_history_after_lifecycle", "dsl": "request", "actor": "actor-admin-a", "method": "GET", "path": "/lab/v1/invoices/invoice-a-001/history", "expect_status": 200}
+  ]
+}

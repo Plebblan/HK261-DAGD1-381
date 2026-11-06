@@ -1,0 +1,19 @@
+{
+  "schema_version": "0.1",
+  "app": "custom_mock",
+  "status": "draft",
+  "taxonomy_ref": "docs/Taxonomy/families.yaml",
+  "ground_truth_ref": "ground_truth/ground_truth.yaml",
+  "family_counts": {
+    "F1": 3,
+    "F2": 5,
+    "F3": 8,
+    "F4": 10,
+    "F5": 4
+  },
+  "case_counts": {
+    "planted": 30,
+    "benign": 8
+  },
+  "note": "The referenced ground_truth file is the single source of per-app flaw and benign case records."
+}
