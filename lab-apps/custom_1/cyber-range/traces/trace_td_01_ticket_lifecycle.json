@@ -1,0 +1,556 @@
+{
+  "id": "trace_td_01_ticket_lifecycle",
+  "app": "tenantdesk",
+  "name": "Ticket lifecycle (valid sequence) with F1/F2/F3/F4/F5 probes",
+  "reset_required": true,
+  "flags": "disabled",
+  "sequence_kind": "valid",
+  "workflows": [
+    "workflow-ticket"
+  ],
+  "objects": {
+    "ticket-1002": "in_progress"
+  },
+  "covers_cases": [
+    "AUTHZ-101",
+    "AUTHZ-103",
+    "AUTHZ-104",
+    "AUTHZ-105",
+    "AUTHZ-106",
+    "AUTHZ-107",
+    "AUTHZ-108",
+    "AUTHZ-109",
+    "AUTHZ-110",
+    "AUTHZ-111",
+    "AUTHZ-112",
+    "AUTHZ-115",
+    "BENIGN-101",
+    "BENIGN-102",
+    "BENIGN-103",
+    "BENIGN-104",
+    "BENIGN-105",
+    "BENIGN-106"
+  ],
+  "steps": [
+    {
+      "id": "login_amy",
+      "dsl": "login",
+      "actor": "actor-amy"
+    },
+    {
+      "id": "amy_reads_own_ticket",
+      "dsl": "request",
+      "actor": "actor-amy",
+      "method": "GET",
+      "path": "/tickets/1001",
+      "expect_status": 200,
+      "case_id": "BENIGN-101",
+      "headers": {
+        "x-lab-case-id": "BENIGN-101"
+      },
+      "expect_state": "open"
+    },
+    {
+      "id": "amy_edits_own_title",
+      "dsl": "request",
+      "actor": "actor-amy",
+      "method": "PATCH",
+      "path": "/tickets/1001",
+      "expect_status": 200,
+      "body": {
+        "title": "t"
+      },
+      "case_id": "BENIGN-103",
+      "headers": {
+        "x-lab-case-id": "BENIGN-103"
+      }
+    },
+    {
+      "id": "amy_lists_own_tickets",
+      "dsl": "request",
+      "actor": "actor-amy",
+      "method": "GET",
+      "path": "/tickets",
+      "expect_status": 200,
+      "case_id": "BENIGN-104",
+      "headers": {
+        "x-lab-case-id": "BENIGN-104"
+      },
+      "expect": {
+        "all_rows": {
+          "tenant": "acme",
+          "owner_id": 3
+        }
+      }
+    },
+    {
+      "id": "probe_f1_read_other_ticket",
+      "dsl": "request",
+      "actor": "actor-amy",
+      "method": "GET",
+      "path": "/tickets/1002",
+      "expect_status": 403,
+      "case_id": "AUTHZ-101",
+      "headers": {
+        "x-lab-case-id": "AUTHZ-101"
+      }
+    },
+    {
+      "id": "probe_f1_edit_other_ticket",
+      "dsl": "request",
+      "actor": "actor-amy",
+      "method": "PATCH",
+      "path": "/tickets/1002",
+      "expect_status": 403,
+      "body": {
+        "title": "pwn"
+      },
+      "case_id": "AUTHZ-103",
+      "headers": {
+        "x-lab-case-id": "AUTHZ-103"
+      }
+    },
+    {
+      "id": "probe_f3w_role_escalation",
+      "dsl": "request",
+      "actor": "actor-amy",
+      "method": "PATCH",
+      "path": "/users/me",
+      "expect_status": [
+        400,
+        403
+      ],
+      "body": {
+        "role": "admin"
+      },
+      "case_id": "AUTHZ-104",
+      "headers": {
+        "x-lab-case-id": "AUTHZ-104"
+      }
+    },
+    {
+      "id": "probe_f3w_status_direct",
+      "dsl": "request",
+      "actor": "actor-amy",
+      "method": "PATCH",
+      "path": "/tickets/1001",
+      "expect_status": [
+        400,
+        403
+      ],
+      "body": {
+        "status": "closed"
+      },
+      "case_id": "AUTHZ-105",
+      "headers": {
+        "x-lab-case-id": "AUTHZ-105"
+      }
+    },
+    {
+      "id": "probe_f3r_api_key",
+      "dsl": "request",
+      "actor": "actor-amy",
+      "method": "GET",
+      "path": "/users/4",
+      "expect_status": 200,
+      "case_id": "AUTHZ-106",
+      "headers": {
+        "x-lab-case-id": "AUTHZ-106"
+      },
+      "expect": {
+        "no_key": "api_key"
+      }
+    },
+    {
+      "id": "anonymous_denied",
+      "dsl": "request",
+      "actor": "anonymous",
+      "method": "GET",
+      "path": "/tickets/1001",
+      "expect_status": [
+        401,
+        403
+      ],
+      "case_id": "BENIGN-106",
+      "headers": {
+        "x-lab-case-id": "BENIGN-106"
+      }
+    },
+    {
+      "id": "login_ann",
+      "dsl": "login",
+      "actor": "actor-ann"
+    },
+    {
+      "id": "probe_f3r_internal_comments",
+      "dsl": "request",
+      "actor": "actor-ann",
+      "method": "GET",
+      "path": "/tickets/1002/comments",
+      "expect_status": 200,
+      "case_id": "AUTHZ-107",
+      "headers": {
+        "x-lab-case-id": "AUTHZ-107"
+      },
+      "expect": {
+        "no_rows": {
+          "internal": true
+        }
+      }
+    },
+    {
+      "id": "login_adam",
+      "dsl": "login",
+      "actor": "actor-adam"
+    },
+    {
+      "id": "probe_f2_create_user",
+      "dsl": "request",
+      "actor": "actor-adam",
+      "method": "POST",
+      "path": "/users",
+      "expect_status": 403,
+      "body": {
+        "username": "evil",
+        "role": "admin"
+      },
+      "case_id": "AUTHZ-108",
+      "headers": {
+        "x-lab-case-id": "AUTHZ-108"
+      }
+    },
+    {
+      "id": "probe_f2_audit",
+      "dsl": "request",
+      "actor": "actor-adam",
+      "method": "GET",
+      "path": "/admin/audit",
+      "expect_status": 403,
+      "case_id": "AUTHZ-109",
+      "headers": {
+        "x-lab-case-id": "AUTHZ-109"
+      }
+    },
+    {
+      "id": "probe_f2_delete_user",
+      "dsl": "request",
+      "actor": "actor-adam",
+      "method": "DELETE",
+      "path": "/users/4",
+      "expect_status": 403,
+      "case_id": "AUTHZ-110",
+      "headers": {
+        "x-lab-case-id": "AUTHZ-110"
+      }
+    },
+    {
+      "id": "probe_f4_cross_tenant_assignee",
+      "dsl": "request",
+      "actor": "actor-adam",
+      "method": "POST",
+      "path": "/tickets/1001/assign",
+      "expect_status": [
+        400,
+        403,
+        404
+      ],
+      "body": {
+        "assignee_id": 6
+      },
+      "case_id": "AUTHZ-111",
+      "headers": {
+        "x-lab-case-id": "AUTHZ-111"
+      }
+    },
+    {
+      "id": "probe_f5_skip_to_closed",
+      "dsl": "request",
+      "actor": "actor-adam",
+      "method": "POST",
+      "path": "/tickets/1001/transition",
+      "expect_status": 409,
+      "body": {
+        "to": "closed"
+      },
+      "case_id": "AUTHZ-112",
+      "headers": {
+        "x-lab-case-id": "AUTHZ-112"
+      }
+    },
+    {
+      "id": "probe_f4_list_users",
+      "dsl": "request",
+      "actor": "actor-adam",
+      "method": "GET",
+      "path": "/users",
+      "expect_status": 200,
+      "case_id": "AUTHZ-115",
+      "headers": {
+        "x-lab-case-id": "AUTHZ-115"
+      },
+      "expect": {
+        "no_rows": {
+          "tenant": "globex"
+        }
+      }
+    },
+    {
+      "id": "seeded_in_progress_to_resolved",
+      "dsl": "request",
+      "actor": "actor-adam",
+      "method": "POST",
+      "path": "/tickets/1002/transition",
+      "expect_status": 200,
+      "body": {
+        "to": "resolved"
+      },
+      "case_id": "BENIGN-105",
+      "headers": {
+        "x-lab-case-id": "BENIGN-105"
+      },
+      "expect_state": "resolved",
+      "wf": {
+        "workflow": "workflow-ticket",
+        "action": "transition_ticket:resolve",
+        "object": "ticket-1002"
+      }
+    },
+    {
+      "id": "login_alice",
+      "dsl": "login",
+      "actor": "actor-alice"
+    },
+    {
+      "id": "admin_reads_audit",
+      "dsl": "request",
+      "actor": "actor-alice",
+      "method": "GET",
+      "path": "/admin/audit",
+      "expect_status": 200,
+      "case_id": "BENIGN-102",
+      "headers": {
+        "x-lab-case-id": "BENIGN-102"
+      }
+    },
+    {
+      "id": "login_ann",
+      "dsl": "login",
+      "actor": "actor-ann"
+    },
+    {
+      "id": "seeded_owner_closes_resolved",
+      "dsl": "request",
+      "actor": "actor-ann",
+      "method": "POST",
+      "path": "/tickets/1002/transition",
+      "expect_status": 200,
+      "body": {
+        "to": "closed"
+      },
+      "expect_state": "closed",
+      "wf": {
+        "workflow": "workflow-ticket",
+        "action": "transition_ticket:close",
+        "object": "ticket-1002"
+      }
+    },
+    {
+      "id": "create_ticket",
+      "dsl": "request",
+      "actor": "actor-amy",
+      "method": "POST",
+      "path": "/tickets",
+      "expect_status": 201,
+      "body": {
+        "title": "Monitor flickers",
+        "body": "synthetic",
+        "priority": "normal"
+      },
+      "expect_state": "open",
+      "capture": {
+        "tid": "id"
+      },
+      "wf": {
+        "workflow": "workflow-ticket",
+        "action": "create_ticket",
+        "object": "tid"
+      }
+    },
+    {
+      "id": "agent_assigns_self",
+      "dsl": "request",
+      "actor": "actor-adam",
+      "method": "POST",
+      "path": "/tickets/{tid}/assign",
+      "expect_status": 200,
+      "body": {
+        "assignee_id": 2
+      },
+      "expect_state": "open",
+      "wf": {
+        "workflow": "workflow-ticket",
+        "action": "assign_ticket",
+        "object": "tid"
+      }
+    },
+    {
+      "id": "agent_adds_internal_comment",
+      "dsl": "request",
+      "actor": "actor-adam",
+      "method": "POST",
+      "path": "/tickets/{tid}/comments",
+      "expect_status": 201,
+      "body": {
+        "body": "checking cable",
+        "internal": true
+      }
+    },
+    {
+      "id": "start",
+      "dsl": "request",
+      "actor": "actor-adam",
+      "method": "POST",
+      "path": "/tickets/{tid}/transition",
+      "expect_status": 200,
+      "body": {
+        "to": "in_progress"
+      },
+      "expect_state": "in_progress",
+      "wf": {
+        "workflow": "workflow-ticket",
+        "action": "transition_ticket:start",
+        "object": "tid"
+      }
+    },
+    {
+      "id": "revert",
+      "dsl": "request",
+      "actor": "actor-adam",
+      "method": "POST",
+      "path": "/tickets/{tid}/transition",
+      "expect_status": 200,
+      "body": {
+        "to": "open"
+      },
+      "expect_state": "open",
+      "wf": {
+        "workflow": "workflow-ticket",
+        "action": "transition_ticket:revert",
+        "object": "tid"
+      }
+    },
+    {
+      "id": "start_again",
+      "dsl": "request",
+      "actor": "actor-adam",
+      "method": "POST",
+      "path": "/tickets/{tid}/transition",
+      "expect_status": 200,
+      "body": {
+        "to": "in_progress"
+      },
+      "expect_state": "in_progress",
+      "wf": {
+        "workflow": "workflow-ticket",
+        "action": "transition_ticket:start",
+        "object": "tid"
+      }
+    },
+    {
+      "id": "resolve",
+      "dsl": "request",
+      "actor": "actor-adam",
+      "method": "POST",
+      "path": "/tickets/{tid}/transition",
+      "expect_status": 200,
+      "body": {
+        "to": "resolved"
+      },
+      "expect_state": "resolved",
+      "wf": {
+        "workflow": "workflow-ticket",
+        "action": "transition_ticket:resolve",
+        "object": "tid"
+      }
+    },
+    {
+      "id": "owner_reopens",
+      "dsl": "request",
+      "actor": "actor-amy",
+      "method": "POST",
+      "path": "/tickets/{tid}/transition",
+      "expect_status": 200,
+      "body": {
+        "to": "open"
+      },
+      "expect_state": "open",
+      "wf": {
+        "workflow": "workflow-ticket",
+        "action": "transition_ticket:reopen",
+        "object": "tid"
+      }
+    },
+    {
+      "id": "start_third",
+      "dsl": "request",
+      "actor": "actor-adam",
+      "method": "POST",
+      "path": "/tickets/{tid}/transition",
+      "expect_status": 200,
+      "body": {
+        "to": "in_progress"
+      },
+      "expect_state": "in_progress",
+      "wf": {
+        "workflow": "workflow-ticket",
+        "action": "transition_ticket:start",
+        "object": "tid"
+      }
+    },
+    {
+      "id": "resolve_again",
+      "dsl": "request",
+      "actor": "actor-adam",
+      "method": "POST",
+      "path": "/tickets/{tid}/transition",
+      "expect_status": 200,
+      "body": {
+        "to": "resolved"
+      },
+      "expect_state": "resolved",
+      "wf": {
+        "workflow": "workflow-ticket",
+        "action": "transition_ticket:resolve",
+        "object": "tid"
+      }
+    },
+    {
+      "id": "owner_closes",
+      "dsl": "request",
+      "actor": "actor-amy",
+      "method": "POST",
+      "path": "/tickets/{tid}/transition",
+      "expect_status": 200,
+      "body": {
+        "to": "closed"
+      },
+      "expect_state": "closed",
+      "wf": {
+        "workflow": "workflow-ticket",
+        "action": "transition_ticket:close",
+        "object": "tid"
+      }
+    },
+    {
+      "id": "closed_is_final",
+      "dsl": "request",
+      "actor": "actor-adam",
+      "method": "POST",
+      "path": "/tickets/{tid}/transition",
+      "expect_status": 409,
+      "body": {
+        "to": "open"
+      }
+    }
+  ]
+}

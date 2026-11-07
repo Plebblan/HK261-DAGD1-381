@@ -1,0 +1,218 @@
+{
+  "id": "trace_td_02_document_review",
+  "app": "tenantdesk",
+  "name": "Document review lifecycle (valid sequence) with F1/F4/F5 probes",
+  "reset_required": true,
+  "flags": "disabled",
+  "sequence_kind": "valid",
+  "workflows": [
+    "workflow-document"
+  ],
+  "objects": {},
+  "covers_cases": [
+    "AUTHZ-102",
+    "AUTHZ-113",
+    "AUTHZ-114",
+    "AUTHZ-116",
+    "AUTHZ-117"
+  ],
+  "steps": [
+    {
+      "id": "login_amy",
+      "dsl": "login",
+      "actor": "actor-amy"
+    },
+    {
+      "id": "probe_f4_cross_tenant_doc",
+      "dsl": "request",
+      "actor": "actor-amy",
+      "method": "GET",
+      "path": "/documents/2004",
+      "expect_status": [
+        403,
+        404
+      ],
+      "case_id": "AUTHZ-102",
+      "headers": {
+        "x-lab-case-id": "AUTHZ-102"
+      }
+    },
+    {
+      "id": "probe_f4_cross_tenant_share",
+      "dsl": "request",
+      "actor": "actor-amy",
+      "method": "POST",
+      "path": "/documents/2001/share",
+      "expect_status": [
+        400,
+        403,
+        404
+      ],
+      "body": {
+        "user_id": 7
+      },
+      "case_id": "AUTHZ-117",
+      "headers": {
+        "x-lab-case-id": "AUTHZ-117"
+      }
+    },
+    {
+      "id": "login_ann",
+      "dsl": "login",
+      "actor": "actor-ann"
+    },
+    {
+      "id": "probe_f1_delete_other_doc",
+      "dsl": "request",
+      "actor": "actor-ann",
+      "method": "DELETE",
+      "path": "/documents/2001",
+      "expect_status": 403,
+      "case_id": "AUTHZ-116",
+      "headers": {
+        "x-lab-case-id": "AUTHZ-116"
+      }
+    },
+    {
+      "id": "probe_f5_edit_published",
+      "dsl": "request",
+      "actor": "actor-ann",
+      "method": "PUT",
+      "path": "/documents/2002",
+      "expect_status": 409,
+      "body": {
+        "content": "changed"
+      },
+      "case_id": "AUTHZ-114",
+      "headers": {
+        "x-lab-case-id": "AUTHZ-114"
+      }
+    },
+    {
+      "id": "login_adam",
+      "dsl": "login",
+      "actor": "actor-adam"
+    },
+    {
+      "id": "create_document",
+      "dsl": "request",
+      "actor": "actor-adam",
+      "method": "POST",
+      "path": "/documents",
+      "expect_status": 201,
+      "body": {
+        "title": "Runbook",
+        "content": "v1",
+        "visibility": "tenant"
+      },
+      "expect_state": "draft",
+      "capture": {
+        "did": "id"
+      },
+      "wf": {
+        "workflow": "workflow-document",
+        "action": "create_document",
+        "object": "did"
+      }
+    },
+    {
+      "id": "update_draft",
+      "dsl": "request",
+      "actor": "actor-adam",
+      "method": "PUT",
+      "path": "/documents/{did}",
+      "expect_status": 200,
+      "body": {
+        "content": "v2"
+      },
+      "expect_state": "draft",
+      "wf": {
+        "workflow": "workflow-document",
+        "action": "update_document",
+        "object": "did"
+      }
+    },
+    {
+      "id": "share_same_tenant",
+      "dsl": "request",
+      "actor": "actor-adam",
+      "method": "POST",
+      "path": "/documents/{did}/share",
+      "expect_status": 200,
+      "body": {
+        "user_id": 4
+      },
+      "expect_state": "draft"
+    },
+    {
+      "id": "submit",
+      "dsl": "request",
+      "actor": "actor-adam",
+      "method": "POST",
+      "path": "/documents/{did}/submit",
+      "expect_status": 200,
+      "expect_state": "review",
+      "wf": {
+        "workflow": "workflow-document",
+        "action": "submit_document",
+        "object": "did"
+      }
+    },
+    {
+      "id": "probe_f5_self_approval",
+      "dsl": "request",
+      "actor": "actor-adam",
+      "method": "POST",
+      "path": "/documents/{did}/approve",
+      "expect_status": 403,
+      "case_id": "AUTHZ-113",
+      "headers": {
+        "x-lab-case-id": "AUTHZ-113"
+      }
+    },
+    {
+      "id": "login_alice",
+      "dsl": "login",
+      "actor": "actor-alice"
+    },
+    {
+      "id": "approve_by_other",
+      "dsl": "request",
+      "actor": "actor-alice",
+      "method": "POST",
+      "path": "/documents/{did}/approve",
+      "expect_status": 200,
+      "expect_state": "published",
+      "wf": {
+        "workflow": "workflow-document",
+        "action": "approve_document",
+        "object": "did"
+      }
+    },
+    {
+      "id": "published_is_immutable",
+      "dsl": "request",
+      "actor": "actor-adam",
+      "method": "PUT",
+      "path": "/documents/{did}",
+      "expect_status": 409,
+      "body": {
+        "content": "v3"
+      }
+    },
+    {
+      "id": "login_ann",
+      "dsl": "login",
+      "actor": "actor-ann"
+    },
+    {
+      "id": "shared_user_reads",
+      "dsl": "request",
+      "actor": "actor-ann",
+      "method": "GET",
+      "path": "/documents/{did}",
+      "expect_status": 200,
+      "expect_state": "published"
+    }
+  ]
+}

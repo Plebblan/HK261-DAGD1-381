@@ -1,0 +1,494 @@
+{
+  "id": "trace_sf_01_order_fulfilment",
+  "app": "shopflow",
+  "name": "Order lifecycle (valid sequence) with F1/F2/F3/F4/F5 probes",
+  "reset_required": true,
+  "flags": "disabled",
+  "sequence_kind": "valid",
+  "workflows": [
+    "workflow-order"
+  ],
+  "objects": {
+    "order-7001": "draft",
+    "order-7003": "paid",
+    "order-7005": "shipped"
+  },
+  "covers_cases": [
+    "AUTHZ-201",
+    "AUTHZ-202",
+    "AUTHZ-203",
+    "AUTHZ-204",
+    "AUTHZ-205",
+    "AUTHZ-206",
+    "AUTHZ-208",
+    "AUTHZ-209",
+    "AUTHZ-212",
+    "AUTHZ-214",
+    "BENIGN-201",
+    "BENIGN-202",
+    "BENIGN-203",
+    "BENIGN-204",
+    "BENIGN-205",
+    "BENIGN-206"
+  ],
+  "steps": [
+    {
+      "id": "anonymous_denied",
+      "dsl": "request",
+      "actor": "anonymous",
+      "method": "GET",
+      "path": "/orders/7001",
+      "expect_status": [
+        401,
+        403
+      ],
+      "case_id": "BENIGN-206",
+      "headers": {
+        "x-lab-case-id": "BENIGN-206"
+      }
+    },
+    {
+      "id": "login_carl",
+      "dsl": "login",
+      "actor": "actor-carl"
+    },
+    {
+      "id": "probe_f1_read_other_order",
+      "dsl": "request",
+      "actor": "actor-carl",
+      "method": "GET",
+      "path": "/orders/7001",
+      "expect_status": 403,
+      "case_id": "AUTHZ-201",
+      "headers": {
+        "x-lab-case-id": "AUTHZ-201"
+      }
+    },
+    {
+      "id": "probe_f1_edit_other_order",
+      "dsl": "request",
+      "actor": "actor-carl",
+      "method": "PATCH",
+      "path": "/orders/7001",
+      "expect_status": 403,
+      "body": {
+        "address": "evil"
+      },
+      "case_id": "AUTHZ-203",
+      "headers": {
+        "x-lab-case-id": "AUTHZ-203"
+      }
+    },
+    {
+      "id": "login_steve",
+      "dsl": "login",
+      "actor": "actor-steve"
+    },
+    {
+      "id": "probe_f4_other_merchant_staff",
+      "dsl": "request",
+      "actor": "actor-steve",
+      "method": "GET",
+      "path": "/orders/7001",
+      "expect_status": [
+        403,
+        404
+      ],
+      "case_id": "AUTHZ-202",
+      "headers": {
+        "x-lab-case-id": "AUTHZ-202"
+      }
+    },
+    {
+      "id": "login_cathy",
+      "dsl": "login",
+      "actor": "actor-cathy"
+    },
+    {
+      "id": "owner_reads_own_order",
+      "dsl": "request",
+      "actor": "actor-cathy",
+      "method": "GET",
+      "path": "/orders/7001",
+      "expect_status": 200,
+      "case_id": "BENIGN-201",
+      "headers": {
+        "x-lab-case-id": "BENIGN-201"
+      },
+      "expect_state": "draft"
+    },
+    {
+      "id": "owner_edits_address",
+      "dsl": "request",
+      "actor": "actor-cathy",
+      "method": "PATCH",
+      "path": "/orders/7001",
+      "expect_status": 200,
+      "body": {
+        "address": "a"
+      },
+      "case_id": "BENIGN-203",
+      "headers": {
+        "x-lab-case-id": "BENIGN-203"
+      }
+    },
+    {
+      "id": "probe_f3w_total",
+      "dsl": "request",
+      "actor": "actor-cathy",
+      "method": "PATCH",
+      "path": "/orders/7001",
+      "expect_status": [
+        400,
+        403
+      ],
+      "body": {
+        "total": 1
+      },
+      "case_id": "AUTHZ-204",
+      "headers": {
+        "x-lab-case-id": "AUTHZ-204"
+      }
+    },
+    {
+      "id": "probe_f3w_unit_price",
+      "dsl": "request",
+      "actor": "actor-cathy",
+      "method": "POST",
+      "path": "/orders",
+      "expect_status": 201,
+      "body": {
+        "items": [
+          {
+            "product_id": 501,
+            "qty": 1,
+            "unit_price": 1
+          }
+        ]
+      },
+      "case_id": "AUTHZ-205",
+      "headers": {
+        "x-lab-case-id": "AUTHZ-205"
+      },
+      "expect": {
+        "body_eq": {
+          "total": 1500
+        }
+      }
+    },
+    {
+      "id": "probe_f2_customer_ships",
+      "dsl": "request",
+      "actor": "actor-cathy",
+      "method": "POST",
+      "path": "/orders/7003/ship",
+      "expect_status": 403,
+      "case_id": "AUTHZ-206",
+      "headers": {
+        "x-lab-case-id": "AUTHZ-206"
+      }
+    },
+    {
+      "id": "probe_f2_sales_report",
+      "dsl": "request",
+      "actor": "actor-cathy",
+      "method": "GET",
+      "path": "/reports/sales",
+      "expect_status": 403,
+      "case_id": "AUTHZ-208",
+      "headers": {
+        "x-lab-case-id": "AUTHZ-208"
+      }
+    },
+    {
+      "id": "probe_f5_cancel_shipped",
+      "dsl": "request",
+      "actor": "actor-cathy",
+      "method": "POST",
+      "path": "/orders/7005/cancel",
+      "expect_status": 409,
+      "case_id": "AUTHZ-212",
+      "headers": {
+        "x-lab-case-id": "AUTHZ-212"
+      }
+    },
+    {
+      "id": "owner_lists_orders",
+      "dsl": "request",
+      "actor": "actor-cathy",
+      "method": "GET",
+      "path": "/orders",
+      "expect_status": 200,
+      "case_id": "BENIGN-204",
+      "headers": {
+        "x-lab-case-id": "BENIGN-204"
+      },
+      "expect": {
+        "all_rows": {
+          "tenant": "acme-shop",
+          "customer_id": 3
+        }
+      }
+    },
+    {
+      "id": "probe_f3r_cost_price",
+      "dsl": "request",
+      "actor": "actor-cathy",
+      "method": "GET",
+      "path": "/products",
+      "expect_status": 200,
+      "case_id": "AUTHZ-214",
+      "headers": {
+        "x-lab-case-id": "AUTHZ-214"
+      },
+      "expect": {
+        "no_key_in_rows": "cost_price"
+      }
+    },
+    {
+      "id": "login_sam",
+      "dsl": "login",
+      "actor": "actor-sam"
+    },
+    {
+      "id": "probe_f5_ship_unpaid",
+      "dsl": "request",
+      "actor": "actor-sam",
+      "method": "POST",
+      "path": "/orders/7001/ship",
+      "expect_status": 409,
+      "case_id": "AUTHZ-209",
+      "headers": {
+        "x-lab-case-id": "AUTHZ-209"
+      }
+    },
+    {
+      "id": "seeded_paid_to_shipped",
+      "dsl": "request",
+      "actor": "actor-sam",
+      "method": "POST",
+      "path": "/orders/7003/ship",
+      "expect_status": 200,
+      "case_id": "BENIGN-202",
+      "headers": {
+        "x-lab-case-id": "BENIGN-202"
+      },
+      "expect_state": "shipped",
+      "wf": {
+        "workflow": "workflow-order",
+        "action": "ship_order",
+        "object": "order-7003"
+      }
+    },
+    {
+      "id": "seeded_shipped_to_delivered",
+      "dsl": "request",
+      "actor": "actor-sam",
+      "method": "POST",
+      "path": "/orders/7003/deliver",
+      "expect_status": 200,
+      "expect_state": "delivered",
+      "wf": {
+        "workflow": "workflow-order",
+        "action": "deliver_order",
+        "object": "order-7003"
+      }
+    },
+    {
+      "id": "seeded_pay_draft",
+      "dsl": "request",
+      "actor": "actor-cathy",
+      "method": "POST",
+      "path": "/orders/7001/pay",
+      "expect_status": 200,
+      "case_id": "BENIGN-205",
+      "headers": {
+        "x-lab-case-id": "BENIGN-205"
+      },
+      "expect_state": "paid",
+      "wf": {
+        "workflow": "workflow-order",
+        "action": "pay_order",
+        "object": "order-7001"
+      }
+    },
+    {
+      "id": "create_order",
+      "dsl": "request",
+      "actor": "actor-cathy",
+      "method": "POST",
+      "path": "/orders",
+      "expect_status": 201,
+      "body": {
+        "items": [
+          {
+            "product_id": 501,
+            "qty": 1
+          }
+        ],
+        "address": "2 Synthetic St"
+      },
+      "expect_state": "draft",
+      "capture": {
+        "oid": "id"
+      },
+      "expect": {
+        "body_eq": {
+          "total": 1500
+        }
+      },
+      "wf": {
+        "workflow": "workflow-order",
+        "action": "create_order",
+        "object": "oid"
+      }
+    },
+    {
+      "id": "pay",
+      "dsl": "request",
+      "actor": "actor-cathy",
+      "method": "POST",
+      "path": "/orders/{oid}/pay",
+      "expect_status": 200,
+      "expect_state": "paid",
+      "wf": {
+        "workflow": "workflow-order",
+        "action": "pay_order",
+        "object": "oid"
+      }
+    },
+    {
+      "id": "ship",
+      "dsl": "request",
+      "actor": "actor-sam",
+      "method": "POST",
+      "path": "/orders/{oid}/ship",
+      "expect_status": 200,
+      "expect_state": "shipped",
+      "wf": {
+        "workflow": "workflow-order",
+        "action": "ship_order",
+        "object": "oid"
+      }
+    },
+    {
+      "id": "deliver",
+      "dsl": "request",
+      "actor": "actor-sam",
+      "method": "POST",
+      "path": "/orders/{oid}/deliver",
+      "expect_status": 200,
+      "expect_state": "delivered",
+      "wf": {
+        "workflow": "workflow-order",
+        "action": "deliver_order",
+        "object": "oid"
+      }
+    },
+    {
+      "id": "owner_reads_invoice",
+      "dsl": "request",
+      "actor": "actor-cathy",
+      "method": "GET",
+      "path": "/orders/{oid}/invoice",
+      "expect_status": 200,
+      "expect": {
+        "body_eq": {
+          "status": "delivered"
+        }
+      }
+    },
+    {
+      "id": "create_order_cancel_draft",
+      "dsl": "request",
+      "actor": "actor-cathy",
+      "method": "POST",
+      "path": "/orders",
+      "expect_status": 201,
+      "body": {
+        "items": [
+          {
+            "product_id": 502,
+            "qty": 1
+          }
+        ]
+      },
+      "expect_state": "draft",
+      "capture": {
+        "oid2": "id"
+      },
+      "wf": {
+        "workflow": "workflow-order",
+        "action": "create_order",
+        "object": "oid2"
+      }
+    },
+    {
+      "id": "cancel_from_draft",
+      "dsl": "request",
+      "actor": "actor-cathy",
+      "method": "POST",
+      "path": "/orders/{oid2}/cancel",
+      "expect_status": 200,
+      "expect_state": "cancelled",
+      "wf": {
+        "workflow": "workflow-order",
+        "action": "cancel_order:from_draft",
+        "object": "oid2"
+      }
+    },
+    {
+      "id": "create_order_cancel_paid",
+      "dsl": "request",
+      "actor": "actor-cathy",
+      "method": "POST",
+      "path": "/orders",
+      "expect_status": 201,
+      "body": {
+        "items": [
+          {
+            "product_id": 501,
+            "qty": 1
+          }
+        ]
+      },
+      "expect_state": "draft",
+      "capture": {
+        "oid3": "id"
+      },
+      "wf": {
+        "workflow": "workflow-order",
+        "action": "create_order",
+        "object": "oid3"
+      }
+    },
+    {
+      "id": "pay_third",
+      "dsl": "request",
+      "actor": "actor-cathy",
+      "method": "POST",
+      "path": "/orders/{oid3}/pay",
+      "expect_status": 200,
+      "expect_state": "paid",
+      "wf": {
+        "workflow": "workflow-order",
+        "action": "pay_order",
+        "object": "oid3"
+      }
+    },
+    {
+      "id": "cancel_from_paid",
+      "dsl": "request",
+      "actor": "actor-cathy",
+      "method": "POST",
+      "path": "/orders/{oid3}/cancel",
+      "expect_status": 200,
+      "expect_state": "cancelled",
+      "wf": {
+        "workflow": "workflow-order",
+        "action": "cancel_order:from_paid",
+        "object": "oid3"
+      }
+    }
+  ]
+}

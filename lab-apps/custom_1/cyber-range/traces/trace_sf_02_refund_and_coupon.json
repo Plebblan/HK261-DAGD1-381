@@ -1,0 +1,249 @@
+{
+  "id": "trace_sf_02_refund_and_coupon",
+  "app": "shopflow",
+  "name": "Refund lifecycle and coupon redemption (valid sequence) with F2/F4/F5 probes",
+  "reset_required": true,
+  "flags": "disabled",
+  "sequence_kind": "valid",
+  "workflows": [
+    "workflow-refund",
+    "workflow-order"
+  ],
+  "objects": {
+    "order-7001": "draft",
+    "order-7002": "draft",
+    "order-7003": "paid"
+  },
+  "covers_cases": [
+    "AUTHZ-207",
+    "AUTHZ-210",
+    "AUTHZ-211",
+    "AUTHZ-213"
+  ],
+  "steps": [
+    {
+      "id": "login_cathy",
+      "dsl": "login",
+      "actor": "actor-cathy"
+    },
+    {
+      "id": "request_refund",
+      "dsl": "request",
+      "actor": "actor-cathy",
+      "method": "POST",
+      "path": "/orders/7003/refund",
+      "expect_status": 201,
+      "body": {
+        "amount": 3000,
+        "reason": "damaged"
+      },
+      "expect_state": "pending",
+      "capture": {
+        "rid": "id"
+      },
+      "wf": {
+        "workflow": "workflow-refund",
+        "action": "request_refund",
+        "object": "rid",
+        "guard_object": "order-7003"
+      }
+    },
+    {
+      "id": "probe_f5_second_full_refund",
+      "dsl": "request",
+      "actor": "actor-cathy",
+      "method": "POST",
+      "path": "/orders/7003/refund",
+      "expect_status": 409,
+      "body": {
+        "amount": 3000
+      },
+      "case_id": "AUTHZ-210",
+      "headers": {
+        "x-lab-case-id": "AUTHZ-210"
+      }
+    },
+    {
+      "id": "login_sam",
+      "dsl": "login",
+      "actor": "actor-sam"
+    },
+    {
+      "id": "probe_f2_staff_approves_refund",
+      "dsl": "request",
+      "actor": "actor-sam",
+      "method": "POST",
+      "path": "/refunds/{rid}/approve",
+      "expect_status": 403,
+      "case_id": "AUTHZ-207",
+      "headers": {
+        "x-lab-case-id": "AUTHZ-207"
+      }
+    },
+    {
+      "id": "login_olga",
+      "dsl": "login",
+      "actor": "actor-olga"
+    },
+    {
+      "id": "merchant_admin_approves",
+      "dsl": "request",
+      "actor": "actor-olga",
+      "method": "POST",
+      "path": "/refunds/{rid}/approve",
+      "expect_status": 200,
+      "expect_state": "approved",
+      "wf": {
+        "workflow": "workflow-refund",
+        "action": "approve_refund",
+        "object": "rid"
+      }
+    },
+    {
+      "id": "approve_twice_rejected",
+      "dsl": "request",
+      "actor": "actor-olga",
+      "method": "POST",
+      "path": "/refunds/{rid}/approve",
+      "expect_status": 409
+    },
+    {
+      "id": "merchant_admin_lists_coupons",
+      "dsl": "request",
+      "actor": "actor-olga",
+      "method": "GET",
+      "path": "/coupons",
+      "expect_status": 200
+    },
+    {
+      "id": "merchant_admin_creates_coupon",
+      "dsl": "request",
+      "actor": "actor-olga",
+      "method": "POST",
+      "path": "/coupons",
+      "expect_status": 201,
+      "body": {
+        "code": "SPRING20",
+        "percent": 20,
+        "max_uses": 1
+      }
+    },
+    {
+      "id": "merchant_admin_sales_report",
+      "dsl": "request",
+      "actor": "actor-olga",
+      "method": "GET",
+      "path": "/reports/sales",
+      "expect_status": 200
+    },
+    {
+      "id": "login_cathy",
+      "dsl": "login",
+      "actor": "actor-cathy"
+    },
+    {
+      "id": "owner_reads_refund",
+      "dsl": "request",
+      "actor": "actor-cathy",
+      "method": "GET",
+      "path": "/refunds/{rid}",
+      "expect_status": 200,
+      "expect": {
+        "body_eq": {
+          "status": "approved"
+        }
+      }
+    },
+    {
+      "id": "probe_f4_foreign_coupon",
+      "dsl": "request",
+      "actor": "actor-cathy",
+      "method": "POST",
+      "path": "/orders/7001/apply-coupon",
+      "expect_status": [
+        403,
+        404
+      ],
+      "body": {
+        "code": "GLOBEX15"
+      },
+      "case_id": "AUTHZ-213",
+      "headers": {
+        "x-lab-case-id": "AUTHZ-213"
+      }
+    },
+    {
+      "id": "apply_own_merchant_coupon",
+      "dsl": "request",
+      "actor": "actor-cathy",
+      "method": "POST",
+      "path": "/orders/7001/apply-coupon",
+      "expect_status": 200,
+      "body": {
+        "code": "ACME10"
+      },
+      "expect": {
+        "body_eq": {
+          "coupon": "ACME10",
+          "discount": 150,
+          "total": 1350
+        }
+      },
+      "wf": {
+        "workflow": "workflow-order",
+        "action": "apply_coupon",
+        "object": "order-7001"
+      }
+    },
+    {
+      "id": "login_carl",
+      "dsl": "login",
+      "actor": "actor-carl"
+    },
+    {
+      "id": "probe_f5_exhausted_coupon",
+      "dsl": "request",
+      "actor": "actor-carl",
+      "method": "POST",
+      "path": "/orders/7002/apply-coupon",
+      "expect_status": 409,
+      "body": {
+        "code": "ACME10"
+      },
+      "case_id": "AUTHZ-211",
+      "headers": {
+        "x-lab-case-id": "AUTHZ-211"
+      }
+    },
+    {
+      "id": "apply_fresh_coupon",
+      "dsl": "request",
+      "actor": "actor-carl",
+      "method": "POST",
+      "path": "/orders/7002/apply-coupon",
+      "expect_status": 200,
+      "body": {
+        "code": "SPRING20"
+      },
+      "wf": {
+        "workflow": "workflow-order",
+        "action": "apply_coupon",
+        "object": "order-7002"
+      }
+    },
+    {
+      "id": "pay_discounted_order",
+      "dsl": "request",
+      "actor": "actor-carl",
+      "method": "POST",
+      "path": "/orders/7002/pay",
+      "expect_status": 200,
+      "expect_state": "paid",
+      "wf": {
+        "workflow": "workflow-order",
+        "action": "pay_order",
+        "object": "order-7002"
+      }
+    }
+  ]
+}

@@ -1,0 +1,2206 @@
+{
+  "schema_version": "0.1",
+  "apps": [
+    "tenantdesk",
+    "shopflow"
+  ],
+  "status": "draft",
+  "taxonomy_ref": "docs/Taxonomy/families.yaml",
+  "taxonomy_decisions_applied": {
+    "D1": "exactly one primary family per case; other applicable families are listed in secondary_families (F1 = same tenant, F4 = across a tenant boundary)",
+    "D2": "anonymous is a regular actor; BENIGN-106 and BENIGN-206 cover the unauthenticated deny path (broken authentication itself is out of scope)",
+    "D3": "401, 403 and 404 are equivalent safe outcomes for deny checks; the exact set per case is in expected_safe_status",
+    "D4": "F5 covers state-transition violations only; no rate/volume/automation cases",
+    "D5": "read-only leaks (F3 subtype R) count as findings, judged against allowed_field_set / forbidden_field_set"
+  },
+  "evidence_common": [
+    "request",
+    "response",
+    "status",
+    "body_diff",
+    "before_after_state",
+    "test_actor",
+    "seed",
+    "action_id",
+    "timestamp",
+    "raw_hash"
+  ],
+  "defaults": {
+    "verification_status": "pending-human-review",
+    "verified_by": null,
+    "verified_at": null
+  },
+  "oracle_execution": {
+    "note": "vulnerable_if is the machine-checkable form of observed_when_enabled; a case is VULNERABLE when every condition holds. A case is SAFE when status is in expected_safe_status and vulnerable_if is false.",
+    "conditions": {
+      "status_2xx": "HTTP status is 200-299",
+      "body_has_key": "response JSON object contains the key",
+      "body_field_eq": "response JSON object has key == value for every pair",
+      "list_any": "response JSON array contains at least one row matching every pair",
+      "list_all_have_key": "response JSON array is non-empty and every row contains the key"
+    }
+  },
+  "family_profiles": {
+    "F1": {
+      "name": "BOLA / IDOR (same tenant)",
+      "oracle_type": "differential_authorization",
+      "mapping": {
+        "cwe": "CWE-639",
+        "owasp_api_2023": "API1:2023"
+      },
+      "evidence_required": [
+        "owner_baseline_response",
+        "test_actor_response",
+        "object_id_origin"
+      ]
+    },
+    "F2": {
+      "name": "BFLA",
+      "oracle_type": "differential_authorization",
+      "mapping": {
+        "cwe": "CWE-285",
+        "owasp_api_2023": "API5:2023"
+      },
+      "evidence_required": [
+        "role_matrix_cell",
+        "before_after_state"
+      ]
+    },
+    "F3": {
+      "name": "BOPLA",
+      "oracle_type": "property_policy_diff",
+      "subtypes": {
+        "R": {
+          "name": "Excessive data exposure",
+          "mapping": {
+            "cwe": "CWE-213",
+            "owasp_api_2023": "API3:2023"
+          },
+          "evidence_required": [
+            "returned_field_set",
+            "allowed_field_set"
+          ]
+        },
+        "W": {
+          "name": "Mass assignment",
+          "mapping": {
+            "cwe": "CWE-915",
+            "owasp_api_2023": "API3:2023"
+          },
+          "evidence_required": [
+            "request_body",
+            "readback_before",
+            "readback_after"
+          ]
+        }
+      }
+    },
+    "F4": {
+      "name": "Tenant isolation breakage",
+      "oracle_type": "differential_authorization",
+      "mapping": {
+        "cwe": "CWE-639",
+        "owasp_api_2023": "API1:2023"
+      },
+      "mapping_note": "taxonomy has no dedicated OWASP category for F4; mapped to API1:2023 as BOLA across a tenant boundary",
+      "evidence_required": [
+        "actor_tenant_id",
+        "object_tenant_id"
+      ],
+      "evidence_required_collection": [
+        "list_contents"
+      ]
+    },
+    "F5": {
+      "name": "Bounded workflow abuse (state-transition violations)",
+      "oracle_type": "state_invariant",
+      "mapping": {
+        "cwe": "CWE-841",
+        "owasp_api_2023": "API6:2023"
+      },
+      "evidence_required": [
+        "attempted_edge",
+        "violated_invariant",
+        "before_after_state"
+      ]
+    }
+  },
+  "family_counts": {
+    "F1": 5,
+    "F4": 6,
+    "F3": 7,
+    "F2": 6,
+    "F5": 7
+  },
+  "case_counts": {
+    "planted": 31,
+    "benign": 12,
+    "per_app": {
+      "tenantdesk": {
+        "planted": 17,
+        "benign": 6
+      },
+      "shopflow": {
+        "planted": 14,
+        "benign": 6
+      }
+    }
+  },
+  "cases": [
+    {
+      "case_id": "AUTHZ-101",
+      "app": "tenantdesk",
+      "family": "F1",
+      "secondary_families": [],
+      "scenario": "same-tenant non-owner member reads another member's ticket",
+      "operation_id": "get_ticket",
+      "method": "GET",
+      "path": "/tickets/1002",
+      "oracle_type": "differential_authorization",
+      "expected_safe": "403",
+      "expected_safe_status": [
+        403
+      ],
+      "observed_when_enabled": "200 + ticket body",
+      "flag": "TD-01",
+      "is_benign": false,
+      "severity": "high",
+      "split": "development",
+      "cwe": "CWE-639",
+      "owasp_api_2023": "API1:2023",
+      "attacker": "actor-amy",
+      "victim": "actor-ann",
+      "object_id": "ticket-1002",
+      "evidence_required": [
+        "owner_baseline_response",
+        "test_actor_response",
+        "object_id_origin"
+      ],
+      "vulnerable_if": {
+        "status_2xx": true,
+        "body_has_key": "owner_id"
+      },
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "AUTHZ-101"
+      },
+      "request_body": {},
+      "trace_ref": "trace_td_01_ticket_lifecycle",
+      "verification_status": "pending-human-review",
+      "verified_by": null,
+      "verified_at": null,
+      "actor_tenant_id": "tenant-acme",
+      "object_tenant_id": "tenant-acme",
+      "object_id_origin": "seed: ticket-1002 listed by agent view; owner ann"
+    },
+    {
+      "case_id": "AUTHZ-102",
+      "app": "tenantdesk",
+      "family": "F4",
+      "secondary_families": [],
+      "scenario": "member reads another tenant's tenant-visible document",
+      "operation_id": "get_document",
+      "method": "GET",
+      "path": "/documents/2004",
+      "oracle_type": "differential_authorization",
+      "expected_safe": "403/404",
+      "expected_safe_status": [
+        403,
+        404
+      ],
+      "observed_when_enabled": "200 + document body",
+      "flag": "TD-02",
+      "is_benign": false,
+      "severity": "high",
+      "split": "development",
+      "cwe": "CWE-639",
+      "owasp_api_2023": "API1:2023",
+      "attacker": "actor-amy",
+      "victim": "tenant-globex",
+      "object_id": "document-2004",
+      "evidence_required": [
+        "actor_tenant_id",
+        "object_tenant_id"
+      ],
+      "vulnerable_if": {
+        "status_2xx": true
+      },
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "AUTHZ-102"
+      },
+      "request_body": {},
+      "trace_ref": "trace_td_02_document_review",
+      "verification_status": "pending-human-review",
+      "verified_by": null,
+      "verified_at": null,
+      "actor_tenant_id": "tenant-acme",
+      "object_tenant_id": "tenant-globex"
+    },
+    {
+      "case_id": "AUTHZ-103",
+      "app": "tenantdesk",
+      "family": "F1",
+      "secondary_families": [],
+      "scenario": "non-owner member edits another member's ticket",
+      "operation_id": "patch_ticket",
+      "method": "PATCH",
+      "path": "/tickets/1002",
+      "oracle_type": "differential_authorization",
+      "expected_safe": "403",
+      "expected_safe_status": [
+        403
+      ],
+      "observed_when_enabled": "200 + title changed",
+      "flag": "TD-03",
+      "is_benign": false,
+      "severity": "high",
+      "split": "development",
+      "cwe": "CWE-639",
+      "owasp_api_2023": "API1:2023",
+      "attacker": "actor-amy",
+      "victim": "actor-ann",
+      "object_id": "ticket-1002",
+      "evidence_required": [
+        "owner_baseline_response",
+        "test_actor_response",
+        "object_id_origin"
+      ],
+      "vulnerable_if": {
+        "status_2xx": true,
+        "body_field_eq": {
+          "title": "pwn"
+        }
+      },
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "AUTHZ-103"
+      },
+      "request_body": {
+        "title": "pwn"
+      },
+      "trace_ref": "trace_td_01_ticket_lifecycle",
+      "verification_status": "pending-human-review",
+      "verified_by": null,
+      "verified_at": null,
+      "actor_tenant_id": "tenant-acme",
+      "object_tenant_id": "tenant-acme",
+      "object_id_origin": "seeded object id"
+    },
+    {
+      "case_id": "AUTHZ-104",
+      "app": "tenantdesk",
+      "family": "F3",
+      "subtype": "W",
+      "secondary_families": [],
+      "scenario": "member sets own role to admin (mass assignment)",
+      "operation_id": "patch_me",
+      "method": "PATCH",
+      "path": "/users/me",
+      "oracle_type": "property_policy_diff",
+      "expected_safe": "400/403",
+      "expected_safe_status": [
+        400,
+        403
+      ],
+      "observed_when_enabled": "200 + role becomes admin",
+      "flag": "TD-04",
+      "is_benign": false,
+      "severity": "high",
+      "split": "development",
+      "cwe": "CWE-915",
+      "owasp_api_2023": "API3:2023",
+      "attacker": "actor-amy",
+      "victim": "actor-amy",
+      "object_id": "user-3",
+      "evidence_required": [
+        "request_body",
+        "readback_before",
+        "readback_after"
+      ],
+      "vulnerable_if": {
+        "status_2xx": true,
+        "body_field_eq": {
+          "role": "admin"
+        }
+      },
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "AUTHZ-104"
+      },
+      "request_body": {
+        "role": "admin"
+      },
+      "trace_ref": "trace_td_01_ticket_lifecycle",
+      "verification_status": "pending-human-review",
+      "verified_by": null,
+      "verified_at": null,
+      "restricted_properties": [
+        "role"
+      ]
+    },
+    {
+      "case_id": "AUTHZ-105",
+      "app": "tenantdesk",
+      "family": "F3",
+      "subtype": "W",
+      "secondary_families": [
+        "F5"
+      ],
+      "scenario": "ticket owner sets status directly, bypassing the transition workflow",
+      "operation_id": "patch_ticket",
+      "method": "PATCH",
+      "path": "/tickets/1001",
+      "oracle_type": "property_policy_diff",
+      "expected_safe": "400/403",
+      "expected_safe_status": [
+        400,
+        403
+      ],
+      "observed_when_enabled": "200 + status set directly",
+      "flag": "TD-05",
+      "is_benign": false,
+      "severity": "high",
+      "split": "development",
+      "cwe": "CWE-915",
+      "owasp_api_2023": "API3:2023",
+      "attacker": "actor-amy",
+      "victim": "actor-amy",
+      "object_id": "ticket-1001",
+      "evidence_required": [
+        "request_body",
+        "readback_before",
+        "readback_after"
+      ],
+      "vulnerable_if": {
+        "status_2xx": true,
+        "body_field_eq": {
+          "status": "closed"
+        }
+      },
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "AUTHZ-105"
+      },
+      "request_body": {
+        "status": "closed"
+      },
+      "trace_ref": "trace_td_01_ticket_lifecycle",
+      "verification_status": "pending-human-review",
+      "verified_by": null,
+      "verified_at": null,
+      "restricted_properties": [
+        "status"
+      ]
+    },
+    {
+      "case_id": "AUTHZ-106",
+      "app": "tenantdesk",
+      "family": "F3",
+      "subtype": "R",
+      "secondary_families": [],
+      "scenario": "member reads another user's api_key",
+      "operation_id": "get_user",
+      "method": "GET",
+      "path": "/users/4",
+      "oracle_type": "property_policy_diff",
+      "expected_safe": "200 + public view without api_key",
+      "expected_safe_status": [
+        200
+      ],
+      "observed_when_enabled": "response contains api_key",
+      "flag": "TD-06",
+      "is_benign": false,
+      "severity": "medium",
+      "split": "development",
+      "cwe": "CWE-213",
+      "owasp_api_2023": "API3:2023",
+      "attacker": "actor-amy",
+      "victim": "actor-ann",
+      "object_id": "user-4",
+      "evidence_required": [
+        "returned_field_set",
+        "allowed_field_set"
+      ],
+      "vulnerable_if": {
+        "body_has_key": "api_key"
+      },
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "AUTHZ-106"
+      },
+      "request_body": {},
+      "trace_ref": "trace_td_01_ticket_lifecycle",
+      "verification_status": "pending-human-review",
+      "verified_by": null,
+      "verified_at": null,
+      "allowed_field_set": [
+        "id",
+        "username",
+        "tenant",
+        "role",
+        "display_name",
+        "email"
+      ],
+      "forbidden_field_set": [
+        "api_key"
+      ]
+    },
+    {
+      "case_id": "AUTHZ-107",
+      "app": "tenantdesk",
+      "family": "F3",
+      "subtype": "R",
+      "secondary_families": [],
+      "scenario": "ticket owner reads agents' internal comments",
+      "operation_id": "list_comments",
+      "method": "GET",
+      "path": "/tickets/1002/comments",
+      "oracle_type": "property_policy_diff",
+      "expected_safe": "200 + internal comments filtered out",
+      "expected_safe_status": [
+        200
+      ],
+      "observed_when_enabled": "internal comment returned",
+      "flag": "TD-07",
+      "is_benign": false,
+      "severity": "medium",
+      "split": "development",
+      "cwe": "CWE-213",
+      "owasp_api_2023": "API3:2023",
+      "attacker": "actor-ann",
+      "victim": "actor-adam",
+      "object_id": "ticket-1002",
+      "evidence_required": [
+        "returned_field_set",
+        "allowed_field_set"
+      ],
+      "vulnerable_if": {
+        "list_any": {
+          "internal": true
+        }
+      },
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "AUTHZ-107"
+      },
+      "request_body": {},
+      "trace_ref": "trace_td_01_ticket_lifecycle",
+      "verification_status": "pending-human-review",
+      "verified_by": null,
+      "verified_at": null,
+      "allowed_field_set": [
+        "id",
+        "ticket_id",
+        "author_id",
+        "body",
+        "internal"
+      ],
+      "forbidden_field_set": [],
+      "forbidden_row_filter": {
+        "internal": true
+      }
+    },
+    {
+      "case_id": "AUTHZ-108",
+      "app": "tenantdesk",
+      "family": "F2",
+      "secondary_families": [],
+      "scenario": "agent creates an admin user",
+      "operation_id": "create_user",
+      "method": "POST",
+      "path": "/users",
+      "oracle_type": "differential_authorization",
+      "expected_safe": "403",
+      "expected_safe_status": [
+        403
+      ],
+      "observed_when_enabled": "201 + new admin user",
+      "flag": "TD-08",
+      "is_benign": false,
+      "severity": "high",
+      "split": "development",
+      "cwe": "CWE-285",
+      "owasp_api_2023": "API5:2023",
+      "attacker": "actor-adam",
+      "victim": "",
+      "object_id": "",
+      "evidence_required": [
+        "role_matrix_cell",
+        "before_after_state"
+      ],
+      "vulnerable_if": {
+        "status_2xx": true
+      },
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "AUTHZ-108"
+      },
+      "request_body": {
+        "username": "evil",
+        "role": "admin"
+      },
+      "trace_ref": "trace_td_01_ticket_lifecycle",
+      "verification_status": "pending-human-review",
+      "verified_by": null,
+      "verified_at": null,
+      "role_matrix_cell": {
+        "role": "Agent",
+        "action": "create_user",
+        "allowed": false
+      }
+    },
+    {
+      "case_id": "AUTHZ-109",
+      "app": "tenantdesk",
+      "family": "F2",
+      "secondary_families": [],
+      "scenario": "agent reads the admin audit log",
+      "operation_id": "get_audit",
+      "method": "GET",
+      "path": "/admin/audit",
+      "oracle_type": "differential_authorization",
+      "expected_safe": "403",
+      "expected_safe_status": [
+        403
+      ],
+      "observed_when_enabled": "200 + audit entries",
+      "flag": "TD-09",
+      "is_benign": false,
+      "severity": "medium",
+      "split": "development",
+      "cwe": "CWE-285",
+      "owasp_api_2023": "API5:2023",
+      "attacker": "actor-adam",
+      "victim": "",
+      "object_id": "",
+      "evidence_required": [
+        "role_matrix_cell",
+        "before_after_state"
+      ],
+      "vulnerable_if": {
+        "status_2xx": true
+      },
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "AUTHZ-109"
+      },
+      "request_body": {},
+      "trace_ref": "trace_td_01_ticket_lifecycle",
+      "verification_status": "pending-human-review",
+      "verified_by": null,
+      "verified_at": null,
+      "role_matrix_cell": {
+        "role": "Agent",
+        "action": "get_audit",
+        "allowed": false
+      }
+    },
+    {
+      "case_id": "AUTHZ-110",
+      "app": "tenantdesk",
+      "family": "F2",
+      "secondary_families": [],
+      "scenario": "agent deletes a user",
+      "operation_id": "delete_user",
+      "method": "DELETE",
+      "path": "/users/4",
+      "oracle_type": "differential_authorization",
+      "expected_safe": "403",
+      "expected_safe_status": [
+        403
+      ],
+      "observed_when_enabled": "200 + user deleted",
+      "flag": "TD-10",
+      "is_benign": false,
+      "severity": "high",
+      "split": "development",
+      "cwe": "CWE-285",
+      "owasp_api_2023": "API5:2023",
+      "attacker": "actor-adam",
+      "victim": "actor-ann",
+      "object_id": "user-4",
+      "evidence_required": [
+        "role_matrix_cell",
+        "before_after_state"
+      ],
+      "vulnerable_if": {
+        "status_2xx": true
+      },
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "AUTHZ-110"
+      },
+      "request_body": {},
+      "trace_ref": "trace_td_01_ticket_lifecycle",
+      "verification_status": "pending-human-review",
+      "verified_by": null,
+      "verified_at": null,
+      "role_matrix_cell": {
+        "role": "Agent",
+        "action": "delete_user",
+        "allowed": false
+      }
+    },
+    {
+      "case_id": "AUTHZ-111",
+      "app": "tenantdesk",
+      "family": "F4",
+      "secondary_families": [],
+      "scenario": "agent assigns a ticket to a user of another tenant",
+      "operation_id": "assign_ticket",
+      "method": "POST",
+      "path": "/tickets/1001/assign",
+      "oracle_type": "differential_authorization",
+      "expected_safe": "400/403/404",
+      "expected_safe_status": [
+        400,
+        403,
+        404
+      ],
+      "observed_when_enabled": "200 + cross-tenant assignee",
+      "flag": "TD-11",
+      "is_benign": false,
+      "severity": "high",
+      "split": "development",
+      "cwe": "CWE-639",
+      "owasp_api_2023": "API1:2023",
+      "attacker": "actor-adam",
+      "victim": "tenant-globex",
+      "object_id": "ticket-1001",
+      "evidence_required": [
+        "actor_tenant_id",
+        "object_tenant_id"
+      ],
+      "vulnerable_if": {
+        "status_2xx": true,
+        "body_field_eq": {
+          "assignee_id": 6
+        }
+      },
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "AUTHZ-111"
+      },
+      "request_body": {
+        "assignee_id": 6
+      },
+      "trace_ref": "trace_td_01_ticket_lifecycle",
+      "verification_status": "pending-human-review",
+      "verified_by": null,
+      "verified_at": null,
+      "actor_tenant_id": "tenant-acme",
+      "object_tenant_id": "tenant-globex"
+    },
+    {
+      "case_id": "AUTHZ-112",
+      "app": "tenantdesk",
+      "family": "F5",
+      "secondary_families": [],
+      "scenario": "agent closes an open ticket, skipping in_progress and resolved",
+      "operation_id": "transition_ticket",
+      "method": "POST",
+      "path": "/tickets/1001/transition",
+      "oracle_type": "state_invariant",
+      "expected_safe": "409",
+      "expected_safe_status": [
+        409
+      ],
+      "observed_when_enabled": "200 + status closed",
+      "flag": "TD-12",
+      "is_benign": false,
+      "severity": "high",
+      "split": "development",
+      "cwe": "CWE-841",
+      "owasp_api_2023": "API6:2023",
+      "attacker": "actor-adam",
+      "victim": "actor-amy",
+      "object_id": "ticket-1001",
+      "evidence_required": [
+        "attempted_edge",
+        "violated_invariant",
+        "before_after_state"
+      ],
+      "vulnerable_if": {
+        "status_2xx": true,
+        "body_field_eq": {
+          "status": "closed"
+        }
+      },
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "AUTHZ-112"
+      },
+      "request_body": {
+        "to": "closed"
+      },
+      "trace_ref": "trace_td_01_ticket_lifecycle",
+      "verification_status": "pending-human-review",
+      "verified_by": null,
+      "verified_at": null,
+      "attempted_edge": {
+        "from": "open",
+        "to": "closed",
+        "actor": "adam"
+      },
+      "violated_invariant": "workflow-ticket: closed is reachable only from resolved"
+    },
+    {
+      "case_id": "AUTHZ-113",
+      "app": "tenantdesk",
+      "family": "F5",
+      "secondary_families": [
+        "F2"
+      ],
+      "scenario": "agent approves own document (separation of duties)",
+      "operation_id": "approve_document",
+      "method": "POST",
+      "path": "/documents/2005/approve",
+      "oracle_type": "state_invariant",
+      "expected_safe": "403",
+      "expected_safe_status": [
+        403
+      ],
+      "observed_when_enabled": "200 + published, approved_by == owner",
+      "flag": "TD-13",
+      "is_benign": false,
+      "severity": "high",
+      "split": "development",
+      "cwe": "CWE-841",
+      "owasp_api_2023": "API6:2023",
+      "attacker": "actor-adam",
+      "victim": "actor-adam",
+      "object_id": "document-2005",
+      "evidence_required": [
+        "attempted_edge",
+        "violated_invariant",
+        "before_after_state"
+      ],
+      "vulnerable_if": {
+        "status_2xx": true,
+        "body_field_eq": {
+          "status": "published"
+        }
+      },
+      "setup_steps": [
+        {
+          "actor": "actor-adam",
+          "method": "POST",
+          "path": "/documents",
+          "body": {
+            "title": "x"
+          },
+          "expect_status": 201
+        },
+        {
+          "actor": "actor-adam",
+          "method": "POST",
+          "path": "/documents/2005/submit",
+          "expect_status": 200
+        }
+      ],
+      "request_headers": {
+        "x-lab-case-id": "AUTHZ-113"
+      },
+      "request_body": {},
+      "trace_ref": "trace_td_02_document_review",
+      "verification_status": "pending-human-review",
+      "verified_by": null,
+      "verified_at": null,
+      "attempted_edge": {
+        "from": "review",
+        "to": "published",
+        "actor": "adam"
+      },
+      "violated_invariant": "workflow-document: approver must not be the document owner (NotOwner)"
+    },
+    {
+      "case_id": "AUTHZ-114",
+      "app": "tenantdesk",
+      "family": "F5",
+      "secondary_families": [],
+      "scenario": "owner edits an already published document",
+      "operation_id": "update_document",
+      "method": "PUT",
+      "path": "/documents/2002",
+      "oracle_type": "state_invariant",
+      "expected_safe": "409",
+      "expected_safe_status": [
+        409
+      ],
+      "observed_when_enabled": "200 + content changed",
+      "flag": "TD-14",
+      "is_benign": false,
+      "severity": "high",
+      "split": "development",
+      "cwe": "CWE-841",
+      "owasp_api_2023": "API6:2023",
+      "attacker": "actor-ann",
+      "victim": "actor-ann",
+      "object_id": "document-2002",
+      "evidence_required": [
+        "attempted_edge",
+        "violated_invariant",
+        "before_after_state"
+      ],
+      "vulnerable_if": {
+        "status_2xx": true,
+        "body_field_eq": {
+          "content": "changed"
+        }
+      },
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "AUTHZ-114"
+      },
+      "request_body": {
+        "content": "changed"
+      },
+      "trace_ref": "trace_td_02_document_review",
+      "verification_status": "pending-human-review",
+      "verified_by": null,
+      "verified_at": null,
+      "attempted_edge": {
+        "from": "published",
+        "to": "published (content mutated)",
+        "actor": "ann"
+      },
+      "violated_invariant": "workflow-document: update_document requires state draft; published is immutable"
+    },
+    {
+      "case_id": "AUTHZ-115",
+      "app": "tenantdesk",
+      "family": "F4",
+      "secondary_families": [],
+      "scenario": "agent lists users and receives other tenants' users",
+      "operation_id": "list_users",
+      "method": "GET",
+      "path": "/users",
+      "oracle_type": "differential_authorization",
+      "expected_safe": "200 + only tenant-acme users",
+      "expected_safe_status": [
+        200
+      ],
+      "observed_when_enabled": "200 + includes tenant-globex users",
+      "flag": "TD-15",
+      "is_benign": false,
+      "severity": "medium",
+      "split": "development",
+      "cwe": "CWE-639",
+      "owasp_api_2023": "API1:2023",
+      "attacker": "actor-adam",
+      "victim": "tenant-globex",
+      "object_id": "",
+      "evidence_required": [
+        "actor_tenant_id",
+        "object_tenant_id",
+        "list_contents"
+      ],
+      "vulnerable_if": {
+        "list_any": {
+          "tenant": "globex"
+        }
+      },
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "AUTHZ-115"
+      },
+      "request_body": {},
+      "trace_ref": "trace_td_01_ticket_lifecycle",
+      "verification_status": "pending-human-review",
+      "verified_by": null,
+      "verified_at": null,
+      "actor_tenant_id": "tenant-acme",
+      "object_tenant_id": "tenant-globex"
+    },
+    {
+      "case_id": "AUTHZ-116",
+      "app": "tenantdesk",
+      "family": "F1",
+      "secondary_families": [],
+      "scenario": "member deletes another member's document",
+      "operation_id": "delete_document",
+      "method": "DELETE",
+      "path": "/documents/2001",
+      "oracle_type": "differential_authorization",
+      "expected_safe": "403",
+      "expected_safe_status": [
+        403
+      ],
+      "observed_when_enabled": "200 + document deleted",
+      "flag": "TD-16",
+      "is_benign": false,
+      "severity": "high",
+      "split": "development",
+      "cwe": "CWE-639",
+      "owasp_api_2023": "API1:2023",
+      "attacker": "actor-ann",
+      "victim": "actor-amy",
+      "object_id": "document-2001",
+      "evidence_required": [
+        "owner_baseline_response",
+        "test_actor_response",
+        "object_id_origin"
+      ],
+      "vulnerable_if": {
+        "status_2xx": true
+      },
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "AUTHZ-116"
+      },
+      "request_body": {},
+      "trace_ref": "trace_td_02_document_review",
+      "verification_status": "pending-human-review",
+      "verified_by": null,
+      "verified_at": null,
+      "actor_tenant_id": "tenant-acme",
+      "object_tenant_id": "tenant-acme",
+      "object_id_origin": "seeded object id"
+    },
+    {
+      "case_id": "AUTHZ-117",
+      "app": "tenantdesk",
+      "family": "F4",
+      "secondary_families": [],
+      "scenario": "owner shares a private document with a user of another tenant",
+      "operation_id": "share_document",
+      "method": "POST",
+      "path": "/documents/2001/share",
+      "oracle_type": "differential_authorization",
+      "expected_safe": "400/403/404",
+      "expected_safe_status": [
+        400,
+        403,
+        404
+      ],
+      "observed_when_enabled": "200 + cross-tenant share recorded",
+      "flag": "TD-17",
+      "is_benign": false,
+      "severity": "high",
+      "split": "development",
+      "cwe": "CWE-639",
+      "owasp_api_2023": "API1:2023",
+      "attacker": "actor-amy",
+      "victim": "tenant-globex",
+      "object_id": "document-2001",
+      "evidence_required": [
+        "actor_tenant_id",
+        "object_tenant_id"
+      ],
+      "vulnerable_if": {
+        "status_2xx": true
+      },
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "AUTHZ-117"
+      },
+      "request_body": {
+        "user_id": 7
+      },
+      "trace_ref": "trace_td_02_document_review",
+      "verification_status": "pending-human-review",
+      "verified_by": null,
+      "verified_at": null,
+      "actor_tenant_id": "tenant-acme",
+      "object_tenant_id": "tenant-globex"
+    },
+    {
+      "case_id": "AUTHZ-201",
+      "app": "shopflow",
+      "family": "F1",
+      "secondary_families": [],
+      "scenario": "customer reads another customer's order (same merchant)",
+      "operation_id": "get_order",
+      "method": "GET",
+      "path": "/orders/7001",
+      "oracle_type": "differential_authorization",
+      "expected_safe": "403",
+      "expected_safe_status": [
+        403
+      ],
+      "observed_when_enabled": "200 + order body",
+      "flag": "SF-01",
+      "is_benign": false,
+      "severity": "high",
+      "split": "held-out",
+      "cwe": "CWE-639",
+      "owasp_api_2023": "API1:2023",
+      "attacker": "actor-carl",
+      "victim": "actor-cathy",
+      "object_id": "order-7001",
+      "evidence_required": [
+        "owner_baseline_response",
+        "test_actor_response",
+        "object_id_origin"
+      ],
+      "vulnerable_if": {
+        "status_2xx": true
+      },
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "AUTHZ-201"
+      },
+      "request_body": {},
+      "trace_ref": "trace_sf_01_order_fulfilment",
+      "verification_status": "pending-human-review",
+      "verified_by": null,
+      "verified_at": null,
+      "actor_tenant_id": "tenant-acme-shop",
+      "object_tenant_id": "tenant-acme-shop",
+      "object_id_origin": "seeded object id"
+    },
+    {
+      "case_id": "AUTHZ-202",
+      "app": "shopflow",
+      "family": "F4",
+      "secondary_families": [],
+      "scenario": "staff of another merchant reads an order",
+      "operation_id": "get_order",
+      "method": "GET",
+      "path": "/orders/7001",
+      "oracle_type": "differential_authorization",
+      "expected_safe": "403/404",
+      "expected_safe_status": [
+        403,
+        404
+      ],
+      "observed_when_enabled": "200 + order body",
+      "flag": "SF-02",
+      "is_benign": false,
+      "severity": "high",
+      "split": "held-out",
+      "cwe": "CWE-639",
+      "owasp_api_2023": "API1:2023",
+      "attacker": "actor-steve",
+      "victim": "tenant-acme-shop",
+      "object_id": "order-7001",
+      "evidence_required": [
+        "actor_tenant_id",
+        "object_tenant_id"
+      ],
+      "vulnerable_if": {
+        "status_2xx": true
+      },
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "AUTHZ-202"
+      },
+      "request_body": {},
+      "trace_ref": "trace_sf_01_order_fulfilment",
+      "verification_status": "pending-human-review",
+      "verified_by": null,
+      "verified_at": null,
+      "actor_tenant_id": "tenant-globex-shop",
+      "object_tenant_id": "tenant-acme-shop"
+    },
+    {
+      "case_id": "AUTHZ-203",
+      "app": "shopflow",
+      "family": "F1",
+      "secondary_families": [],
+      "scenario": "customer edits another customer's draft order",
+      "operation_id": "patch_order",
+      "method": "PATCH",
+      "path": "/orders/7001",
+      "oracle_type": "differential_authorization",
+      "expected_safe": "403",
+      "expected_safe_status": [
+        403
+      ],
+      "observed_when_enabled": "200 + address changed",
+      "flag": "SF-03",
+      "is_benign": false,
+      "severity": "high",
+      "split": "held-out",
+      "cwe": "CWE-639",
+      "owasp_api_2023": "API1:2023",
+      "attacker": "actor-carl",
+      "victim": "actor-cathy",
+      "object_id": "order-7001",
+      "evidence_required": [
+        "owner_baseline_response",
+        "test_actor_response",
+        "object_id_origin"
+      ],
+      "vulnerable_if": {
+        "status_2xx": true,
+        "body_field_eq": {
+          "address": "evil"
+        }
+      },
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "AUTHZ-203"
+      },
+      "request_body": {
+        "address": "evil"
+      },
+      "trace_ref": "trace_sf_01_order_fulfilment",
+      "verification_status": "pending-human-review",
+      "verified_by": null,
+      "verified_at": null,
+      "actor_tenant_id": "tenant-acme-shop",
+      "object_tenant_id": "tenant-acme-shop",
+      "object_id_origin": "seeded object id"
+    },
+    {
+      "case_id": "AUTHZ-204",
+      "app": "shopflow",
+      "family": "F3",
+      "subtype": "W",
+      "secondary_families": [],
+      "scenario": "owner overwrites own order total (mass assignment)",
+      "operation_id": "patch_order",
+      "method": "PATCH",
+      "path": "/orders/7001",
+      "oracle_type": "property_policy_diff",
+      "expected_safe": "400/403",
+      "expected_safe_status": [
+        400,
+        403
+      ],
+      "observed_when_enabled": "200 + total changed",
+      "flag": "SF-04",
+      "is_benign": false,
+      "severity": "high",
+      "split": "held-out",
+      "cwe": "CWE-915",
+      "owasp_api_2023": "API3:2023",
+      "attacker": "actor-cathy",
+      "victim": "actor-cathy",
+      "object_id": "order-7001",
+      "evidence_required": [
+        "request_body",
+        "readback_before",
+        "readback_after"
+      ],
+      "vulnerable_if": {
+        "status_2xx": true,
+        "body_field_eq": {
+          "total": 1
+        }
+      },
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "AUTHZ-204"
+      },
+      "request_body": {
+        "total": 1
+      },
+      "trace_ref": "trace_sf_01_order_fulfilment",
+      "verification_status": "pending-human-review",
+      "verified_by": null,
+      "verified_at": null,
+      "restricted_properties": [
+        "total"
+      ]
+    },
+    {
+      "case_id": "AUTHZ-205",
+      "app": "shopflow",
+      "family": "F3",
+      "subtype": "W",
+      "secondary_families": [],
+      "scenario": "customer supplies own unit_price when creating an order",
+      "operation_id": "create_order",
+      "method": "POST",
+      "path": "/orders",
+      "oracle_type": "property_policy_diff",
+      "expected_safe": "201 + unit_price ignored (server price used)",
+      "expected_safe_status": [
+        201
+      ],
+      "observed_when_enabled": "201 + total computed from client price",
+      "flag": "SF-05",
+      "is_benign": false,
+      "severity": "high",
+      "split": "held-out",
+      "cwe": "CWE-915",
+      "owasp_api_2023": "API3:2023",
+      "attacker": "actor-cathy",
+      "victim": "actor-cathy",
+      "object_id": "",
+      "evidence_required": [
+        "request_body",
+        "readback_before",
+        "readback_after"
+      ],
+      "vulnerable_if": {
+        "body_field_eq": {
+          "total": 1
+        }
+      },
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "AUTHZ-205"
+      },
+      "request_body": {
+        "items": [
+          {
+            "product_id": 501,
+            "qty": 1,
+            "unit_price": 1
+          }
+        ]
+      },
+      "trace_ref": "trace_sf_01_order_fulfilment",
+      "verification_status": "pending-human-review",
+      "verified_by": null,
+      "verified_at": null,
+      "restricted_properties": [
+        "items[].unit_price"
+      ]
+    },
+    {
+      "case_id": "AUTHZ-206",
+      "app": "shopflow",
+      "family": "F2",
+      "secondary_families": [
+        "F5"
+      ],
+      "scenario": "customer ships own paid order",
+      "operation_id": "ship_order",
+      "method": "POST",
+      "path": "/orders/7003/ship",
+      "oracle_type": "differential_authorization",
+      "expected_safe": "403",
+      "expected_safe_status": [
+        403
+      ],
+      "observed_when_enabled": "200 + status shipped",
+      "flag": "SF-06",
+      "is_benign": false,
+      "severity": "high",
+      "split": "held-out",
+      "cwe": "CWE-285",
+      "owasp_api_2023": "API5:2023",
+      "attacker": "actor-cathy",
+      "victim": "actor-cathy",
+      "object_id": "order-7003",
+      "evidence_required": [
+        "role_matrix_cell",
+        "before_after_state"
+      ],
+      "vulnerable_if": {
+        "status_2xx": true
+      },
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "AUTHZ-206"
+      },
+      "request_body": {},
+      "trace_ref": "trace_sf_01_order_fulfilment",
+      "verification_status": "pending-human-review",
+      "verified_by": null,
+      "verified_at": null,
+      "role_matrix_cell": {
+        "role": "Customer",
+        "action": "ship_order",
+        "allowed": false
+      }
+    },
+    {
+      "case_id": "AUTHZ-207",
+      "app": "shopflow",
+      "family": "F2",
+      "secondary_families": [],
+      "scenario": "staff approves a refund (merchant_admin only)",
+      "operation_id": "approve_refund",
+      "method": "POST",
+      "path": "/refunds/9001/approve",
+      "oracle_type": "differential_authorization",
+      "expected_safe": "403",
+      "expected_safe_status": [
+        403
+      ],
+      "observed_when_enabled": "200 + refund approved",
+      "flag": "SF-07",
+      "is_benign": false,
+      "severity": "high",
+      "split": "held-out",
+      "cwe": "CWE-285",
+      "owasp_api_2023": "API5:2023",
+      "attacker": "actor-sam",
+      "victim": "actor-cathy",
+      "object_id": "refund-9001",
+      "evidence_required": [
+        "role_matrix_cell",
+        "before_after_state"
+      ],
+      "vulnerable_if": {
+        "status_2xx": true
+      },
+      "setup_steps": [
+        {
+          "actor": "actor-cathy",
+          "method": "POST",
+          "path": "/orders/7003/refund",
+          "body": {
+            "amount": 100
+          },
+          "expect_status": 201
+        }
+      ],
+      "request_headers": {
+        "x-lab-case-id": "AUTHZ-207"
+      },
+      "request_body": {},
+      "trace_ref": "trace_sf_02_refund_and_coupon",
+      "verification_status": "pending-human-review",
+      "verified_by": null,
+      "verified_at": null,
+      "role_matrix_cell": {
+        "role": "Staff",
+        "action": "approve_refund",
+        "allowed": false
+      }
+    },
+    {
+      "case_id": "AUTHZ-208",
+      "app": "shopflow",
+      "family": "F2",
+      "secondary_families": [],
+      "scenario": "customer reads the sales report",
+      "operation_id": "sales_report",
+      "method": "GET",
+      "path": "/reports/sales",
+      "oracle_type": "differential_authorization",
+      "expected_safe": "403",
+      "expected_safe_status": [
+        403
+      ],
+      "observed_when_enabled": "200 + sales figures",
+      "flag": "SF-08",
+      "is_benign": false,
+      "severity": "medium",
+      "split": "held-out",
+      "cwe": "CWE-285",
+      "owasp_api_2023": "API5:2023",
+      "attacker": "actor-cathy",
+      "victim": "",
+      "object_id": "",
+      "evidence_required": [
+        "role_matrix_cell",
+        "before_after_state"
+      ],
+      "vulnerable_if": {
+        "status_2xx": true
+      },
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "AUTHZ-208"
+      },
+      "request_body": {},
+      "trace_ref": "trace_sf_01_order_fulfilment",
+      "verification_status": "pending-human-review",
+      "verified_by": null,
+      "verified_at": null,
+      "role_matrix_cell": {
+        "role": "Customer",
+        "action": "sales_report",
+        "allowed": false
+      }
+    },
+    {
+      "case_id": "AUTHZ-209",
+      "app": "shopflow",
+      "family": "F5",
+      "secondary_families": [],
+      "scenario": "staff ships an unpaid draft order",
+      "operation_id": "ship_order",
+      "method": "POST",
+      "path": "/orders/7001/ship",
+      "oracle_type": "state_invariant",
+      "expected_safe": "409",
+      "expected_safe_status": [
+        409
+      ],
+      "observed_when_enabled": "200 + status shipped",
+      "flag": "SF-09",
+      "is_benign": false,
+      "severity": "high",
+      "split": "held-out",
+      "cwe": "CWE-841",
+      "owasp_api_2023": "API6:2023",
+      "attacker": "actor-sam",
+      "victim": "actor-cathy",
+      "object_id": "order-7001",
+      "evidence_required": [
+        "attempted_edge",
+        "violated_invariant",
+        "before_after_state"
+      ],
+      "vulnerable_if": {
+        "status_2xx": true,
+        "body_field_eq": {
+          "status": "shipped"
+        }
+      },
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "AUTHZ-209"
+      },
+      "request_body": {},
+      "trace_ref": "trace_sf_01_order_fulfilment",
+      "verification_status": "pending-human-review",
+      "verified_by": null,
+      "verified_at": null,
+      "attempted_edge": {
+        "from": "draft",
+        "to": "shipped",
+        "actor": "sam"
+      },
+      "violated_invariant": "workflow-order: ship_order requires state paid"
+    },
+    {
+      "case_id": "AUTHZ-210",
+      "app": "shopflow",
+      "family": "F5",
+      "secondary_families": [],
+      "scenario": "owner requests a second full refund on one paid order",
+      "operation_id": "request_refund",
+      "method": "POST",
+      "path": "/orders/7003/refund",
+      "oracle_type": "state_invariant",
+      "expected_safe": "409",
+      "expected_safe_status": [
+        409
+      ],
+      "observed_when_enabled": "201 + second refund accepted",
+      "flag": "SF-10",
+      "is_benign": false,
+      "severity": "high",
+      "split": "held-out",
+      "cwe": "CWE-841",
+      "owasp_api_2023": "API6:2023",
+      "attacker": "actor-cathy",
+      "victim": "actor-cathy",
+      "object_id": "order-7003",
+      "evidence_required": [
+        "attempted_edge",
+        "violated_invariant",
+        "before_after_state"
+      ],
+      "vulnerable_if": {
+        "status_2xx": true
+      },
+      "setup_steps": [
+        {
+          "actor": "actor-cathy",
+          "method": "POST",
+          "path": "/orders/7003/refund",
+          "body": {
+            "amount": 3000
+          },
+          "expect_status": 201
+        }
+      ],
+      "request_headers": {
+        "x-lab-case-id": "AUTHZ-210"
+      },
+      "request_body": {
+        "amount": 3000
+      },
+      "trace_ref": "trace_sf_02_refund_and_coupon",
+      "verification_status": "pending-human-review",
+      "verified_by": null,
+      "verified_at": null,
+      "attempted_edge": {
+        "from": "refund requested (paid_amount exhausted)",
+        "to": "second refund requested",
+        "actor": "cathy"
+      },
+      "violated_invariant": "sum(refunds pending|approved) <= order.paid_amount"
+    },
+    {
+      "case_id": "AUTHZ-211",
+      "app": "shopflow",
+      "family": "F5",
+      "secondary_families": [],
+      "scenario": "second customer redeems a single-use coupon already used",
+      "operation_id": "apply_coupon",
+      "method": "POST",
+      "path": "/orders/7002/apply-coupon",
+      "oracle_type": "state_invariant",
+      "expected_safe": "409",
+      "expected_safe_status": [
+        409
+      ],
+      "observed_when_enabled": "200 + exhausted coupon applied",
+      "flag": "SF-11",
+      "is_benign": false,
+      "severity": "medium",
+      "split": "held-out",
+      "cwe": "CWE-841",
+      "owasp_api_2023": "API6:2023",
+      "attacker": "actor-carl",
+      "victim": "actor-cathy",
+      "object_id": "coupon-ACME10",
+      "evidence_required": [
+        "attempted_edge",
+        "violated_invariant",
+        "before_after_state"
+      ],
+      "vulnerable_if": {
+        "status_2xx": true,
+        "body_field_eq": {
+          "coupon": "ACME10"
+        }
+      },
+      "setup_steps": [
+        {
+          "actor": "actor-cathy",
+          "method": "POST",
+          "path": "/orders/7001/apply-coupon",
+          "body": {
+            "code": "ACME10"
+          },
+          "expect_status": 200
+        }
+      ],
+      "request_headers": {
+        "x-lab-case-id": "AUTHZ-211"
+      },
+      "request_body": {
+        "code": "ACME10"
+      },
+      "trace_ref": "trace_sf_02_refund_and_coupon",
+      "verification_status": "pending-human-review",
+      "verified_by": null,
+      "verified_at": null,
+      "attempted_edge": {
+        "from": "coupon uses=max_uses",
+        "to": "coupon redeemed again",
+        "actor": "carl"
+      },
+      "violated_invariant": "coupon.uses <= coupon.max_uses"
+    },
+    {
+      "case_id": "AUTHZ-212",
+      "app": "shopflow",
+      "family": "F5",
+      "secondary_families": [],
+      "scenario": "owner cancels an already shipped order",
+      "operation_id": "cancel_order",
+      "method": "POST",
+      "path": "/orders/7005/cancel",
+      "oracle_type": "state_invariant",
+      "expected_safe": "409",
+      "expected_safe_status": [
+        409
+      ],
+      "observed_when_enabled": "200 + status cancelled",
+      "flag": "SF-12",
+      "is_benign": false,
+      "severity": "high",
+      "split": "held-out",
+      "cwe": "CWE-841",
+      "owasp_api_2023": "API6:2023",
+      "attacker": "actor-cathy",
+      "victim": "actor-cathy",
+      "object_id": "order-7005",
+      "evidence_required": [
+        "attempted_edge",
+        "violated_invariant",
+        "before_after_state"
+      ],
+      "vulnerable_if": {
+        "status_2xx": true,
+        "body_field_eq": {
+          "status": "cancelled"
+        }
+      },
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "AUTHZ-212"
+      },
+      "request_body": {},
+      "trace_ref": "trace_sf_01_order_fulfilment",
+      "verification_status": "pending-human-review",
+      "verified_by": null,
+      "verified_at": null,
+      "attempted_edge": {
+        "from": "shipped",
+        "to": "cancelled",
+        "actor": "cathy"
+      },
+      "violated_invariant": "workflow-order: cancel only from draft or paid"
+    },
+    {
+      "case_id": "AUTHZ-213",
+      "app": "shopflow",
+      "family": "F4",
+      "secondary_families": [],
+      "scenario": "customer applies another merchant's coupon",
+      "operation_id": "apply_coupon",
+      "method": "POST",
+      "path": "/orders/7001/apply-coupon",
+      "oracle_type": "differential_authorization",
+      "expected_safe": "403/404",
+      "expected_safe_status": [
+        403,
+        404
+      ],
+      "observed_when_enabled": "200 + foreign coupon applied",
+      "flag": "SF-13",
+      "is_benign": false,
+      "severity": "high",
+      "split": "held-out",
+      "cwe": "CWE-639",
+      "owasp_api_2023": "API1:2023",
+      "attacker": "actor-cathy",
+      "victim": "tenant-globex-shop",
+      "object_id": "coupon-GLOBEX15",
+      "evidence_required": [
+        "actor_tenant_id",
+        "object_tenant_id"
+      ],
+      "vulnerable_if": {
+        "status_2xx": true,
+        "body_field_eq": {
+          "coupon": "GLOBEX15"
+        }
+      },
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "AUTHZ-213"
+      },
+      "request_body": {
+        "code": "GLOBEX15"
+      },
+      "trace_ref": "trace_sf_02_refund_and_coupon",
+      "verification_status": "pending-human-review",
+      "verified_by": null,
+      "verified_at": null,
+      "actor_tenant_id": "tenant-acme-shop",
+      "object_tenant_id": "tenant-globex-shop"
+    },
+    {
+      "case_id": "AUTHZ-214",
+      "app": "shopflow",
+      "family": "F3",
+      "subtype": "R",
+      "secondary_families": [],
+      "scenario": "customer sees cost_price in product list",
+      "operation_id": "list_products",
+      "method": "GET",
+      "path": "/products",
+      "oracle_type": "property_policy_diff",
+      "expected_safe": "200 + cost_price omitted for customers",
+      "expected_safe_status": [
+        200
+      ],
+      "observed_when_enabled": "cost_price present",
+      "flag": "SF-14",
+      "is_benign": false,
+      "severity": "medium",
+      "split": "held-out",
+      "cwe": "CWE-213",
+      "owasp_api_2023": "API3:2023",
+      "attacker": "actor-cathy",
+      "victim": "",
+      "object_id": "product-501",
+      "evidence_required": [
+        "returned_field_set",
+        "allowed_field_set"
+      ],
+      "vulnerable_if": {
+        "list_all_have_key": "cost_price"
+      },
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "AUTHZ-214"
+      },
+      "request_body": {},
+      "trace_ref": "trace_sf_01_order_fulfilment",
+      "verification_status": "pending-human-review",
+      "verified_by": null,
+      "verified_at": null,
+      "allowed_field_set": [
+        "id",
+        "tenant",
+        "name",
+        "price",
+        "stock"
+      ],
+      "forbidden_field_set": [
+        "cost_price"
+      ]
+    },
+    {
+      "case_id": "BENIGN-101",
+      "app": "tenantdesk",
+      "family": "F1",
+      "secondary_families": [],
+      "scenario": "member reads own ticket",
+      "operation_id": "get_ticket",
+      "method": "GET",
+      "path": "/tickets/1001",
+      "oracle_type": "benign_behavior",
+      "baseline_oracle_type": "differential_authorization",
+      "expected_safe": "200 + own resource",
+      "expected_safe_status": [
+        200
+      ],
+      "flag": "",
+      "is_benign": true,
+      "severity": "info",
+      "split": "development",
+      "attacker": "actor-amy",
+      "victim": "",
+      "object_id": "ticket-1001",
+      "evidence_required": [
+        "request",
+        "response",
+        "status",
+        "test_actor"
+      ],
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "BENIGN-101"
+      },
+      "request_body": {},
+      "trace_ref": "trace_td_01_ticket_lifecycle",
+      "verification_status": "fixture",
+      "verified_by": null,
+      "verified_at": null
+    },
+    {
+      "case_id": "BENIGN-102",
+      "app": "tenantdesk",
+      "family": "F2",
+      "secondary_families": [],
+      "scenario": "admin reads audit log",
+      "operation_id": "get_audit",
+      "method": "GET",
+      "path": "/admin/audit",
+      "oracle_type": "benign_behavior",
+      "baseline_oracle_type": "differential_authorization",
+      "expected_safe": "200 + audit entries",
+      "expected_safe_status": [
+        200
+      ],
+      "flag": "",
+      "is_benign": true,
+      "severity": "info",
+      "split": "development",
+      "attacker": "actor-alice",
+      "victim": "",
+      "object_id": "",
+      "evidence_required": [
+        "request",
+        "response",
+        "status",
+        "test_actor"
+      ],
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "BENIGN-102"
+      },
+      "request_body": {},
+      "trace_ref": "trace_td_01_ticket_lifecycle",
+      "verification_status": "fixture",
+      "verified_by": null,
+      "verified_at": null
+    },
+    {
+      "case_id": "BENIGN-103",
+      "app": "tenantdesk",
+      "family": "F3",
+      "subtype": "W",
+      "secondary_families": [],
+      "scenario": "member edits own ticket title",
+      "operation_id": "patch_ticket",
+      "method": "PATCH",
+      "path": "/tickets/1001",
+      "oracle_type": "benign_behavior",
+      "baseline_oracle_type": "property_policy_diff",
+      "expected_safe": "200 + permitted title update",
+      "expected_safe_status": [
+        200
+      ],
+      "flag": "",
+      "is_benign": true,
+      "severity": "info",
+      "split": "development",
+      "attacker": "actor-amy",
+      "victim": "",
+      "object_id": "ticket-1001",
+      "evidence_required": [
+        "request",
+        "response",
+        "status",
+        "test_actor"
+      ],
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "BENIGN-103"
+      },
+      "request_body": {
+        "title": "t"
+      },
+      "trace_ref": "trace_td_01_ticket_lifecycle",
+      "verification_status": "fixture",
+      "verified_by": null,
+      "verified_at": null
+    },
+    {
+      "case_id": "BENIGN-104",
+      "app": "tenantdesk",
+      "family": "F4",
+      "secondary_families": [],
+      "scenario": "member lists tickets: own tenant, own tickets only",
+      "operation_id": "list_tickets",
+      "method": "GET",
+      "path": "/tickets",
+      "oracle_type": "benign_behavior",
+      "baseline_oracle_type": "differential_authorization",
+      "expected_safe": "own-tenant own-owner tickets only",
+      "expected_safe_status": [
+        200
+      ],
+      "flag": "",
+      "is_benign": true,
+      "severity": "info",
+      "split": "development",
+      "attacker": "actor-amy",
+      "victim": "",
+      "object_id": "",
+      "evidence_required": [
+        "request",
+        "response",
+        "status",
+        "test_actor"
+      ],
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "BENIGN-104"
+      },
+      "request_body": {},
+      "trace_ref": "trace_td_01_ticket_lifecycle",
+      "verification_status": "fixture",
+      "verified_by": null,
+      "verified_at": null,
+      "list_invariant_all_rows": {
+        "tenant": "acme",
+        "owner_id": 3
+      }
+    },
+    {
+      "case_id": "BENIGN-105",
+      "app": "tenantdesk",
+      "family": "F5",
+      "secondary_families": [],
+      "scenario": "agent moves in_progress ticket to resolved",
+      "operation_id": "transition_ticket",
+      "method": "POST",
+      "path": "/tickets/1002/transition",
+      "oracle_type": "benign_behavior",
+      "baseline_oracle_type": "state_invariant",
+      "expected_safe": "valid in_progress-to-resolved transition",
+      "expected_safe_status": [
+        200
+      ],
+      "flag": "",
+      "is_benign": true,
+      "severity": "info",
+      "split": "development",
+      "attacker": "actor-adam",
+      "victim": "",
+      "object_id": "ticket-1002",
+      "evidence_required": [
+        "request",
+        "response",
+        "status",
+        "test_actor"
+      ],
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "BENIGN-105"
+      },
+      "request_body": {
+        "to": "resolved"
+      },
+      "trace_ref": "trace_td_01_ticket_lifecycle",
+      "verification_status": "fixture",
+      "verified_by": null,
+      "verified_at": null
+    },
+    {
+      "case_id": "BENIGN-106",
+      "app": "tenantdesk",
+      "family": "F1",
+      "secondary_families": [],
+      "scenario": "anonymous request to a protected ticket is denied (no token)",
+      "operation_id": "get_ticket",
+      "method": "GET",
+      "path": "/tickets/1001",
+      "oracle_type": "benign_behavior",
+      "baseline_oracle_type": "differential_authorization",
+      "expected_safe": "401 + no resource data",
+      "expected_safe_status": [
+        401,
+        403
+      ],
+      "flag": "",
+      "is_benign": true,
+      "severity": "info",
+      "split": "development",
+      "attacker": "anonymous",
+      "victim": "",
+      "object_id": "ticket-1001",
+      "evidence_required": [
+        "request",
+        "response",
+        "status",
+        "test_actor"
+      ],
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "BENIGN-106"
+      },
+      "request_body": {},
+      "trace_ref": "trace_td_01_ticket_lifecycle",
+      "verification_status": "fixture",
+      "verified_by": null,
+      "verified_at": null
+    },
+    {
+      "case_id": "BENIGN-201",
+      "app": "shopflow",
+      "family": "F1",
+      "secondary_families": [],
+      "scenario": "customer reads own order",
+      "operation_id": "get_order",
+      "method": "GET",
+      "path": "/orders/7001",
+      "oracle_type": "benign_behavior",
+      "baseline_oracle_type": "differential_authorization",
+      "expected_safe": "200 + own resource",
+      "expected_safe_status": [
+        200
+      ],
+      "flag": "",
+      "is_benign": true,
+      "severity": "info",
+      "split": "held-out",
+      "attacker": "actor-cathy",
+      "victim": "",
+      "object_id": "order-7001",
+      "evidence_required": [
+        "request",
+        "response",
+        "status",
+        "test_actor"
+      ],
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "BENIGN-201"
+      },
+      "request_body": {},
+      "trace_ref": "trace_sf_01_order_fulfilment",
+      "verification_status": "fixture",
+      "verified_by": null,
+      "verified_at": null
+    },
+    {
+      "case_id": "BENIGN-202",
+      "app": "shopflow",
+      "family": "F2",
+      "secondary_families": [],
+      "scenario": "staff ships a paid order",
+      "operation_id": "ship_order",
+      "method": "POST",
+      "path": "/orders/7003/ship",
+      "oracle_type": "benign_behavior",
+      "baseline_oracle_type": "differential_authorization",
+      "expected_safe": "200 + valid paid-to-shipped transition",
+      "expected_safe_status": [
+        200
+      ],
+      "flag": "",
+      "is_benign": true,
+      "severity": "info",
+      "split": "held-out",
+      "attacker": "actor-sam",
+      "victim": "",
+      "object_id": "order-7003",
+      "evidence_required": [
+        "request",
+        "response",
+        "status",
+        "test_actor"
+      ],
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "BENIGN-202"
+      },
+      "request_body": {},
+      "trace_ref": "trace_sf_01_order_fulfilment",
+      "verification_status": "fixture",
+      "verified_by": null,
+      "verified_at": null
+    },
+    {
+      "case_id": "BENIGN-203",
+      "app": "shopflow",
+      "family": "F3",
+      "subtype": "W",
+      "secondary_families": [],
+      "scenario": "customer edits own draft order address",
+      "operation_id": "patch_order",
+      "method": "PATCH",
+      "path": "/orders/7001",
+      "oracle_type": "benign_behavior",
+      "baseline_oracle_type": "property_policy_diff",
+      "expected_safe": "200 + permitted address update",
+      "expected_safe_status": [
+        200
+      ],
+      "flag": "",
+      "is_benign": true,
+      "severity": "info",
+      "split": "held-out",
+      "attacker": "actor-cathy",
+      "victim": "",
+      "object_id": "order-7001",
+      "evidence_required": [
+        "request",
+        "response",
+        "status",
+        "test_actor"
+      ],
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "BENIGN-203"
+      },
+      "request_body": {
+        "address": "a"
+      },
+      "trace_ref": "trace_sf_01_order_fulfilment",
+      "verification_status": "fixture",
+      "verified_by": null,
+      "verified_at": null
+    },
+    {
+      "case_id": "BENIGN-204",
+      "app": "shopflow",
+      "family": "F4",
+      "secondary_families": [],
+      "scenario": "customer lists orders: own tenant, own orders only",
+      "operation_id": "list_orders",
+      "method": "GET",
+      "path": "/orders",
+      "oracle_type": "benign_behavior",
+      "baseline_oracle_type": "differential_authorization",
+      "expected_safe": "own-tenant own-customer orders only",
+      "expected_safe_status": [
+        200
+      ],
+      "flag": "",
+      "is_benign": true,
+      "severity": "info",
+      "split": "held-out",
+      "attacker": "actor-cathy",
+      "victim": "",
+      "object_id": "",
+      "evidence_required": [
+        "request",
+        "response",
+        "status",
+        "test_actor"
+      ],
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "BENIGN-204"
+      },
+      "request_body": {},
+      "trace_ref": "trace_sf_01_order_fulfilment",
+      "verification_status": "fixture",
+      "verified_by": null,
+      "verified_at": null,
+      "list_invariant_all_rows": {
+        "tenant": "acme-shop",
+        "customer_id": 3
+      }
+    },
+    {
+      "case_id": "BENIGN-205",
+      "app": "shopflow",
+      "family": "F5",
+      "secondary_families": [],
+      "scenario": "customer pays own draft order",
+      "operation_id": "pay_order",
+      "method": "POST",
+      "path": "/orders/7001/pay",
+      "oracle_type": "benign_behavior",
+      "baseline_oracle_type": "state_invariant",
+      "expected_safe": "valid draft-to-paid transition",
+      "expected_safe_status": [
+        200
+      ],
+      "flag": "",
+      "is_benign": true,
+      "severity": "info",
+      "split": "held-out",
+      "attacker": "actor-cathy",
+      "victim": "",
+      "object_id": "order-7001",
+      "evidence_required": [
+        "request",
+        "response",
+        "status",
+        "test_actor"
+      ],
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "BENIGN-205"
+      },
+      "request_body": {},
+      "trace_ref": "trace_sf_01_order_fulfilment",
+      "verification_status": "fixture",
+      "verified_by": null,
+      "verified_at": null
+    },
+    {
+      "case_id": "BENIGN-206",
+      "app": "shopflow",
+      "family": "F1",
+      "secondary_families": [],
+      "scenario": "anonymous request to a protected order is denied (no token)",
+      "operation_id": "get_order",
+      "method": "GET",
+      "path": "/orders/7001",
+      "oracle_type": "benign_behavior",
+      "baseline_oracle_type": "differential_authorization",
+      "expected_safe": "401 + no resource data",
+      "expected_safe_status": [
+        401,
+        403
+      ],
+      "flag": "",
+      "is_benign": true,
+      "severity": "info",
+      "split": "held-out",
+      "attacker": "anonymous",
+      "victim": "",
+      "object_id": "order-7001",
+      "evidence_required": [
+        "request",
+        "response",
+        "status",
+        "test_actor"
+      ],
+      "setup_steps": [],
+      "request_headers": {
+        "x-lab-case-id": "BENIGN-206"
+      },
+      "request_body": {},
+      "trace_ref": "trace_sf_01_order_fulfilment",
+      "verification_status": "fixture",
+      "verified_by": null,
+      "verified_at": null
+    }
+  ]
+}
