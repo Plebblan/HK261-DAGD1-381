@@ -1,0 +1,14 @@
+{
+  "profile_id": "custom_mock",
+  "description": "App-specific runtime profile for the shared Safety Gateway engine.",
+  "listen_host": "127.0.0.1",
+  "listen_port": 8088,
+  "upstream_base_url": "http://localhost:8000",
+  "safety_allowlist": "runtrace_allowlist.json",
+  "actor_registry": "cyber-range/model/rso.yaml",
+  "event_log": "runtrace_proxy_events.jsonl",
+  "oracle_policy": "cyber-range/access_policy.yaml",
+  "state_graph": "cyber-range/business_state_graph.yaml",
+  "ground_truth": "cyber-range/ground_truth/ground_truth.yaml",
+  "notes": "oracle_policy, state_graph and ground_truth are model references; they never authorize or block proxy forwarding."
+}

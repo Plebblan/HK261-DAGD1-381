@@ -1,6 +1,8 @@
 # Authorization & Business-Logic Taxonomy
 # Shared across ALL apps. Describes kinds of flaws, never specific endpoints.
-# Per-app instances live in apps/<app>/flaw_catalog.yaml.
+# Per-app instances are indexed by apps/<app>/flaw_catalog.yaml; the catalog may
+# reference a canonical ground_truth file when that keeps seed/evaluation data
+# in one source of truth.
 
 schema_version: "0.1"
 status: draft   # change to "frozen" once decisions D1-D5 are confirmed

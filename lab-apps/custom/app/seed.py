@@ -1,9 +1,8 @@
 """Deterministic application fixtures and Cyber Range artifact loader."""
-import csv
 import json
 from pathlib import Path
 
-LAB_SEED_VERSION = 6
+LAB_SEED_VERSION = 8
 SEED_DATA = {
     "customers": [
         {"ID": "11111111-1111-4111-8111-111111111111", "Name": "Linh Nguyen", "Email": "linh@example.test", "PhoneNumber": "0901234567", "BirthDate": "1998-04-12", "Password": "demo123", "Roles": ["Customer"], "TenantID": "tenant-a", "Active": True},
@@ -72,28 +71,34 @@ for collection_name, documents in _objects.get("auxiliary_objects", {}).items():
 SEED_DATA["lab_workflows"] = _workflows["workflows"]
 SEED_DATA["lab_ground_truth"] = []
 SEED_DATA["lab_benign_cases"] = []
-with (_RANGE / "ground_truth/planted_cases.csv").open(newline="", encoding="utf-8") as artifact:
-    for row in csv.DictReader(artifact):
-        benign = row["is_benign"].lower() == "true"
-        case = {
-            "ID": row["case_id"] if benign else f"GT-{row['case_id'].replace('-', '')}",
-            "CaseID": row["case_id"], "App": row["app"], "Family": row["family"],
-            "Scenario": row["scenario"], "OperationID": row["operation_id"],
-            "Method": row["method"], "Path": row["path"],
-            "Attacker": row["attacker"] or None, "Victim": row["victim"] or None,
-            "ObjectID": row["object_id"] or None, "OracleType": row["oracle_type"],
-            "ExpectedSafe": row["expected_safe"], "ObservedVulnerable": row["observed_vulnerable"],
-            "Flag": row["flag"], "IsBenign": benign, "CWE": row["cwe"],
-            "OWASP": row["owasp"], "Severity": row["severity"], "Split": row["split"],
-            "SetupSteps": json.loads(row["setup_steps"]),
-            "RequestHeaders": json.loads(row["request_headers"]),
-            "RequestBody": json.loads(row["request_body"]),
-            "EvidenceRequired": json.loads(row["evidence_required"]),
-            "VerificationStatus": row["verification_status"],
-            "VerifiedBy": row["verified_by"] or None, "VerifiedAt": row["verified_at"] or None,
-            "Planted": not benign,
-        }
-        SEED_DATA["lab_benign_cases" if benign else "lab_ground_truth"].append(case)
+_ground_truth = _load_json_yaml("ground_truth/ground_truth.yaml")
+for row in _ground_truth["cases"]:
+    benign = bool(row["is_benign"])
+    profile = _ground_truth.get("family_profiles", {}).get(row["family"], {}) if not benign else {}
+    mapping = row.get("mapping", profile.get("mapping", {}))
+    case = {
+        "ID": row["case_id"] if benign else f"GT-{row['case_id'].replace('-', '')}",
+        "CaseID": row["case_id"], "App": _ground_truth["app"], "Family": row["family"],
+        "Scenario": row["scenario"], "OperationID": row["operation_id"],
+        "Method": row["method"], "Path": row["path"],
+        "Attacker": row.get("attacker"), "Victim": row.get("victim"),
+        "ObjectID": row.get("object_id"), "OracleType": row.get("oracle_type", profile.get("oracle_type")),
+        "ExpectedSafe": row["expected_safe"],
+        "ObservedVulnerable": row.get("observed_when_enabled"),
+        "Flag": row.get("flag"), "IsBenign": benign,
+        "CWE": mapping.get("cwe"), "OWASP": mapping.get("owasp_api_2023"),
+        "Split": row["split"], "SetupSteps": row.get("setup_steps", []),
+        "RequestHeaders": row.get("request_headers", {}),
+        "RequestBody": row.get("request_body", {}),
+        "EvidenceRequired": [*_ground_truth.get("evidence_common", []),
+                             *row.get("evidence_required", profile.get("evidence_required", []))],
+        "VerificationStatus": row.get("verification_status", _ground_truth.get("defaults", {}).get("verification_status")),
+        "VerifiedBy": row.get("verified_by", _ground_truth.get("defaults", {}).get("verified_by")),
+        "VerifiedAt": row.get("verified_at", _ground_truth.get("defaults", {}).get("verified_at")),
+        "SecondaryFamilies": row.get("secondary_families", []),
+        "Planted": not benign,
+    }
+    SEED_DATA["lab_benign_cases" if benign else "lab_ground_truth"].append(case)
 
 
 def seed_database(database):
