@@ -107,7 +107,7 @@ def lab_get_invoice(invoice_id: str, request: Request) -> JSONResponse:
     if not doc:
         return _not_found(request, INVOICE_TEMPLATE_ITEM, actor)
     # AUTHZ-INV-01 (planted, off by default): supplier from another tenant reads a foreign invoice.
-    vulnerable = lab_vulnerability_enabled("AUTHZ-INV-01")
+    vulnerable = lab_vulnerability_enabled("AUTHZ-INV-01") and lab_case_actor(actor, "actor-supplier-a")
     if not (_is_admin(actor) or _same_tenant(actor, doc)) and not vulnerable:
         return _forbidden(request, INVOICE_TEMPLATE_ITEM, actor, resource_id=invoice_id, tenant_id=doc.get("TenantID"))
     return response(request, INVOICE_TEMPLATE_ITEM, doc, 200, actor,
@@ -135,7 +135,8 @@ async def lab_update_invoice(invoice_id: str, request: Request) -> JSONResponse:
         return response(request, INVOICE_TEMPLATE_ITEM, {"ErrorMessage": "JSON object required"}, 400, actor)
     # AUTHZ-INV-02 (planted, off by default): non-admin edits Amount directly (should be line-item-derived only).
     allowed = {"LineItems"}
-    vulnerable = "Amount" in body and lab_vulnerability_enabled("AUTHZ-INV-02") and not _is_admin(actor)
+    vulnerable = ("Amount" in body and lab_vulnerability_enabled("AUTHZ-INV-02")
+                  and lab_case_actor(actor, "actor-supplier-a") and not _is_admin(actor))
     if set(body) - allowed and not vulnerable and not _is_admin(actor):
         return response(request, INVOICE_TEMPLATE_ITEM, {"ErrorMessage": "Only LineItems is editable"}, 400, actor,
                         {"resource_id": invoice_id, "state_before": doc.get("Status")})
@@ -255,7 +256,8 @@ def _payout_transition(request: Request, payout_id: str, action: str, from_state
         return _not_found(request, template, actor)
     state = doc.get("Status")
     # AUTHZ-PAY-02 (planted, off by default): supplier approves/releases their own payout.
-    vulnerable = lab_vulnerability_enabled("AUTHZ-PAY-02") and _same_tenant(actor, doc) and actor.get("_mock_role") == "supplier"
+    vulnerable = (lab_vulnerability_enabled("AUTHZ-PAY-02") and _same_tenant(actor, doc)
+                  and lab_case_actor(actor, "actor-supplier-a") and actor.get("_mock_role") == "supplier")
     if not (_is_admin(actor) or vulnerable):
         return _forbidden(request, template, actor, resource_id=payout_id, action=action)
     if state not in from_states:
@@ -347,10 +349,11 @@ async def lab_create_review(resource_id: str, request: Request) -> JSONResponse:
     if not isinstance(rating, int) or not (1 <= rating <= 5):
         return response(request, template, {"ErrorMessage": "Rating must be an integer 1..5"}, 400, actor)
     # AUTHZ-REV-01 (planted, off by default): client sets Verified/Featured directly on creation.
-    vulnerable = lab_vulnerability_enabled("AUTHZ-REV-01") and bool(set(body) & {"Verified", "Featured"})
+    vulnerable = (lab_vulnerability_enabled("AUTHZ-REV-01") and lab_case_actor(actor, "actor-customer-a")
+                  and bool(set(body) & {"Verified", "Featured"}))
     doc = {"ID": str(uuid.uuid4()), "OrderID": resource_id, "OwnerID": actor.get("ID"),
            "Rating": rating, "Comment": str(body.get("Comment", ""))[:1000],
-           "Verified": bool(body.get("Verified")) if vulnerable else True,
+           "Verified": bool(body.get("Verified")) if vulnerable else False,
            "Featured": bool(body.get("Featured")) if vulnerable else False}
     db["lab_reviews"].insert_one(doc)
     return response(request, template, {"SuccessStatus": True, "ID": doc["ID"]}, 201, actor,
@@ -382,7 +385,8 @@ async def lab_update_review(review_id: str, request: Request) -> JSONResponse:
     except Exception:
         body = {}
     allowed = {"Rating", "Comment"}
-    vulnerable = lab_vulnerability_enabled("AUTHZ-REV-02") and bool(set(body) & {"Verified", "Featured"}) and not _is_admin(actor)
+    vulnerable = (lab_vulnerability_enabled("AUTHZ-REV-02") and lab_case_actor(actor, "actor-customer-a")
+                  and bool(set(body) & {"Verified", "Featured"}) and not _is_admin(actor))
     if set(body) - allowed and not vulnerable and not _is_admin(actor):
         return response(request, template, {"ErrorMessage": "Only Rating/Comment are editable"}, 400, actor)
     update = {k: v for k, v in body.items() if k in allowed or _is_admin(actor) or (vulnerable and k in {"Verified", "Featured"})}

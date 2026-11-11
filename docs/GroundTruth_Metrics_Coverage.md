@@ -32,7 +32,7 @@ cyber-range/
 │   └── objects.json            # Object được seed: id, type, owner, tenant (mẫu số cho pair coverage)
 ├── ground_truth/
 │   └── ground_truth.yaml       # Một nguồn case planted + benign, theo taxonomy
-├── flaw_catalog.yaml           # Index taxonomy, trỏ tới ground_truth.yaml
+├── flaw_catalog.yaml           # Concrete API flaws, policy actors, oracles, evidence
 ├── logs/
 │   └── executions.jsonl        # Mỗi dòng = một request đã thực thi
 ├── scripts/
@@ -475,7 +475,7 @@ Do đó KPI trong mục 4 vẫn là mục tiêu thiết kế, chưa phải kết
 
 ### 9.5 Tệp taxonomy và trace cho custom mock
 
-`cyber-range/access_policy.yaml` và `business_state_graph.yaml` chứa policy/transition riêng của app. `flaw_catalog.yaml` là index theo taxonomy và trỏ tới `ground_truth/ground_truth.yaml`, nguồn case duy nhất có 30 planted và 8 benign. Tệp này dùng JSON-compatible YAML để app loader có thể nạp bằng standard library; CSV planted cases và JSON Schema cũ đã được gỡ bỏ.
+`cyber-range/access_policy.yaml` và `business_state_graph.yaml` chứa policy/transition riêng của app. `flaw_catalog.yaml` mô tả cụ thể từng flaw, actor, oracle và evidence theo taxonomy; `ground_truth/ground_truth.yaml` giữ fixture replay/scoring (30 planted, 8 benign) và trạng thái kiểm chứng API. Catalog không tham chiếu ground truth làm nguồn định nghĩa flaw. Ground truth dùng JSON-compatible YAML để app loader có thể nạp bằng standard library; CSV planted cases và JSON Schema cũ đã được gỡ bỏ.
 
 Hai flaw F1 mới được cài theo flag `AUTHZ-021` và `AUTHZ-022`: customer-a2 (cùng tenant-a) có thể đọc order/document của customer-a nếu flag tương ứng được bật. Cả hai flag tắt mặc định; seed version tăng lên 8 để môi trường MongoDB hiện có nạp lại ground truth mới. Kế hoạch tổng thể về capture, crawl, graph, oracle và evaluation nằm trong `docs/stateful_api_testing_plan.md`.
 
