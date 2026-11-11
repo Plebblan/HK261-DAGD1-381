@@ -1,0 +1,160 @@
+{
+  "id": "workflow-order-refund",
+  "name": "Order refund lifecycle",
+  "intent": "Capture a valid user journey through the API operations shown by this use case. Evidence is observational; no expected status/state is scored.",
+  "reset_required": true,
+  "user_journey": [
+    {
+      "sequence": 1,
+      "actor": "actor-customer-a",
+      "screen": "Sign in",
+      "action": "Sign in",
+      "operation_id": "lab_issue_token",
+      "object_id": null
+    },
+    {
+      "sequence": 2,
+      "actor": "actor-customer-a",
+      "screen": "Orders",
+      "action": "Load orders",
+      "operation_id": "lab_list_resources",
+      "object_id": null
+    },
+    {
+      "sequence": 3,
+      "actor": "actor-customer-a",
+      "screen": "Orders",
+      "action": "Open order details",
+      "operation_id": "lab_get_resource",
+      "object_id": "order-a-001"
+    },
+    {
+      "sequence": 4,
+      "actor": "actor-customer-a",
+      "screen": "Order details",
+      "action": "Request a return",
+      "operation_id": "lab_transition",
+      "object_id": "order-a-001"
+    },
+    {
+      "sequence": 5,
+      "actor": "actor-admin-a",
+      "screen": "Sign in",
+      "action": "Sign in as approver",
+      "operation_id": "lab_issue_token",
+      "object_id": null
+    },
+    {
+      "sequence": 6,
+      "actor": "actor-admin-a",
+      "screen": "Refund approvals",
+      "action": "Approve refund",
+      "operation_id": "lab_transition",
+      "object_id": "order-a-001"
+    },
+    {
+      "sequence": 7,
+      "actor": "actor-admin-a",
+      "screen": "Order details",
+      "action": "View activity",
+      "operation_id": "unmapped",
+      "object_id": "order-a-001"
+    }
+  ],
+  "steps": [
+    {
+      "id": "login_customer_a",
+      "dsl": "login",
+      "actor": "actor-customer-a",
+      "interaction": {
+        "sequence": 1,
+        "screen": "Sign in",
+        "action": "Sign in",
+        "operation_id": "lab_issue_token"
+      }
+    },
+    {
+      "id": "order_list",
+      "dsl": "request",
+      "actor": "actor-customer-a",
+      "method": "GET",
+      "path": "/lab/v1/resources",
+      "params": {
+        "resource_type": "order"
+      },
+      "interaction": {
+        "sequence": 2,
+        "screen": "Orders",
+        "action": "Load orders",
+        "operation_id": "lab_list_resources"
+      }
+    },
+    {
+      "id": "order_read_before",
+      "dsl": "request",
+      "actor": "actor-customer-a",
+      "method": "GET",
+      "path": "/lab/v1/resources/order-a-001",
+      "interaction": {
+        "sequence": 3,
+        "screen": "Orders",
+        "action": "Open order details",
+        "operation_id": "lab_get_resource",
+        "object_id": "order-a-001"
+      }
+    },
+    {
+      "id": "order_request_return",
+      "dsl": "request",
+      "actor": "actor-customer-a",
+      "method": "POST",
+      "path": "/lab/v1/resources/order-a-001/actions/request_return",
+      "interaction": {
+        "sequence": 4,
+        "screen": "Order details",
+        "action": "Request a return",
+        "operation_id": "lab_transition",
+        "object_id": "order-a-001"
+      }
+    },
+    {
+      "id": "login_admin",
+      "dsl": "login",
+      "actor": "actor-admin-a",
+      "interaction": {
+        "sequence": 5,
+        "screen": "Sign in",
+        "action": "Sign in as approver",
+        "operation_id": "lab_issue_token"
+      }
+    },
+    {
+      "id": "order_approve_refund",
+      "dsl": "request",
+      "actor": "actor-admin-a",
+      "method": "POST",
+      "path": "/lab/v1/resources/order-a-001/actions/approve_refund",
+      "interaction": {
+        "sequence": 6,
+        "screen": "Refund approvals",
+        "action": "Approve refund",
+        "operation_id": "lab_transition",
+        "object_id": "order-a-001"
+      }
+    },
+    {
+      "id": "order_history",
+      "dsl": "request",
+      "actor": "actor-admin-a",
+      "method": "GET",
+      "path": "/lab/v1/resources/order-a-001/history",
+      "interaction": {
+        "sequence": 7,
+        "screen": "Order details",
+        "action": "View activity",
+        "operation_id": "unmapped",
+        "object_id": "order-a-001"
+      }
+    }
+  ]
+}

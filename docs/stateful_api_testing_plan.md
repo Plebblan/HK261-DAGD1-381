@@ -118,7 +118,7 @@ trace JSON -> DSLExecutor -> gateway client -> 127.0.0.1:8088 -> localhost:8000
 
 Start the target API first, then from `lab-apps/custom/app` start the proxy with
 `python gateway.py --serve --profile gateway_profile.json`; run a trace with
-`python runtrace.py --proxy-url http://127.0.0.1:8088 --scenario cyber-range/traces/trace_01_access_boundaries.json`.
+`python runtrace.py --proxy-url http://127.0.0.1:8088 --scenario cyber-range/traces/probes/trace_01_access_boundaries.json`.
 The profile points to the safety allowlist, RSO actor registry, event JSONL,
 and app model references. The listener enforces local-only clients, exact
 method/path allowlisting, approval gates, request budgets, concurrency/rate

@@ -1,0 +1,144 @@
+{
+  "run_id": "91a3aeb9-4f08-40d9-8f33-8ddf6a9fec6b",
+  "steps": [
+    {
+      "run_id": "91a3aeb9-4f08-40d9-8f33-8ddf6a9fec6b",
+      "sequence_id": "91a3aeb9-4f08-40d9-8f33-8ddf6a9fec6b-sequence-001",
+      "actor": "actor-customer-a",
+      "method": "GET",
+      "path": "/lab/v1/resources",
+      "query_params": {
+        "resource_type": "order"
+      },
+      "request_headers": {
+        "x-lab-operation-id": "lab_list_resources",
+        "x-lab-screen": "Orders",
+        "x-lab-user-action": "Load own orders",
+        "x-lab-usecase-step": "2",
+        "x-lab-step-index": "1",
+        "x-lab-workflow-id": "workflow-resource-browse",
+        "x-lab-valid-request": "true",
+        "x-runtrace-actor": "actor-customer-a"
+      },
+      "status_code": 200,
+      "elapsed_ms": 5.391,
+      "request_sha256": "1084ef464575b7ee949cdf9c587dba82aacf2005f76d70f462e33f5a3e898961",
+      "response_sha256": "f8ab5b186d744316bbf807a42aa1007a7f2f5df379fbfe7e9fac2f916ec4e4a6",
+      "response": [
+        {
+          "ID": "order-a-001",
+          "ResourceType": "order",
+          "OwnerID": "actor-customer-a",
+          "TenantID": "tenant-a",
+          "State": "delivered",
+          "Sensitive": false,
+          "Properties": {
+            "quantity": 1,
+            "refund_status": "none",
+            "total": 49.99
+          }
+        },
+        {
+          "ID": "order-heldout-001",
+          "ResourceType": "order",
+          "OwnerID": "actor-customer-a",
+          "TenantID": "tenant-a",
+          "State": "delivered",
+          "Sensitive": false,
+          "Properties": {
+            "quantity": 1,
+            "refund_status": "none",
+            "total": 69.99
+          }
+        }
+      ],
+      "allowlist_id": "lab_list_resources",
+      "request_id": "dabdb52a-be77-4eea-a645-c3b71b8c2ded",
+      "response_headers": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "run_id": "91a3aeb9-4f08-40d9-8f33-8ddf6a9fec6b",
+      "sequence_id": "91a3aeb9-4f08-40d9-8f33-8ddf6a9fec6b-sequence-001",
+      "actor": "actor-customer-a",
+      "method": "GET",
+      "path": "/lab/v1/resources/order-a-001",
+      "query_params": null,
+      "request_headers": {
+        "x-lab-operation-id": "lab_get_resource",
+        "x-lab-screen": "Order details",
+        "x-lab-user-action": "Open order-a-001",
+        "x-lab-object-id": "order-a-001",
+        "x-lab-usecase-step": "3",
+        "x-lab-step-index": "2",
+        "x-lab-workflow-id": "workflow-resource-browse",
+        "x-lab-valid-request": "true",
+        "x-runtrace-actor": "actor-customer-a"
+      },
+      "status_code": 200,
+      "elapsed_ms": 4.421,
+      "request_sha256": "f2ddd7df349a92945f3393ab41b40fc26802f1f83a11084dabaa3430745d345d",
+      "response_sha256": "9e5cfbc89d4e5b63a286c5b383d64060f01b48d02bd2cb38dc01ebd01e627457",
+      "response": {
+        "ID": "order-a-001",
+        "ResourceType": "order",
+        "OwnerID": "actor-customer-a",
+        "TenantID": "tenant-a",
+        "State": "delivered",
+        "Sensitive": false,
+        "Properties": {
+          "quantity": 1,
+          "refund_status": "none",
+          "total": 49.99
+        }
+      },
+      "allowlist_id": "lab_get_resource",
+      "request_id": "2834501f-8634-479d-bb71-46e23b7fd661",
+      "response_headers": {
+        "content-type": "application/json"
+      }
+    },
+    {
+      "run_id": "91a3aeb9-4f08-40d9-8f33-8ddf6a9fec6b",
+      "sequence_id": "91a3aeb9-4f08-40d9-8f33-8ddf6a9fec6b-sequence-001",
+      "actor": "actor-customer-a",
+      "method": "GET",
+      "path": "/lab/v1/resources/doc-a-001",
+      "query_params": null,
+      "request_headers": {
+        "x-lab-operation-id": "lab_get_resource",
+        "x-lab-screen": "Documents",
+        "x-lab-user-action": "Open doc-a-001",
+        "x-lab-object-id": "doc-a-001",
+        "x-lab-usecase-step": "4",
+        "x-lab-step-index": "3",
+        "x-lab-workflow-id": "workflow-resource-browse",
+        "x-lab-valid-request": "true",
+        "x-runtrace-actor": "actor-customer-a"
+      },
+      "status_code": 200,
+      "elapsed_ms": 3.455,
+      "request_sha256": "f9e657db00de98eda458b7b55d3d92509349b1789be7998714fe576c93185a1f",
+      "response_sha256": "86482b089c7c43b5d5bf5a65418b31330109274aa616e099e2924e76bf193fd7",
+      "response": {
+        "ID": "doc-a-001",
+        "ResourceType": "document",
+        "OwnerID": "actor-customer-a",
+        "TenantID": "tenant-a",
+        "State": "private",
+        "Sensitive": true,
+        "Properties": {
+          "title": "Tenant A private document",
+          "classification": "confidential"
+        }
+      },
+      "allowlist_id": "lab_get_resource",
+      "request_id": "bd15602f-e6aa-4d74-9a28-6bb9415e5bc3",
+      "response_headers": {
+        "content-type": "application/json"
+      }
+    }
+  ],
+  "assertions": []
+}

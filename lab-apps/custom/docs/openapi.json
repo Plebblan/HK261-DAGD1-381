@@ -3214,6 +3214,642 @@
           "request_schema_required_fields_need_runtime_confirmation": true
         }
       }
+    },
+    "/health": {
+      "get": {
+        "operationId": "health",
+        "summary": "Lab operation: health",
+        "tags": [
+          "Cyber Range"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lab operation response"
+          }
+        }
+      }
+    },
+    "/openapi-source.json": {
+      "get": {
+        "operationId": "openapi_source",
+        "summary": "Lab operation: openapi source",
+        "tags": [
+          "Cyber Range"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lab operation response"
+          }
+        }
+      }
+    },
+    "/__lab/status": {
+      "get": {
+        "operationId": "lab_status",
+        "summary": "Lab operation: lab status",
+        "tags": [
+          "Cyber Range"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lab operation response"
+          }
+        }
+      }
+    },
+    "/__lab/reset": {
+      "post": {
+        "operationId": "lab_reset",
+        "summary": "Lab operation: lab reset",
+        "tags": [
+          "Cyber Range"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lab operation response"
+          }
+        }
+      }
+    },
+    "/__lab/auth/token": {
+      "post": {
+        "operationId": "lab_issue_token",
+        "summary": "Lab operation: lab issue token",
+        "tags": [
+          "Cyber Range"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lab operation response"
+          }
+        }
+      }
+    },
+    "/lab/v1/resources": {
+      "get": {
+        "operationId": "lab_list_resources",
+        "summary": "Lab operation: lab list resources",
+        "tags": [
+          "Cyber Range"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lab operation response"
+          }
+        }
+      }
+    },
+    "/lab/v1/resources/{resource_id}": {
+      "get": {
+        "operationId": "lab_get_resource",
+        "summary": "Lab operation: lab get resource",
+        "tags": [
+          "Cyber Range"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lab operation response"
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "resource_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "patch": {
+        "operationId": "lab_update_resource",
+        "summary": "Lab operation: lab update resource",
+        "tags": [
+          "Cyber Range"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lab operation response"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "lab_delete_resource",
+        "summary": "Lab operation: lab delete resource",
+        "tags": [
+          "Cyber Range"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lab operation response"
+          }
+        }
+      }
+    },
+    "/lab/v1/admin/actions/{action}": {
+      "post": {
+        "operationId": "lab_admin_action",
+        "summary": "Lab operation: lab admin action",
+        "tags": [
+          "Cyber Range"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lab operation response"
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "action",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "/lab/v1/resources/{resource_id}/actions/{action}": {
+      "post": {
+        "operationId": "lab_transition",
+        "summary": "Lab operation: lab transition",
+        "tags": [
+          "Cyber Range"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lab operation response"
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "resource_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "action",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "/lab/v1/invoices": {
+      "get": {
+        "operationId": "lab_list_invoices",
+        "summary": "Lab operation: lab list invoices",
+        "tags": [
+          "Cyber Range"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lab operation response"
+          }
+        }
+      },
+      "post": {
+        "operationId": "lab_create_invoice",
+        "summary": "Lab operation: lab create invoice",
+        "tags": [
+          "Cyber Range"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lab operation response"
+          }
+        }
+      }
+    },
+    "/lab/v1/invoices/{invoice_id}": {
+      "get": {
+        "operationId": "lab_get_invoice",
+        "summary": "Lab operation: lab get invoice",
+        "tags": [
+          "Cyber Range"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lab operation response"
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "invoice_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "patch": {
+        "operationId": "lab_update_invoice",
+        "summary": "Lab operation: lab update invoice",
+        "tags": [
+          "Cyber Range"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lab operation response"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "lab_delete_invoice",
+        "summary": "Lab operation: lab delete invoice",
+        "tags": [
+          "Cyber Range"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lab operation response"
+          }
+        }
+      }
+    },
+    "/lab/v1/invoices/{invoice_id}/submit": {
+      "post": {
+        "operationId": "lab_invoice_submit",
+        "summary": "Lab operation: lab invoice submit",
+        "tags": [
+          "Cyber Range"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lab operation response"
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "invoice_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "/lab/v1/invoices/{invoice_id}/approve": {
+      "post": {
+        "operationId": "lab_invoice_approve",
+        "summary": "Lab operation: lab invoice approve",
+        "tags": [
+          "Cyber Range"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lab operation response"
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "invoice_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "/lab/v1/invoices/{invoice_id}/pay": {
+      "post": {
+        "operationId": "lab_invoice_pay",
+        "summary": "Lab operation: lab invoice pay",
+        "tags": [
+          "Cyber Range"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lab operation response"
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "invoice_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "/lab/v1/invoices/{invoice_id}/void": {
+      "post": {
+        "operationId": "lab_invoice_void",
+        "summary": "Lab operation: lab invoice void",
+        "tags": [
+          "Cyber Range"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lab operation response"
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "invoice_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "/lab/v1/payouts": {
+      "get": {
+        "operationId": "lab_list_payouts",
+        "summary": "Lab operation: lab list payouts",
+        "tags": [
+          "Cyber Range"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lab operation response"
+          }
+        }
+      }
+    },
+    "/lab/v1/payouts/{payout_id}": {
+      "get": {
+        "operationId": "lab_get_payout",
+        "summary": "Lab operation: lab get payout",
+        "tags": [
+          "Cyber Range"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lab operation response"
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "payout_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "/lab/v1/payouts/{payout_id}/approve": {
+      "post": {
+        "operationId": "lab_payout_approve",
+        "summary": "Lab operation: lab payout approve",
+        "tags": [
+          "Cyber Range"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lab operation response"
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "payout_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "/lab/v1/payouts/{payout_id}/release": {
+      "post": {
+        "operationId": "lab_payout_release",
+        "summary": "Lab operation: lab payout release",
+        "tags": [
+          "Cyber Range"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lab operation response"
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "payout_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "/lab/v1/tickets/{resource_id}/escalate": {
+      "post": {
+        "operationId": "lab_ticket_escalate",
+        "summary": "Lab operation: lab ticket escalate",
+        "tags": [
+          "Cyber Range"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lab operation response"
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "resource_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "/lab/v1/tickets/{resource_id}/resolve": {
+      "post": {
+        "operationId": "lab_ticket_resolve",
+        "summary": "Lab operation: lab ticket resolve",
+        "tags": [
+          "Cyber Range"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lab operation response"
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "resource_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "/lab/v1/orders/{resource_id}/reviews": {
+      "post": {
+        "operationId": "lab_create_review",
+        "summary": "Lab operation: lab create review",
+        "tags": [
+          "Cyber Range"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lab operation response"
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "resource_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "lab_list_reviews",
+        "summary": "Lab operation: lab list reviews",
+        "tags": [
+          "Cyber Range"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lab operation response"
+          }
+        }
+      }
+    },
+    "/lab/v1/reviews/{review_id}": {
+      "patch": {
+        "operationId": "lab_update_review",
+        "summary": "Lab operation: lab update review",
+        "tags": [
+          "Cyber Range"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lab operation response"
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "review_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "delete": {
+        "operationId": "lab_delete_review",
+        "summary": "Lab operation: lab delete review",
+        "tags": [
+          "Cyber Range"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lab operation response"
+          }
+        }
+      }
+    },
+    "/lab/v1/invoices/{invoice_id}/history": {
+      "get": {
+        "operationId": "lab_invoice_history",
+        "summary": "Lab operation: lab invoice history",
+        "tags": [
+          "Cyber Range"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lab operation response"
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "invoice_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "/lab/v1/payouts/{payout_id}/history": {
+      "get": {
+        "operationId": "lab_payout_history",
+        "summary": "Lab operation: lab payout history",
+        "tags": [
+          "Cyber Range"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lab operation response"
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "payout_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "/lab/v1/resources/{resource_id}/history": {
+      "get": {
+        "operationId": "lab_resource_history",
+        "summary": "Lab operation: lab resource history",
+        "tags": [
+          "Cyber Range"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lab operation response"
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "resource_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ]
     }
   },
   "components": {
