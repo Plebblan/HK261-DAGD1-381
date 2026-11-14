@@ -5,7 +5,7 @@
 # in one source of truth.
 
 schema_version: "0.1"
-status: draft   # change to "frozen" once decisions D1-D5 are confirmed
+status: frozen
 
 decisions:      # pending confirmation by the team
   D1: >
