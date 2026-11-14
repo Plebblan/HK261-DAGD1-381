@@ -1,0 +1,136 @@
+{
+  "id": "workflow-ticket-escalation",
+  "name": "Assigned ticket escalation and resolution",
+  "intent": "Capture a valid user journey through the API operations shown by this use case. Evidence is observational; no expected status/state is scored.",
+  "reset_required": true,
+  "user_journey": [
+    {
+      "sequence": 1,
+      "actor": "actor-support-a",
+      "screen": "Sign in",
+      "action": "Sign in as support",
+      "operation_id": "lab_issue_token",
+      "object_id": null
+    },
+    {
+      "sequence": 2,
+      "actor": "actor-support-a",
+      "screen": "Support tickets",
+      "action": "Assign ticket",
+      "operation_id": "lab_transition",
+      "object_id": "ticket-a-001"
+    },
+    {
+      "sequence": 3,
+      "actor": "actor-support-a",
+      "screen": "Ticket details",
+      "action": "Escalate ticket",
+      "operation_id": "lab_ticket_escalate",
+      "object_id": "ticket-a-001"
+    },
+    {
+      "sequence": 4,
+      "actor": "actor-admin-a",
+      "screen": "Sign in",
+      "action": "Sign in as admin",
+      "operation_id": "lab_issue_token",
+      "object_id": null
+    },
+    {
+      "sequence": 5,
+      "actor": "actor-admin-a",
+      "screen": "Escalated tickets",
+      "action": "Resolve ticket",
+      "operation_id": "lab_ticket_resolve",
+      "object_id": "ticket-a-001"
+    },
+    {
+      "sequence": 6,
+      "actor": "actor-admin-a",
+      "screen": "Ticket details",
+      "action": "Refresh ticket",
+      "operation_id": "lab_get_resource",
+      "object_id": "ticket-a-001"
+    }
+  ],
+  "steps": [
+    {
+      "id": "login_support_a",
+      "dsl": "login",
+      "actor": "actor-support-a",
+      "interaction": {
+        "sequence": 1,
+        "screen": "Sign in",
+        "action": "Sign in as support",
+        "operation_id": "lab_issue_token"
+      }
+    },
+    {
+      "id": "ticket_assign",
+      "dsl": "request",
+      "actor": "actor-support-a",
+      "method": "POST",
+      "path": "/lab/v1/resources/ticket-a-001/actions/assign",
+      "interaction": {
+        "sequence": 2,
+        "screen": "Support tickets",
+        "action": "Assign ticket",
+        "operation_id": "lab_transition",
+        "object_id": "ticket-a-001"
+      }
+    },
+    {
+      "id": "ticket_escalate",
+      "dsl": "request",
+      "actor": "actor-support-a",
+      "method": "POST",
+      "path": "/lab/v1/tickets/ticket-a-001/escalate",
+      "interaction": {
+        "sequence": 3,
+        "screen": "Ticket details",
+        "action": "Escalate ticket",
+        "operation_id": "lab_ticket_escalate",
+        "object_id": "ticket-a-001"
+      }
+    },
+    {
+      "id": "login_admin",
+      "dsl": "login",
+      "actor": "actor-admin-a",
+      "interaction": {
+        "sequence": 4,
+        "screen": "Sign in",
+        "action": "Sign in as admin",
+        "operation_id": "lab_issue_token"
+      }
+    },
+    {
+      "id": "ticket_resolve",
+      "dsl": "request",
+      "actor": "actor-admin-a",
+      "method": "POST",
+      "path": "/lab/v1/tickets/ticket-a-001/resolve",
+      "interaction": {
+        "sequence": 5,
+        "screen": "Escalated tickets",
+        "action": "Resolve ticket",
+        "operation_id": "lab_ticket_resolve",
+        "object_id": "ticket-a-001"
+      }
+    },
+    {
+      "id": "ticket_read_after",
+      "dsl": "request",
+      "actor": "actor-admin-a",
+      "method": "GET",
+      "path": "/lab/v1/resources/ticket-a-001",
+      "interaction": {
+        "sequence": 6,
+        "screen": "Ticket details",
+        "action": "Refresh ticket",
+        "operation_id": "lab_get_resource",
+        "object_id": "ticket-a-001"
+      }
+    }
+  ]
+}

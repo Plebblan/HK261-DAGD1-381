@@ -1,0 +1,56 @@
+{
+  "id": "custom-trace-03-ticket-state-and-tenant",
+  "name": "Cross-tenant ticket transition denial and valid ticket lifecycle",
+  "reset_required": true,
+  "flags": "disabled",
+  "steps": [
+    {
+      "id": "login_support_a",
+      "dsl": "login",
+      "actor": "actor-support-a"
+    },
+    {
+      "id": "cross_tenant_resolve_denied",
+      "dsl": "request",
+      "actor": "actor-support-a",
+      "method": "POST",
+      "path": "/lab/v1/tickets/ticket-b-001/resolve",
+      "headers": {
+        "x-lab-case-id": "AUTHZ-TCK-01"
+      }
+    },
+    {
+      "id": "assign_ticket",
+      "dsl": "request",
+      "actor": "actor-support-a",
+      "method": "POST",
+      "path": "/lab/v1/resources/ticket-a-001/actions/assign"
+    },
+    {
+      "id": "escalate_assigned_ticket",
+      "dsl": "request",
+      "actor": "actor-support-a",
+      "method": "POST",
+      "path": "/lab/v1/tickets/ticket-a-001/escalate"
+    },
+    {
+      "id": "login_admin",
+      "dsl": "login",
+      "actor": "actor-admin-a"
+    },
+    {
+      "id": "resolve_escalated_ticket",
+      "dsl": "request",
+      "actor": "actor-admin-a",
+      "method": "POST",
+      "path": "/lab/v1/tickets/ticket-a-001/resolve"
+    },
+    {
+      "id": "read_resolved_ticket",
+      "dsl": "request",
+      "actor": "actor-admin-a",
+      "method": "GET",
+      "path": "/lab/v1/resources/ticket-a-001"
+    }
+  ]
+}

@@ -32,7 +32,7 @@ cyber-range/
 │   └── objects.json            # Object được seed: id, type, owner, tenant (mẫu số cho pair coverage)
 ├── ground_truth/
 │   └── ground_truth.yaml       # Một nguồn case planted + benign, theo taxonomy
-├── flaw_catalog.yaml           # Index taxonomy, trỏ tới ground_truth.yaml
+├── flaw_catalog.yaml           # Concrete API flaws, policy actors, oracles, evidence
 ├── logs/
 │   └── executions.jsonl        # Mỗi dòng = một request đã thực thi
 ├── scripts/
@@ -451,9 +451,9 @@ Ba trace JSON có thể chạy trực tiếp bằng `app/runtrace.py` và Safety
 
 | Trace | Mục tiêu | Trình tự chính |
 |---|---|---|
-| `cyber-range/traces/trace_01_access_boundaries.json` | F1/F4 và benign owner baseline | owner read → same-tenant non-owner probes → cross-tenant probe → list |
-| `cyber-range/traces/trace_02_financial_workflow.json` | F4/F3 probes và workflow nghiệp vụ hợp lệ | owned invoice read → cross-tenant deny → restricted Amount write deny → submit → approve → pay → history |
-| `cyber-range/traces/trace_03_ticket_state_and_tenant.json` | F4 và workflow ticket | cross-tenant resolve deny trên ticket đã escalated → assign ticket A → escalate → admin resolve → readback |
+| `cyber-range/traces/probes/trace_01_access_boundaries.json` | Exploratory authorization probes (legacy) | owner read → same-tenant/cross-tenant object substitutions → list |
+| `cyber-range/traces/probes/trace_02_financial_workflow.json` | Exploratory invoice probes (legacy) | owned read → cross-tenant/property probes → submit → approve → pay → history |
+| `cyber-range/traces/probes/trace_03_ticket_state_and_tenant.json` | Exploratory ticket probe (legacy) | cross-tenant resolve probe → assign → escalate → resolve → readback |
 
 Stateful trace yêu cầu seed sạch trước mỗi lần chạy; không chạy đồng thời. Các trace đặt flag về trạng thái mặc định tắt, kỳ vọng safe response và gắn `x-lab-case-id`. Runner ghi cùng `run_id`, `workflow_id`, `sequence_id`, và `step_idx` qua các request (kể cả sign-in), đồng thời đánh dấu `valid_request`; trace 2 và 3 thực hiện mutation hợp lệ trên fixture nên cần seed sạch trước khi replay. Endpoint reset hiện thay thế mọi collection có trong `SEED_DATA`, gồm cả dữ liệu mock API chính, nên chỉ reset trên database disposable.
 
@@ -475,7 +475,7 @@ Do đó KPI trong mục 4 vẫn là mục tiêu thiết kế, chưa phải kết
 
 ### 9.5 Tệp taxonomy và trace cho custom mock
 
-`cyber-range/access_policy.yaml` và `business_state_graph.yaml` chứa policy/transition riêng của app. `flaw_catalog.yaml` là index theo taxonomy và trỏ tới `ground_truth/ground_truth.yaml`, nguồn case duy nhất có 30 planted và 8 benign. Tệp này dùng JSON-compatible YAML để app loader có thể nạp bằng standard library; CSV planted cases và JSON Schema cũ đã được gỡ bỏ.
+`cyber-range/access_policy.yaml` và `business_state_graph.yaml` chứa policy/transition riêng của app. `flaw_catalog.yaml` mô tả cụ thể từng flaw, actor, oracle và evidence theo taxonomy; `ground_truth/ground_truth.yaml` giữ fixture replay/scoring (30 planted, 8 benign) và trạng thái kiểm chứng API. Catalog không tham chiếu ground truth làm nguồn định nghĩa flaw. Ground truth dùng JSON-compatible YAML để app loader có thể nạp bằng standard library; CSV planted cases và JSON Schema cũ đã được gỡ bỏ.
 
 Hai flaw F1 mới được cài theo flag `AUTHZ-021` và `AUTHZ-022`: customer-a2 (cùng tenant-a) có thể đọc order/document của customer-a nếu flag tương ứng được bật. Cả hai flag tắt mặc định; seed version tăng lên 8 để môi trường MongoDB hiện có nạp lại ground truth mới. Kế hoạch tổng thể về capture, crawl, graph, oracle và evaluation nằm trong `docs/stateful_api_testing_plan.md`.
 
@@ -484,3 +484,6 @@ Hai flaw F1 mới được cài theo flag `AUTHZ-021` và `AUTHZ-022`: customer-
 Gateway dùng chung một engine, cấu hình theo app bằng profile riêng. Với custom app, `gateway_profile.json` cố định listener tại `127.0.0.1:8088`, upstream tại `localhost:8000`, Safety allowlist, actor registry và event JSONL. RunTrace đi qua listener (`DSLExecutor → gateway client → local proxy → API`), không gọi API trực tiếp. Gateway safety allowlist chỉ kiểm tra phạm vi forward, host, route, method, budget và approval; `access_policy.yaml`, state graph và ground truth là oracle/model độc lập, không được dùng để chặn probe trước khi target nhận request. Một request event đã redact liên kết bằng `x-request-id` với audit event của API. Gateway event chỉ chứng minh request/response quan sát được; state trước/sau phải lấy từ audit/state adapter của target, không được giả định từ HTTP status. Profile cho app khác tái sử dụng engine nhưng trỏ tới policy/config/artifact riêng.
 
 Oracle tối thiểu cần các model liên kết nhưng tách riêng: (1) operation/API schema và producer-consumer IDs; (2) actor/session, role, tenant và scope; (3) object graph với owner/tenant/parent/state; (4) access/property policy; (5) state machine với guards, precondition, postcondition/effects; (6) cross-request invariants; (7) seed/reset, flags và version môi trường. Graph quan sát được từ crawler/trace chỉ tạo candidate; graph chuẩn tắc do người review xác nhận mới quyết định đúng/sai. Chi tiết request boundary, event record và crawl procedure nằm ở `docs/stateful_api_testing_plan.md`.
+
+
+Bộ capture use case hiện hành được tách thành từng file trong `lab-apps/custom/app/cyber-range/traces/usecases/`; mỗi bước ghi actor, màn hình/action khái niệm, operation ID và object ID. Các nhãn màn hình là mô tả use case vì mock range chưa có frontend. Capture không dùng expected status/state; proxy request/response là dữ liệu quan sát để tái dựng workflow.

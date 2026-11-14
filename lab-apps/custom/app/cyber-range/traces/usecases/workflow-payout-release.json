@@ -1,0 +1,138 @@
+{
+  "id": "workflow-payout-release",
+  "name": "Payout approval and release",
+  "intent": "Capture a valid user journey through the API operations shown by this use case. Evidence is observational; no expected status/state is scored.",
+  "reset_required": true,
+  "user_journey": [
+    {
+      "sequence": 1,
+      "actor": "actor-admin-a",
+      "screen": "Sign in",
+      "action": "Sign in as finance admin",
+      "operation_id": "lab_issue_token",
+      "object_id": null
+    },
+    {
+      "sequence": 2,
+      "actor": "actor-admin-a",
+      "screen": "Payouts",
+      "action": "Load payouts",
+      "operation_id": "lab_list_payouts",
+      "object_id": null
+    },
+    {
+      "sequence": 3,
+      "actor": "actor-admin-a",
+      "screen": "Payouts",
+      "action": "Open payout details",
+      "operation_id": "lab_get_payout",
+      "object_id": "payout-a-001"
+    },
+    {
+      "sequence": 4,
+      "actor": "actor-admin-a",
+      "screen": "Payout details",
+      "action": "Approve payout",
+      "operation_id": "lab_payout_approve",
+      "object_id": "payout-a-001"
+    },
+    {
+      "sequence": 5,
+      "actor": "actor-admin-a",
+      "screen": "Payout details",
+      "action": "Release payout",
+      "operation_id": "lab_payout_release",
+      "object_id": "payout-a-001"
+    },
+    {
+      "sequence": 6,
+      "actor": "actor-admin-a",
+      "screen": "Payout details",
+      "action": "View activity",
+      "operation_id": "lab_payout_history",
+      "object_id": "payout-a-001"
+    }
+  ],
+  "steps": [
+    {
+      "id": "login_admin",
+      "dsl": "login",
+      "actor": "actor-admin-a",
+      "interaction": {
+        "sequence": 1,
+        "screen": "Sign in",
+        "action": "Sign in as finance admin",
+        "operation_id": "lab_issue_token"
+      }
+    },
+    {
+      "id": "payout_list",
+      "dsl": "request",
+      "actor": "actor-admin-a",
+      "method": "GET",
+      "path": "/lab/v1/payouts",
+      "interaction": {
+        "sequence": 2,
+        "screen": "Payouts",
+        "action": "Load payouts",
+        "operation_id": "lab_list_payouts"
+      }
+    },
+    {
+      "id": "payout_read_before",
+      "dsl": "request",
+      "actor": "actor-admin-a",
+      "method": "GET",
+      "path": "/lab/v1/payouts/payout-a-001",
+      "interaction": {
+        "sequence": 3,
+        "screen": "Payouts",
+        "action": "Open payout details",
+        "operation_id": "lab_get_payout",
+        "object_id": "payout-a-001"
+      }
+    },
+    {
+      "id": "payout_approve",
+      "dsl": "request",
+      "actor": "actor-admin-a",
+      "method": "POST",
+      "path": "/lab/v1/payouts/payout-a-001/approve",
+      "interaction": {
+        "sequence": 4,
+        "screen": "Payout details",
+        "action": "Approve payout",
+        "operation_id": "lab_payout_approve",
+        "object_id": "payout-a-001"
+      }
+    },
+    {
+      "id": "payout_release",
+      "dsl": "request",
+      "actor": "actor-admin-a",
+      "method": "POST",
+      "path": "/lab/v1/payouts/payout-a-001/release",
+      "interaction": {
+        "sequence": 5,
+        "screen": "Payout details",
+        "action": "Release payout",
+        "operation_id": "lab_payout_release",
+        "object_id": "payout-a-001"
+      }
+    },
+    {
+      "id": "payout_history",
+      "dsl": "request",
+      "actor": "actor-admin-a",
+      "method": "GET",
+      "path": "/lab/v1/payouts/payout-a-001/history",
+      "interaction": {
+        "sequence": 6,
+        "screen": "Payout details",
+        "action": "View activity",
+        "operation_id": "lab_payout_history",
+        "object_id": "payout-a-001"
+      }
+    }
+  ]
+}
