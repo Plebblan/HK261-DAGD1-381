@@ -1,19 +1,742 @@
-{
-  "schema_version": "0.1",
-  "app": "custom_mock",
-  "status": "draft",
-  "taxonomy_ref": "docs/Taxonomy/families.yaml",
-  "ground_truth_ref": "ground_truth/ground_truth.yaml",
-  "family_counts": {
-    "F1": 3,
-    "F2": 5,
-    "F3": 8,
-    "F4": 10,
-    "F5": 4
-  },
-  "case_counts": {
-    "planted": 30,
-    "benign": 8
-  },
-  "note": "The referenced ground_truth file is the single source of per-app flaw and benign case records."
-}
+# Custom app flaw catalog: concrete API flaw instances
+# Primary/secondary families and required evidence follow docs/Taxonomy/families.yaml.
+# Definitions are grounded in route/policy implementation; ground truth stores replay/scoring fixtures.
+
+schema_version: "0.1"
+app: custom_mock
+taxonomy_ref: docs/Taxonomy/families.yaml
+verification_status: api-verified
+actors: [actor-customer-a, actor-customer-a2, actor-customer-b, actor-support-a, actor-admin-a, actor-supplier-a, actor-supplier-b]
+
+flaws:
+  - id: AUTHZ-001
+    title: "read cross-tenant private document"
+    family: F4
+    in_scope: true
+    method: GET
+    endpoint: /lab/v1/resources/doc-b-001
+    actors: {reference: actor-customer-b, test: actor-customer-a}
+    object_owner: actor-customer-b
+    object_id: doc-b-001
+    expected_safe_response: "403"
+    observed_when_enabled: "200 + seeded victim object data returned"
+    oracle: differential_authorization
+    enabled_by: AUTHZ-001
+    actor_tenant_id: "tenant-a"
+    object_tenant_id: "tenant-b"
+    evidence_required: ["actor_tenant_id","object_tenant_id"]
+    reference_baseline: {"actor":"actor-customer-b","method":"GET","path":"/lab/v1/resources/doc-b-001","status":200,"summary":"authorized owner/admin reference response"}
+    api_observation: {"safe_mode":{"status":403,"summary":"HTTP 403; {'ErrorMessage': 'Forbidden'}"},"flag_enabled":{"status":200,"summary":"HTTP 200; State=private"}}
+    split: development
+    verified: true
+    verified_by: local-api-replay
+    verified_at: 2026-11-11T09:22:53Z
+    implementation_ref: app/main.py
+
+  - id: AUTHZ-002
+    title: "read another customer's order"
+    family: F4
+    in_scope: true
+    method: GET
+    endpoint: /lab/v1/resources/order-a-001
+    actors: {reference: actor-customer-a, test: actor-customer-b}
+    object_owner: actor-customer-a
+    object_id: order-a-001
+    expected_safe_response: "403"
+    observed_when_enabled: "200 + seeded victim object data returned"
+    oracle: differential_authorization
+    enabled_by: AUTHZ-002
+    actor_tenant_id: "tenant-b"
+    object_tenant_id: "tenant-a"
+    evidence_required: ["actor_tenant_id","object_tenant_id"]
+    reference_baseline: {"actor":"actor-customer-a","method":"GET","path":"/lab/v1/resources/order-a-001","status":200,"summary":"authorized owner/admin reference response"}
+    api_observation: {"safe_mode":{"status":403,"summary":"HTTP 403; {'ErrorMessage': 'Forbidden'}"},"flag_enabled":{"status":200,"summary":"HTTP 200; State=delivered"}}
+    split: development
+    verified: true
+    verified_by: local-api-replay
+    verified_at: 2026-11-11T09:22:53Z
+    implementation_ref: app/main.py
+
+  - id: AUTHZ-003
+    title: "read another customer's ticket"
+    family: F4
+    in_scope: true
+    method: GET
+    endpoint: /lab/v1/resources/ticket-a-001
+    actors: {reference: actor-customer-a, test: actor-customer-b}
+    object_owner: actor-customer-a
+    object_id: ticket-a-001
+    expected_safe_response: "403"
+    observed_when_enabled: "200 + seeded victim object data returned"
+    oracle: differential_authorization
+    enabled_by: AUTHZ-003
+    actor_tenant_id: "tenant-b"
+    object_tenant_id: "tenant-a"
+    evidence_required: ["actor_tenant_id","object_tenant_id"]
+    reference_baseline: {"actor":"actor-customer-a","method":"GET","path":"/lab/v1/resources/ticket-a-001","status":200,"summary":"authorized owner/admin reference response"}
+    api_observation: {"safe_mode":{"status":403,"summary":"HTTP 403; {'ErrorMessage': 'Forbidden'}"},"flag_enabled":{"status":200,"summary":"HTTP 200; State=open"}}
+    split: development
+    verified: true
+    verified_by: local-api-replay
+    verified_at: 2026-11-11T09:22:53Z
+    implementation_ref: app/main.py
+
+  - id: AUTHZ-004
+    title: "same-tenant non-owner document read"
+    family: F1
+    in_scope: true
+    method: GET
+    endpoint: /lab/v1/resources/doc-a-002
+    actors: {reference: actor-customer-a2, test: actor-customer-a}
+    object_owner: actor-customer-a2
+    object_id: doc-a-002
+    expected_safe_response: "403"
+    observed_when_enabled: "200 + seeded victim object data returned"
+    oracle: differential_authorization
+    enabled_by: AUTHZ-004
+    object_id_origin: {"method":"GET","endpoint":"/lab/v1/resources","actor":"actor-customer-a2","source":"owner-visible collection"}
+    evidence_required: ["owner_baseline_response","test_actor_response","object_id_origin"]
+    reference_baseline: {"actor":"actor-customer-a2","method":"GET","path":"/lab/v1/resources/doc-a-002","status":200,"summary":"authorized owner/admin reference response"}
+    api_observation: {"safe_mode":{"status":403,"summary":"HTTP 403; {'ErrorMessage': 'Forbidden'}"},"flag_enabled":{"status":200,"summary":"HTTP 200; State=private"}}
+    split: development
+    verified: true
+    verified_by: local-api-replay
+    verified_at: 2026-11-11T09:22:53Z
+    implementation_ref: app/main.py
+
+  - id: AUTHZ-005
+    title: "customer invokes admin archive action"
+    family: F2
+    in_scope: true
+    method: POST
+    endpoint: /lab/v1/admin/actions/archive
+    actors: {reference: actor-admin-a, test: actor-customer-a}
+    expected_safe_response: "403"
+    observed_when_enabled: "200 + admin action accepted"
+    oracle: differential_authorization
+    enabled_by: AUTHZ-005
+    role_matrix_cell: {"deny_role":"Customer","allow_role":"Admin","operation":"POST /lab/v1/admin/actions/archive"}
+    before_after_state: {"safe_mode":"denied/no action or unchanged list","flag_enabled":"archive action accepted; mock has no resource state"}
+    evidence_required: ["role_matrix_cell","before_after_state"]
+    reference_baseline: {"actor":"actor-admin-a","method":"POST","path":"/lab/v1/admin/actions/archive","status":200,"summary":"admin function accepted"}
+    api_observation: {"safe_mode":{"status":403,"summary":"HTTP 403; {'ErrorMessage': 'Forbidden'}"},"flag_enabled":{"status":200,"summary":"HTTP 200; {'SuccessStatus': True, 'Action': 'archive'}"}}
+    split: development
+    verified: true
+    verified_by: local-api-replay
+    verified_at: 2026-11-11T09:22:53Z
+    implementation_ref: app/main.py
+
+  - id: AUTHZ-006
+    title: "support invokes admin export action"
+    family: F2
+    in_scope: true
+    method: POST
+    endpoint: /lab/v1/admin/actions/export
+    actors: {reference: actor-admin-a, test: actor-support-a}
+    expected_safe_response: "403"
+    observed_when_enabled: "200 + admin action accepted"
+    oracle: differential_authorization
+    enabled_by: AUTHZ-006
+    role_matrix_cell: {"deny_role":"Support","allow_role":"Admin","operation":"POST /lab/v1/admin/actions/export"}
+    before_after_state: {"safe_mode":"denied/no action or unchanged list","flag_enabled":"export action accepted; mock has no resource state"}
+    evidence_required: ["role_matrix_cell","before_after_state"]
+    reference_baseline: {"actor":"actor-admin-a","method":"POST","path":"/lab/v1/admin/actions/export","status":200,"summary":"admin function accepted"}
+    api_observation: {"safe_mode":{"status":403,"summary":"HTTP 403; {'ErrorMessage': 'Forbidden'}"},"flag_enabled":{"status":200,"summary":"HTTP 200; {'SuccessStatus': True, 'Action': 'export'}"}}
+    split: development
+    verified: true
+    verified_by: local-api-replay
+    verified_at: 2026-11-11T09:22:53Z
+    implementation_ref: app/main.py
+
+  - id: AUTHZ-007
+    title: "customer deletes another actor resource"
+    family: F4
+    in_scope: true
+    method: DELETE
+    endpoint: /lab/v1/resources/doc-b-001
+    actors: {reference: actor-customer-b, test: actor-customer-a}
+    object_owner: actor-customer-b
+    object_id: doc-b-001
+    expected_safe_response: "403"
+    observed_when_enabled: "200 + SuccessStatus=true; resource deleted"
+    oracle: differential_authorization
+    enabled_by: AUTHZ-007
+    actor_tenant_id: "tenant-a"
+    object_tenant_id: "tenant-b"
+    evidence_required: ["actor_tenant_id","object_tenant_id"]
+    reference_baseline: {"actor":"actor-customer-b","method":"DELETE","path":"/lab/v1/resources/doc-b-001","status":200,"summary":"owner deleted own resource"}
+    api_observation: {"safe_mode":{"status":403,"summary":"HTTP 403; {'ErrorMessage': 'Forbidden'}"},"flag_enabled":{"status":200,"summary":"HTTP 200; {'SuccessStatus': True}"}}
+    split: development
+    verified: true
+    verified_by: local-api-replay
+    verified_at: 2026-11-11T09:22:53Z
+    implementation_ref: app/main.py
+
+  - id: AUTHZ-008
+    title: "customer changes resource owner"
+    family: F3
+    subtype: W
+    in_scope: true
+    method: PATCH
+    endpoint: /lab/v1/resources/doc-a-001
+    actor: actor-customer-a
+    object_owner: actor-customer-a
+    object_id: doc-a-001
+    expected_safe_response: "400 + field rejected"
+    observed_when_enabled: "200 + OwnerID changed to actor-customer-b"
+    oracle: property_policy_diff
+    enabled_by: AUTHZ-008
+    request_body: {"OwnerID":"actor-customer-b"}
+    readback_before: {"method":"GET","path":"/lab/v1/resources/doc-a-001","value":{"OwnerID":"actor-customer-a"}}
+    readback_after: {"method":"GET","path":"/lab/v1/resources/doc-a-001","value":{"OwnerID":"actor-customer-b"}}
+    evidence_required: ["request_body","readback_before","readback_after"]
+    api_observation: {"safe_mode":{"status":400,"summary":"HTTP 400; {'ErrorMessage': 'Forbidden property or resource'}"},"flag_enabled":{"status":200,"summary":"HTTP 200; OwnerID=actor-customer-b; TenantID=tenant-a; Properties={'title': 'Tenant A private document', 'classification': 'confidential'}"}}
+    split: development
+    verified: true
+    verified_by: local-api-replay
+    verified_at: 2026-11-11T09:22:53Z
+    implementation_ref: app/main.py
+
+  - id: AUTHZ-009
+    title: "customer changes tenant identifier"
+    family: F3
+    subtype: W
+    in_scope: true
+    method: PATCH
+    endpoint: /lab/v1/resources/doc-a-001
+    actor: actor-customer-a
+    object_owner: actor-customer-a
+    object_id: doc-a-001
+    expected_safe_response: "400 + field rejected"
+    observed_when_enabled: "200 + TenantID changed to tenant-b"
+    oracle: property_policy_diff
+    enabled_by: AUTHZ-009
+    request_body: {"TenantID":"tenant-b"}
+    readback_before: {"method":"GET","path":"/lab/v1/resources/doc-a-001","value":{"TenantID":"tenant-a"}}
+    readback_after: {"method":"GET","path":"/lab/v1/resources/doc-a-001","value":{"TenantID":"tenant-b"}}
+    evidence_required: ["request_body","readback_before","readback_after"]
+    api_observation: {"safe_mode":{"status":400,"summary":"HTTP 400; {'ErrorMessage': 'Forbidden property or resource'}"},"flag_enabled":{"status":200,"summary":"HTTP 200; OwnerID=actor-customer-a; TenantID=tenant-b; Properties={'title': 'Tenant A private document', 'classification': 'confidential'}"}}
+    split: development
+    verified: true
+    verified_by: local-api-replay
+    verified_at: 2026-11-11T09:22:53Z
+    implementation_ref: app/main.py
+
+  - id: AUTHZ-010
+    title: "customer changes refund status"
+    family: F3
+    subtype: W
+    in_scope: true
+    method: PATCH
+    endpoint: /lab/v1/resources/order-a-001
+    actor: actor-customer-a
+    object_owner: actor-customer-a
+    object_id: order-a-001
+    expected_safe_response: "400 + field rejected"
+    observed_when_enabled: "200 + Properties.refund_status changed to settled"
+    oracle: property_policy_diff
+    enabled_by: AUTHZ-010
+    request_body: {"Properties":{"refund_status":"settled"}}
+    readback_before: {"method":"GET","path":"/lab/v1/resources/order-a-001","value":{"Properties.refund_status":"none"}}
+    readback_after: {"method":"GET","path":"/lab/v1/resources/order-a-001","value":{"Properties.refund_status":"settled"}}
+    evidence_required: ["request_body","readback_before","readback_after"]
+    api_observation: {"safe_mode":{"status":400,"summary":"HTTP 400; {'ErrorMessage': 'Forbidden property or resource'}"},"flag_enabled":{"status":200,"summary":"HTTP 200; OwnerID=actor-customer-a; TenantID=tenant-a; Properties={'quantity': 1, 'refund_status': 'settled', 'total': 49.99}"}}
+    split: development
+    verified: true
+    verified_by: local-api-replay
+    verified_at: 2026-11-11T09:22:53Z
+    implementation_ref: app/main.py
+
+  - id: AUTHZ-011
+    title: "list leaks resources from another tenant"
+    family: F4
+    in_scope: true
+    method: GET
+    endpoint: /lab/v1/resources
+    actors: {reference: actor-customer-b, test: actor-customer-a}
+    object_owner: tenant-b
+    object_id: tenant-b
+    expected_safe_response: "tenant-a resources only"
+    observed_when_enabled: "200 + 9 seeded resources, including tenant-b objects"
+    oracle: differential_authorization
+    enabled_by: AUTHZ-011
+    actor_tenant_id: "tenant-a"
+    object_tenant_id: "tenant-b"
+    evidence_required: ["actor_tenant_id","object_tenant_id","list_contents"]
+    reference_baseline: {"actor":"actor-customer-b","method":"GET","path":"/lab/v1/resources","status":200,"returned_count":4,"tenant":"tenant-b"}
+    api_observation: {"safe_mode":{"status":200,"summary":"HTTP 200; 4 list items; tenants=['tenant-a']"},"flag_enabled":{"status":200,"summary":"HTTP 200; 9 list items; tenants=['tenant-a', 'tenant-b']"}}
+    split: development
+    verified: true
+    verified_by: local-api-replay
+    verified_at: 2026-11-11T09:22:53Z
+    implementation_ref: app/main.py
+
+  - id: AUTHZ-012
+    title: "search crosses tenant boundary"
+    family: F4
+    in_scope: true
+    method: GET
+    endpoint: /lab/v1/resources?tenant_id=tenant-b
+    actors: {reference: actor-customer-b, test: actor-customer-a}
+    object_owner: tenant-b
+    object_id: tenant-b
+    expected_safe_response: "empty or 403"
+    observed_when_enabled: "200 + all 4 tenant-b resources for tenant_id=tenant-b"
+    oracle: differential_authorization
+    enabled_by: AUTHZ-012
+    actor_tenant_id: "tenant-a"
+    object_tenant_id: "tenant-b"
+    evidence_required: ["actor_tenant_id","object_tenant_id","list_contents"]
+    reference_baseline: {"actor":"actor-customer-b","method":"GET","path":"/lab/v1/resources?tenant_id=tenant-b","status":200,"returned_count":4,"tenant":"tenant-b"}
+    api_observation: {"safe_mode":{"status":200,"summary":"HTTP 200; 0 list items; tenants=[]"},"flag_enabled":{"status":200,"summary":"HTTP 200; 4 list items; tenants=['tenant-b']"}}
+    split: development
+    verified: true
+    verified_by: local-api-replay
+    verified_at: 2026-11-11T09:22:53Z
+    implementation_ref: app/main.py
+
+  - id: AUTHZ-013
+    title: "refund before delivery"
+    family: F5
+    in_scope: true
+    method: POST
+    endpoint: /lab/v1/resources/order-b-001/actions/refund
+    actor: actor-customer-b
+    object_owner: actor-customer-b
+    object_id: order-b-001
+    expected_safe_response: "409 + state unchanged"
+    observed_when_enabled: "200 + order State=returned (refund before delivery)"
+    oracle: state_invariant
+    enabled_by: AUTHZ-013
+    attempted_edge: {"from":"created","to":"returned","actor":"actor-customer-b","action":"refund"}
+    violated_invariant: "ORDER-I01"
+    before_after_state: {"safe_mode":{"before":"created","after":"created"},"flag_enabled":{"before":"created","after":"returned"},"violated_invariant":"ORDER-I01"}
+    evidence_required: ["attempted_edge","violated_invariant","before_after_state"]
+    api_observation: {"safe_mode":{"status":409,"summary":"HTTP 409; {'ErrorMessage': 'Action is not allowed in the current role/state'}"},"flag_enabled":{"status":200,"summary":"HTTP 200; State=returned"}}
+    split: development
+    verified: true
+    verified_by: local-api-replay
+    verified_at: 2026-11-11T09:22:53Z
+    implementation_ref: app/main.py
+
+  - id: AUTHZ-014
+    title: "repeat refund after owner return flow has reached returned state (request_return then admin approve_refund)"
+    family: F5
+    in_scope: true
+    method: POST
+    endpoint: /lab/v1/resources/order-a-001/actions/refund
+    actor: actor-customer-a
+    object_owner: actor-customer-a
+    object_id: order-a-001
+    expected_safe_response: "409 + state unchanged"
+    observed_when_enabled: "200 + repeated refund accepted; State=returned"
+    oracle: state_invariant
+    enabled_by: AUTHZ-014
+    attempted_edge: {"from":"returned","to":"returned","actor":"actor-customer-a","action":"refund"}
+    violated_invariant: "ORDER-I02/ORDER-I03"
+    before_after_state: {"safe_mode":{"before":"returned","after":"returned"},"flag_enabled":{"before":"returned","after":"returned"},"violated_invariant":"ORDER-I02/ORDER-I03"}
+    setup_steps: [{"method":"POST","path":"/lab/v1/resources/order-a-001/actions/request_return","actor":"actor-customer-a"},{"method":"POST","path":"/lab/v1/resources/order-a-001/actions/approve_refund","actor":"actor-admin-a"}]
+    request_headers: {"x-lab-case-id":"AUTHZ-014"}
+    evidence_required: ["attempted_edge","violated_invariant","before_after_state"]
+    api_observation: {"safe_mode":{"status":409,"summary":"HTTP 409; {'ErrorMessage': 'Action is not allowed in the current role/state'}"},"flag_enabled":{"status":200,"summary":"HTTP 200; State=returned"}}
+    split: development
+    verified: true
+    verified_by: local-api-replay
+    verified_at: 2026-11-11T09:22:53Z
+    implementation_ref: app/main.py
+
+  - id: AUTHZ-015
+    title: "close ticket before assignment"
+    family: F5
+    in_scope: true
+    method: POST
+    endpoint: /lab/v1/resources/ticket-a-001/actions/close
+    actor: actor-customer-a
+    object_owner: actor-customer-a
+    object_id: ticket-a-001
+    expected_safe_response: "403 or 409 + unchanged"
+    observed_when_enabled: "200 + ticket State=closed before assignment"
+    oracle: state_invariant
+    enabled_by: AUTHZ-015
+    attempted_edge: {"from":"open","to":"closed","actor":"actor-customer-a","action":"close"}
+    violated_invariant: "TICKET-I01"
+    before_after_state: {"safe_mode":{"before":"open","after":"open"},"flag_enabled":{"before":"open","after":"closed"},"violated_invariant":"TICKET-I01"}
+    evidence_required: ["attempted_edge","violated_invariant","before_after_state"]
+    api_observation: {"safe_mode":{"status":409,"summary":"HTTP 409; {'ErrorMessage': 'Action is not allowed in the current role/state'}"},"flag_enabled":{"status":200,"summary":"HTTP 200; State=closed"}}
+    split: development
+    verified: true
+    verified_by: local-api-replay
+    verified_at: 2026-11-11T09:22:53Z
+    implementation_ref: app/main.py
+
+  - id: AUTHZ-016
+    title: "read cross-tenant private attachment"
+    family: F4
+    in_scope: true
+    method: GET
+    endpoint: /lab/v1/resources/attachment-b-001
+    actors: {reference: actor-customer-b, test: actor-customer-a}
+    object_owner: actor-customer-b
+    object_id: attachment-b-001
+    expected_safe_response: "403"
+    observed_when_enabled: "200 + seeded victim object data returned"
+    oracle: differential_authorization
+    enabled_by: AUTHZ-016
+    actor_tenant_id: "tenant-a"
+    object_tenant_id: "tenant-b"
+    evidence_required: ["actor_tenant_id","object_tenant_id"]
+    reference_baseline: {"actor":"actor-customer-b","method":"GET","path":"/lab/v1/resources/attachment-b-001","status":200,"summary":"authorized owner/admin reference response"}
+    api_observation: {"safe_mode":{"status":403,"summary":"HTTP 403; {'ErrorMessage': 'Forbidden'}"},"flag_enabled":{"status":200,"summary":"HTTP 200; State=private"}}
+    split: held-out
+    verified: true
+    verified_by: local-api-replay
+    verified_at: 2026-11-11T09:22:53Z
+    implementation_ref: app/main.py
+
+  - id: AUTHZ-017
+    title: "support changes admin-only property"
+    family: F3
+    subtype: W
+    in_scope: true
+    method: PATCH
+    endpoint: /lab/v1/resources/doc-a-001
+    actor: actor-support-a
+    object_owner: actor-customer-a
+    object_id: doc-a-001
+    expected_safe_response: "403 + unchanged"
+    observed_when_enabled: "200 + Properties.is_privileged=true"
+    oracle: property_policy_diff
+    enabled_by: AUTHZ-017
+    request_body: {"Properties":{"is_privileged":true}}
+    readback_before: {"method":"GET","path":"/lab/v1/resources/doc-a-001","value":{"Properties.is_privileged":"absent"}}
+    readback_after: {"method":"GET","path":"/lab/v1/resources/doc-a-001","value":{"Properties.is_privileged":true}}
+    evidence_required: ["request_body","readback_before","readback_after"]
+    api_observation: {"safe_mode":{"status":403,"summary":"HTTP 403; {'ErrorMessage': 'Forbidden property or resource'}"},"flag_enabled":{"status":200,"summary":"HTTP 200; OwnerID=actor-customer-a; TenantID=tenant-a; Properties={'title': 'Tenant A private document', 'classification': 'confidential', 'is_privileged': True}"}}
+    split: held-out
+    verified: true
+    verified_by: local-api-replay
+    verified_at: 2026-11-11T09:22:53Z
+    implementation_ref: app/main.py
+
+  - id: AUTHZ-018
+    title: "mass assignment of privileged flag"
+    family: F3
+    subtype: W
+    in_scope: true
+    method: PATCH
+    endpoint: /lab/v1/resources/doc-a-001
+    actor: actor-customer-a
+    object_owner: actor-customer-a
+    object_id: doc-a-001
+    expected_safe_response: "400 + field rejected"
+    observed_when_enabled: "200 + Properties.is_privileged=true"
+    oracle: property_policy_diff
+    enabled_by: AUTHZ-018
+    request_body: {"Properties":{"is_privileged":true}}
+    readback_before: {"method":"GET","path":"/lab/v1/resources/doc-a-001","value":{"Properties.is_privileged":"absent"}}
+    readback_after: {"method":"GET","path":"/lab/v1/resources/doc-a-001","value":{"Properties.is_privileged":true}}
+    evidence_required: ["request_body","readback_before","readback_after"]
+    api_observation: {"safe_mode":{"status":400,"summary":"HTTP 400; {'ErrorMessage': 'Forbidden property or resource'}"},"flag_enabled":{"status":200,"summary":"HTTP 200; OwnerID=actor-customer-a; TenantID=tenant-a; Properties={'title': 'Tenant A private document', 'classification': 'confidential', 'is_privileged': True}"}}
+    split: held-out
+    verified: true
+    verified_by: local-api-replay
+    verified_at: 2026-11-11T09:22:53Z
+    implementation_ref: app/main.py
+
+  - id: AUTHZ-019
+    title: "enumerate orders across tenant"
+    family: F4
+    in_scope: true
+    method: GET
+    endpoint: /lab/v1/resources?resource_type=order
+    actors: {reference: actor-customer-b, test: actor-customer-a}
+    object_owner: tenant-b
+    object_id: order-b-001
+    expected_safe_response: "tenant-a orders only"
+    observed_when_enabled: "200 + 3 orders, including order-b-001 from tenant-b"
+    oracle: differential_authorization
+    enabled_by: AUTHZ-019
+    actor_tenant_id: "tenant-a"
+    object_tenant_id: "tenant-b"
+    evidence_required: ["actor_tenant_id","object_tenant_id","list_contents"]
+    reference_baseline: {"actor":"actor-customer-b","method":"GET","path":"/lab/v1/resources?resource_type=order","status":200,"returned_count":1,"tenant":"tenant-b"}
+    api_observation: {"safe_mode":{"status":200,"summary":"HTTP 200; 2 list items; tenants=['tenant-a']"},"flag_enabled":{"status":200,"summary":"HTTP 200; 3 list items; tenants=['tenant-a', 'tenant-b']"}}
+    split: held-out
+    verified: true
+    verified_by: local-api-replay
+    verified_at: 2026-11-11T09:22:53Z
+    implementation_ref: app/main.py
+
+  - id: AUTHZ-020
+    title: "held-out: repeat refund after owner return flow has reached returned state (request_return then admin approve_refund)"
+    family: F5
+    in_scope: true
+    method: POST
+    endpoint: /lab/v1/resources/order-heldout-001/actions/refund
+    actor: actor-customer-a
+    object_owner: actor-customer-a
+    object_id: order-heldout-001
+    expected_safe_response: "409 + state unchanged"
+    observed_when_enabled: "200 + repeated refund accepted; State=returned"
+    oracle: state_invariant
+    enabled_by: AUTHZ-020
+    attempted_edge: {"from":"returned","to":"returned","actor":"actor-customer-a","action":"refund"}
+    violated_invariant: "ORDER-I02/ORDER-I03"
+    before_after_state: {"safe_mode":{"before":"returned","after":"returned"},"flag_enabled":{"before":"returned","after":"returned"},"violated_invariant":"ORDER-I02/ORDER-I03"}
+    setup_steps: [{"method":"POST","path":"/lab/v1/resources/order-heldout-001/actions/request_return","actor":"actor-customer-a"},{"method":"POST","path":"/lab/v1/resources/order-heldout-001/actions/approve_refund","actor":"actor-admin-a"}]
+    request_headers: {"x-lab-case-id":"AUTHZ-020"}
+    evidence_required: ["attempted_edge","violated_invariant","before_after_state"]
+    api_observation: {"safe_mode":{"status":409,"summary":"HTTP 409; {'ErrorMessage': 'Action is not allowed in the current role/state'}"},"flag_enabled":{"status":200,"summary":"HTTP 200; State=returned"}}
+    split: held-out
+    verified: true
+    verified_by: local-api-replay
+    verified_at: 2026-11-11T09:22:53Z
+    implementation_ref: app/main.py
+
+  - id: AUTHZ-INV-01
+    title: "supplier from tenant-a reads tenant-b invoice"
+    family: F4
+    in_scope: true
+    method: GET
+    endpoint: /lab/v1/invoices/invoice-b-001
+    actors: {reference: actor-supplier-b, test: actor-supplier-a}
+    object_owner: actor-supplier-b
+    object_id: invoice-b-001
+    expected_safe_response: "403"
+    observed_when_enabled: "200 + tenant-b invoice data returned"
+    oracle: differential_authorization
+    enabled_by: AUTHZ-INV-01
+    actor_tenant_id: "tenant-a"
+    object_tenant_id: "tenant-b"
+    evidence_required: ["actor_tenant_id","object_tenant_id"]
+    reference_baseline: {"actor":"actor-supplier-b","method":"GET","path":"/lab/v1/invoices/invoice-b-001","status":200,"summary":"authorized owner/admin reference response"}
+    api_observation: {"safe_mode":{"status":403,"summary":"HTTP 403; {'ErrorMessage': 'Forbidden'}"},"flag_enabled":{"status":200,"summary":"HTTP 200; Status=approved"}}
+    split: development
+    verified: true
+    verified_by: local-api-replay
+    verified_at: 2026-11-11T09:22:53Z
+    implementation_ref: app/lab_extensions.py
+
+  - id: AUTHZ-INV-02
+    title: "supplier changes draft invoice Amount directly"
+    family: F3
+    subtype: W
+    in_scope: true
+    method: PATCH
+    endpoint: /lab/v1/invoices/invoice-a-001
+    actor: actor-supplier-a
+    object_owner: actor-supplier-a
+    object_id: invoice-a-001
+    expected_safe_response: "400 + Amount rejected"
+    observed_when_enabled: "200 + Amount changed to 1251.0"
+    oracle: property_policy_diff
+    enabled_by: AUTHZ-INV-02
+    request_body: {"Amount":1251.0}
+    readback_before: {"method":"GET","path":"/lab/v1/invoices/invoice-a-001","value":{"Amount":1250.0}}
+    readback_after: {"method":"GET","path":"/lab/v1/invoices/invoice-a-001","value":{"Amount":1251.0}}
+    evidence_required: ["request_body","readback_before","readback_after"]
+    api_observation: {"safe_mode":{"status":400,"summary":"HTTP 400; {'ErrorMessage': 'Only LineItems is editable'}"},"flag_enabled":{"status":200,"summary":"HTTP 200; Amount=1251.0"}}
+    split: development
+    verified: true
+    verified_by: local-api-replay
+    verified_at: 2026-11-11T09:22:53Z
+    implementation_ref: app/lab_extensions.py
+
+  - id: AUTHZ-INV-03
+    title: "supplier approves submitted invoice"
+    family: F2
+    in_scope: true
+    method: POST
+    endpoint: /lab/v1/invoices/invoice-a-002/approve
+    actors: {reference: actor-admin-a, test: actor-supplier-a}
+    object_owner: actor-supplier-a
+    object_id: invoice-a-002
+    expected_safe_response: "403"
+    observed_when_enabled: "200 + invoice Status=approved"
+    oracle: differential_authorization
+    enabled_by: AUTHZ-INV-03
+    role_matrix_cell: {"deny_role":"Supplier","allow_role":"Admin","operation":"POST /lab/v1/invoices/invoice-a-002/approve"}
+    before_after_state: {"safe_mode":{"before":"submitted","after":"submitted"},"flag_enabled":{"before":"submitted","after":"approved"},"violated_invariant":"INVOICE-I03"}
+    evidence_required: ["role_matrix_cell","before_after_state"]
+    reference_baseline: {"actor":"actor-admin-a","method":"POST","path":"/lab/v1/invoices/invoice-a-002/approve","status":200,"summary":"invoice approved"}
+    api_observation: {"safe_mode":{"status":403,"summary":"HTTP 403; {'ErrorMessage': 'Forbidden'}"},"flag_enabled":{"status":200,"summary":"HTTP 200; Status=approved"}}
+    split: development
+    verified: true
+    verified_by: local-api-replay
+    verified_at: 2026-11-11T09:22:53Z
+    implementation_ref: app/lab_extensions.py
+
+  - id: AUTHZ-PAY-01
+    title: "supplier lists admin-only payouts"
+    family: F2
+    in_scope: true
+    method: GET
+    endpoint: /lab/v1/payouts
+    actors: {reference: actor-admin-a, test: actor-supplier-a}
+    expected_safe_response: "403"
+    observed_when_enabled: "200 + both seeded payouts returned"
+    oracle: differential_authorization
+    enabled_by: AUTHZ-PAY-01
+    role_matrix_cell: {"deny_role":"Supplier","allow_role":"Admin","operation":"GET /lab/v1/payouts"}
+    before_after_state: {"safe_mode":"denied/no action or unchanged list","flag_enabled":"read-only listing; no state change"}
+    evidence_required: ["role_matrix_cell","before_after_state"]
+    reference_baseline: {"actor":"actor-admin-a","method":"GET","path":"/lab/v1/payouts","status":200,"summary":"both payouts returned"}
+    api_observation: {"safe_mode":{"status":403,"summary":"HTTP 403; {'ErrorMessage': 'Forbidden'}"},"flag_enabled":{"status":200,"summary":"HTTP 200; 2 list items; tenants=['tenant-a', 'tenant-b']"}}
+    split: development
+    verified: true
+    verified_by: local-api-replay
+    verified_at: 2026-11-11T09:22:53Z
+    implementation_ref: app/lab_extensions.py
+
+  - id: AUTHZ-PAY-02
+    title: "supplier approves own-tenant payout"
+    family: F2
+    in_scope: true
+    method: POST
+    endpoint: /lab/v1/payouts/payout-a-001/approve
+    actors: {reference: actor-admin-a, test: actor-supplier-a}
+    object_owner: actor-supplier-a
+    object_id: payout-a-001
+    expected_safe_response: "403"
+    observed_when_enabled: "200 + payout Status=approved"
+    oracle: differential_authorization
+    enabled_by: AUTHZ-PAY-02
+    role_matrix_cell: {"deny_role":"Supplier","allow_role":"Admin","operation":"POST /lab/v1/payouts/payout-a-001/approve"}
+    before_after_state: {"safe_mode":{"before":"pending","after":"pending"},"flag_enabled":{"before":"pending","after":"approved"},"violated_invariant":"PAYOUT-T01 role constraint"}
+    evidence_required: ["role_matrix_cell","before_after_state"]
+    reference_baseline: {"actor":"actor-admin-a","method":"POST","path":"/lab/v1/payouts/payout-a-001/approve","status":200,"summary":"payout approved"}
+    api_observation: {"safe_mode":{"status":403,"summary":"HTTP 403; {'ErrorMessage': 'Forbidden'}"},"flag_enabled":{"status":200,"summary":"HTTP 200; Status=approved"}}
+    split: development
+    verified: true
+    verified_by: local-api-replay
+    verified_at: 2026-11-11T09:22:53Z
+    implementation_ref: app/lab_extensions.py
+
+  - id: AUTHZ-TCK-01
+    title: "support resolves escalated ticket from another tenant"
+    family: F4
+    secondary_families: ["F5"]
+    in_scope: true
+    method: POST
+    endpoint: /lab/v1/tickets/ticket-b-001/resolve
+    actors: {reference: actor-admin-a, test: actor-support-a}
+    object_owner: actor-customer-b
+    object_id: ticket-b-001
+    expected_safe_response: "403"
+    observed_when_enabled: "200 + ticket State=resolved"
+    oracle: differential_authorization
+    enabled_by: AUTHZ-TCK-01
+    actor_tenant_id: "tenant-a"
+    object_tenant_id: "tenant-b"
+    attempted_edge: {"from":"escalated","to":"resolved","actor":"actor-support-a","action":"resolve"}
+    violated_invariant: "TICKET-T03 role constraint: only Admin may resolve an escalated ticket"
+    before_after_state: {"safe_mode":{"before":"escalated","after":"escalated"},"flag_enabled":{"before":"escalated","after":"resolved"},"violated_invariant":"TICKET-T03 role constraint"}
+    evidence_required: ["actor_tenant_id","object_tenant_id"]
+    secondary_evidence_required: {"F5":["attempted_edge","violated_invariant","before_after_state"]}
+    reference_baseline: {"actor":"actor-admin-a","method":"POST","path":"/lab/v1/tickets/ticket-b-001/resolve","status":200,"summary":"admin resolved escalated ticket"}
+    api_observation: {"safe_mode":{"status":403,"summary":"HTTP 403; {'ErrorMessage': 'Forbidden'}"},"flag_enabled":{"status":200,"summary":"HTTP 200; State=resolved"}}
+    split: development
+    verified: true
+    verified_by: local-api-replay
+    verified_at: 2026-11-11T09:22:53Z
+    implementation_ref: app/lab_extensions.py
+
+  - id: AUTHZ-REV-01
+    title: "customer attempts to set Featured while creating review on own delivered order"
+    family: F3
+    subtype: W
+    in_scope: true
+    method: POST
+    endpoint: /lab/v1/orders/order-a-001/reviews
+    actor: actor-customer-a
+    object_owner: actor-customer-a
+    object_id: order-a-001
+    expected_safe_response: "201 + Featured ignored"
+    observed_when_enabled: "201 + readback Featured=true, Verified=false"
+    oracle: property_policy_diff
+    enabled_by: AUTHZ-REV-01
+    request_body: {"Rating":5,"Comment":"Synthetic test review","Featured":true}
+    readback_before: {"method":"GET","path":"/lab/v1/orders/order-a-001/reviews","value":{"reviews":[{"ID":"review-a-001","Featured":false,"Verified":true}]}}
+    readback_after: {"method":"GET","path":"/lab/v1/orders/order-a-001/reviews","value":{"created_review":{"ID":"f7e6440f-c128-4a77-85c0-ca77e9ccac06","Featured":true,"Verified":false}}}
+    evidence_required: ["request_body","readback_before","readback_after"]
+    api_observation: {"safe_mode":{"status":201,"summary":"HTTP 201; review readback Featured=None, Verified=None"},"flag_enabled":{"status":201,"summary":"HTTP 201; {'SuccessStatus': True, 'ID': 'ed63895d-51d2-49a3-8b67-8aab729fd38f'}"}}
+    split: development
+    verified: true
+    verified_by: local-api-replay
+    verified_at: 2026-11-11T09:22:53Z
+    implementation_ref: app/lab_extensions.py
+
+  - id: AUTHZ-REV-02
+    title: "customer sets Verified or Featured on own review after creating it"
+    family: F3
+    subtype: W
+    in_scope: true
+    method: PATCH
+    endpoint: /lab/v1/reviews/review-a-001
+    actor: actor-customer-a
+    object_owner: actor-customer-a
+    object_id: review-a-001
+    expected_safe_response: "400 + privileged fields rejected"
+    observed_when_enabled: "200 + readback Featured=true"
+    oracle: property_policy_diff
+    enabled_by: AUTHZ-REV-02
+    request_body: {"Featured":true}
+    readback_before: {"method":"GET","path":"/lab/v1/reviews/review-a-001","value":{"Featured":false,"Verified":true}}
+    readback_after: {"method":"GET","path":"/lab/v1/reviews/review-a-001","value":{"Featured":true,"Verified":true}}
+    evidence_required: ["request_body","readback_before","readback_after"]
+    api_observation: {"safe_mode":{"status":400,"summary":"HTTP 400; {'ErrorMessage': 'Only Rating/Comment are editable'}"},"flag_enabled":{"status":200,"summary":"HTTP 200; Featured=True; Verified=True"}}
+    split: development
+    verified: true
+    verified_by: local-api-replay
+    verified_at: 2026-11-11T09:22:53Z
+    implementation_ref: app/lab_extensions.py
+
+  - id: AUTHZ-021
+    title: "same-tenant non-owner reads another customer order"
+    family: F1
+    in_scope: true
+    method: GET
+    endpoint: /lab/v1/resources/order-a-001
+    actors: {reference: actor-customer-a, test: actor-customer-a2}
+    object_owner: actor-customer-a
+    object_id: order-a-001
+    expected_safe_response: "403"
+    observed_when_enabled: "200 + seeded victim object data returned"
+    oracle: differential_authorization
+    enabled_by: AUTHZ-021
+    object_id_origin: {"method":"GET","endpoint":"/lab/v1/resources","actor":"actor-customer-a","source":"owner-visible collection"}
+    request_headers: {"x-lab-case-id":"AUTHZ-021"}
+    evidence_required: ["owner_baseline_response","test_actor_response","object_id_origin"]
+    reference_baseline: {"actor":"actor-customer-a","method":"GET","path":"/lab/v1/resources/order-a-001","status":200,"summary":"authorized owner/admin reference response"}
+    api_observation: {"safe_mode":{"status":403,"summary":"HTTP 403; {'ErrorMessage': 'Forbidden'}"},"flag_enabled":{"status":200,"summary":"HTTP 200; State=delivered"}}
+    split: development
+    verified: true
+    verified_by: local-api-replay
+    verified_at: 2026-11-11T09:22:53Z
+    implementation_ref: app/main.py
+
+  - id: AUTHZ-022
+    title: "same-tenant non-owner reads another customer private document"
+    family: F1
+    in_scope: true
+    method: GET
+    endpoint: /lab/v1/resources/doc-a-001
+    actors: {reference: actor-customer-a, test: actor-customer-a2}
+    object_owner: actor-customer-a
+    object_id: doc-a-001
+    expected_safe_response: "403"
+    observed_when_enabled: "200 + seeded victim object data returned"
+    oracle: differential_authorization
+    enabled_by: AUTHZ-022
+    object_id_origin: {"method":"GET","endpoint":"/lab/v1/resources","actor":"actor-customer-a","source":"owner-visible collection"}
+    request_headers: {"x-lab-case-id":"AUTHZ-022"}
+    evidence_required: ["owner_baseline_response","test_actor_response","object_id_origin"]
+    reference_baseline: {"actor":"actor-customer-a","method":"GET","path":"/lab/v1/resources/doc-a-001","status":200,"summary":"authorized owner/admin reference response"}
+    api_observation: {"safe_mode":{"status":403,"summary":"HTTP 403; {'ErrorMessage': 'Forbidden'}"},"flag_enabled":{"status":200,"summary":"HTTP 200; State=private"}}
+    split: development
+    verified: true
+    verified_by: local-api-replay
+    verified_at: 2026-11-11T09:22:53Z
+    implementation_ref: app/main.py
+
+# Benign controls: BENIGN-001..BENIGN-008 in ground_truth/ground_truth.yaml.

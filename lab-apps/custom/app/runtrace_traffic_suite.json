@@ -1,17 +1,97 @@
 {
-  "version": 2,
-  "description": "Workflow-derived RunTrace traffic with runtime HTTP/state assertions. Execute stateful scenarios only after clean reset/reseed. Read-only authorization probes can be run independently.",
+  "version": 3,
+  "description": "Observational user-journey captures, one use case per run. No expected status/state assertions. Proxy evidence records the observed request and response.",
   "target": "http://localhost:8000",
   "scenarios": [
     {
       "id": "workflow-order-refund",
       "name": "Order refund lifecycle",
       "reset_required": true,
+      "user_journey": [
+        {
+          "sequence": 1,
+          "actor": "actor-customer-a",
+          "screen": "Sign in",
+          "action": "Sign in",
+          "operation_id": "lab_issue_token",
+          "object_id": null
+        },
+        {
+          "sequence": 2,
+          "actor": "actor-customer-a",
+          "screen": "Orders",
+          "action": "Load orders",
+          "operation_id": "lab_list_resources",
+          "object_id": null
+        },
+        {
+          "sequence": 3,
+          "actor": "actor-customer-a",
+          "screen": "Orders",
+          "action": "Open order details",
+          "operation_id": "lab_get_resource",
+          "object_id": "order-a-001"
+        },
+        {
+          "sequence": 4,
+          "actor": "actor-customer-a",
+          "screen": "Order details",
+          "action": "Request a return",
+          "operation_id": "lab_transition",
+          "object_id": "order-a-001"
+        },
+        {
+          "sequence": 5,
+          "actor": "actor-admin-a",
+          "screen": "Sign in",
+          "action": "Sign in as approver",
+          "operation_id": "lab_issue_token",
+          "object_id": null
+        },
+        {
+          "sequence": 6,
+          "actor": "actor-admin-a",
+          "screen": "Refund approvals",
+          "action": "Approve refund",
+          "operation_id": "lab_transition",
+          "object_id": "order-a-001"
+        },
+        {
+          "sequence": 7,
+          "actor": "actor-admin-a",
+          "screen": "Order details",
+          "action": "View activity",
+          "operation_id": "unmapped",
+          "object_id": "order-a-001"
+        }
+      ],
       "steps": [
         {
           "id": "login_customer_a",
           "dsl": "login",
-          "actor": "actor-customer-a"
+          "actor": "actor-customer-a",
+          "interaction": {
+            "sequence": 1,
+            "screen": "Sign in",
+            "action": "Sign in",
+            "operation_id": "lab_issue_token"
+          }
+        },
+        {
+          "id": "order_list",
+          "dsl": "request",
+          "actor": "actor-customer-a",
+          "method": "GET",
+          "path": "/lab/v1/resources",
+          "params": {
+            "resource_type": "order"
+          },
+          "interaction": {
+            "sequence": 2,
+            "screen": "Orders",
+            "action": "Load orders",
+            "operation_id": "lab_list_resources"
+          }
         },
         {
           "id": "order_read_before",
@@ -19,8 +99,13 @@
           "actor": "actor-customer-a",
           "method": "GET",
           "path": "/lab/v1/resources/order-a-001",
-          "expect_status": 200,
-          "expect_state": "delivered"
+          "interaction": {
+            "sequence": 3,
+            "screen": "Orders",
+            "action": "Open order details",
+            "operation_id": "lab_get_resource",
+            "object_id": "order-a-001"
+          }
         },
         {
           "id": "order_request_return",
@@ -28,13 +113,24 @@
           "actor": "actor-customer-a",
           "method": "POST",
           "path": "/lab/v1/resources/order-a-001/actions/request_return",
-          "expect_status": 200,
-          "expect_state": "return_pending"
+          "interaction": {
+            "sequence": 4,
+            "screen": "Order details",
+            "action": "Request a return",
+            "operation_id": "lab_transition",
+            "object_id": "order-a-001"
+          }
         },
         {
           "id": "login_admin",
           "dsl": "login",
-          "actor": "actor-admin-a"
+          "actor": "actor-admin-a",
+          "interaction": {
+            "sequence": 5,
+            "screen": "Sign in",
+            "action": "Sign in as approver",
+            "operation_id": "lab_issue_token"
+          }
         },
         {
           "id": "order_approve_refund",
@@ -42,15 +138,27 @@
           "actor": "actor-admin-a",
           "method": "POST",
           "path": "/lab/v1/resources/order-a-001/actions/approve_refund",
-          "expect_status": 200,
-          "expect_state": "returned"
+          "interaction": {
+            "sequence": 6,
+            "screen": "Refund approvals",
+            "action": "Approve refund",
+            "operation_id": "lab_transition",
+            "object_id": "order-a-001"
+          }
         },
         {
           "id": "order_history",
           "dsl": "request",
           "actor": "actor-admin-a",
           "method": "GET",
-          "path": "/lab/v1/resources/order-a-001/history"
+          "path": "/lab/v1/resources/order-a-001/history",
+          "interaction": {
+            "sequence": 7,
+            "screen": "Order details",
+            "action": "View activity",
+            "operation_id": "unmapped",
+            "object_id": "order-a-001"
+          }
         }
       ]
     },
@@ -58,11 +166,91 @@
       "id": "workflow-ticket",
       "name": "Support ticket lifecycle",
       "reset_required": true,
+      "user_journey": [
+        {
+          "sequence": 1,
+          "actor": "actor-customer-a",
+          "screen": "Sign in",
+          "action": "Sign in",
+          "operation_id": "lab_issue_token",
+          "object_id": null
+        },
+        {
+          "sequence": 2,
+          "actor": "actor-customer-a",
+          "screen": "Support tickets",
+          "action": "Load tickets",
+          "operation_id": "lab_list_resources",
+          "object_id": null
+        },
+        {
+          "sequence": 3,
+          "actor": "actor-customer-a",
+          "screen": "Support tickets",
+          "action": "Open ticket details",
+          "operation_id": "lab_get_resource",
+          "object_id": "ticket-a-001"
+        },
+        {
+          "sequence": 4,
+          "actor": "actor-support-a",
+          "screen": "Sign in",
+          "action": "Sign in as support",
+          "operation_id": "lab_issue_token",
+          "object_id": null
+        },
+        {
+          "sequence": 5,
+          "actor": "actor-support-a",
+          "screen": "Ticket details",
+          "action": "Assign ticket",
+          "operation_id": "lab_transition",
+          "object_id": "ticket-a-001"
+        },
+        {
+          "sequence": 6,
+          "actor": "actor-support-a",
+          "screen": "Ticket details",
+          "action": "Close ticket",
+          "operation_id": "lab_transition",
+          "object_id": "ticket-a-001"
+        },
+        {
+          "sequence": 7,
+          "actor": "actor-support-a",
+          "screen": "Ticket details",
+          "action": "Refresh ticket",
+          "operation_id": "lab_get_resource",
+          "object_id": "ticket-a-001"
+        }
+      ],
       "steps": [
         {
           "id": "login_customer_a",
           "dsl": "login",
-          "actor": "actor-customer-a"
+          "actor": "actor-customer-a",
+          "interaction": {
+            "sequence": 1,
+            "screen": "Sign in",
+            "action": "Sign in",
+            "operation_id": "lab_issue_token"
+          }
+        },
+        {
+          "id": "ticket_list",
+          "dsl": "request",
+          "actor": "actor-customer-a",
+          "method": "GET",
+          "path": "/lab/v1/resources",
+          "params": {
+            "resource_type": "ticket"
+          },
+          "interaction": {
+            "sequence": 2,
+            "screen": "Support tickets",
+            "action": "Load tickets",
+            "operation_id": "lab_list_resources"
+          }
         },
         {
           "id": "ticket_read_before",
@@ -70,13 +258,24 @@
           "actor": "actor-customer-a",
           "method": "GET",
           "path": "/lab/v1/resources/ticket-a-001",
-          "expect_status": 200,
-          "expect_state": "open"
+          "interaction": {
+            "sequence": 3,
+            "screen": "Support tickets",
+            "action": "Open ticket details",
+            "operation_id": "lab_get_resource",
+            "object_id": "ticket-a-001"
+          }
         },
         {
           "id": "login_support_a",
           "dsl": "login",
-          "actor": "actor-support-a"
+          "actor": "actor-support-a",
+          "interaction": {
+            "sequence": 4,
+            "screen": "Sign in",
+            "action": "Sign in as support",
+            "operation_id": "lab_issue_token"
+          }
         },
         {
           "id": "ticket_assign",
@@ -84,8 +283,13 @@
           "actor": "actor-support-a",
           "method": "POST",
           "path": "/lab/v1/resources/ticket-a-001/actions/assign",
-          "expect_status": 200,
-          "expect_state": "assigned"
+          "interaction": {
+            "sequence": 5,
+            "screen": "Ticket details",
+            "action": "Assign ticket",
+            "operation_id": "lab_transition",
+            "object_id": "ticket-a-001"
+          }
         },
         {
           "id": "ticket_close",
@@ -93,8 +297,13 @@
           "actor": "actor-support-a",
           "method": "POST",
           "path": "/lab/v1/resources/ticket-a-001/actions/close",
-          "expect_status": 200,
-          "expect_state": "closed"
+          "interaction": {
+            "sequence": 6,
+            "screen": "Ticket details",
+            "action": "Close ticket",
+            "operation_id": "lab_transition",
+            "object_id": "ticket-a-001"
+          }
         },
         {
           "id": "ticket_read_after",
@@ -102,8 +311,13 @@
           "actor": "actor-support-a",
           "method": "GET",
           "path": "/lab/v1/resources/ticket-a-001",
-          "expect_status": 200,
-          "expect_state": "closed"
+          "interaction": {
+            "sequence": 7,
+            "screen": "Ticket details",
+            "action": "Refresh ticket",
+            "operation_id": "lab_get_resource",
+            "object_id": "ticket-a-001"
+          }
         }
       ]
     },
@@ -111,11 +325,96 @@
       "id": "workflow-invoice-payment",
       "name": "Seeded invoice submission and payment",
       "reset_required": true,
+      "user_journey": [
+        {
+          "sequence": 1,
+          "actor": "actor-supplier-a",
+          "screen": "Sign in",
+          "action": "Sign in as supplier",
+          "operation_id": "lab_issue_token",
+          "object_id": null
+        },
+        {
+          "sequence": 2,
+          "actor": "actor-supplier-a",
+          "screen": "Invoices",
+          "action": "Load supplier invoices",
+          "operation_id": "lab_list_invoices",
+          "object_id": null
+        },
+        {
+          "sequence": 3,
+          "actor": "actor-supplier-a",
+          "screen": "Invoices",
+          "action": "Open invoice details",
+          "operation_id": "lab_get_invoice",
+          "object_id": "invoice-a-001"
+        },
+        {
+          "sequence": 4,
+          "actor": "actor-supplier-a",
+          "screen": "Invoice details",
+          "action": "Submit invoice",
+          "operation_id": "lab_invoice_submit",
+          "object_id": "invoice-a-001"
+        },
+        {
+          "sequence": 5,
+          "actor": "actor-admin-a",
+          "screen": "Sign in",
+          "action": "Sign in as approver",
+          "operation_id": "lab_issue_token",
+          "object_id": null
+        },
+        {
+          "sequence": 6,
+          "actor": "actor-admin-a",
+          "screen": "Invoice approvals",
+          "action": "Approve invoice",
+          "operation_id": "lab_invoice_approve",
+          "object_id": "invoice-a-001"
+        },
+        {
+          "sequence": 7,
+          "actor": "actor-admin-a",
+          "screen": "Invoice details",
+          "action": "Pay invoice",
+          "operation_id": "lab_invoice_pay",
+          "object_id": "invoice-a-001"
+        },
+        {
+          "sequence": 8,
+          "actor": "actor-admin-a",
+          "screen": "Invoice details",
+          "action": "View activity",
+          "operation_id": "lab_invoice_history",
+          "object_id": "invoice-a-001"
+        }
+      ],
       "steps": [
         {
           "id": "login_supplier_a",
           "dsl": "login",
-          "actor": "actor-supplier-a"
+          "actor": "actor-supplier-a",
+          "interaction": {
+            "sequence": 1,
+            "screen": "Sign in",
+            "action": "Sign in as supplier",
+            "operation_id": "lab_issue_token"
+          }
+        },
+        {
+          "id": "invoice_list",
+          "dsl": "request",
+          "actor": "actor-supplier-a",
+          "method": "GET",
+          "path": "/lab/v1/invoices",
+          "interaction": {
+            "sequence": 2,
+            "screen": "Invoices",
+            "action": "Load supplier invoices",
+            "operation_id": "lab_list_invoices"
+          }
         },
         {
           "id": "invoice_read_before",
@@ -123,8 +422,13 @@
           "actor": "actor-supplier-a",
           "method": "GET",
           "path": "/lab/v1/invoices/invoice-a-001",
-          "expect_status": 200,
-          "expect_state": "draft"
+          "interaction": {
+            "sequence": 3,
+            "screen": "Invoices",
+            "action": "Open invoice details",
+            "operation_id": "lab_get_invoice",
+            "object_id": "invoice-a-001"
+          }
         },
         {
           "id": "invoice_submit",
@@ -132,13 +436,24 @@
           "actor": "actor-supplier-a",
           "method": "POST",
           "path": "/lab/v1/invoices/invoice-a-001/submit",
-          "expect_status": 200,
-          "expect_state": "submitted"
+          "interaction": {
+            "sequence": 4,
+            "screen": "Invoice details",
+            "action": "Submit invoice",
+            "operation_id": "lab_invoice_submit",
+            "object_id": "invoice-a-001"
+          }
         },
         {
           "id": "login_admin",
           "dsl": "login",
-          "actor": "actor-admin-a"
+          "actor": "actor-admin-a",
+          "interaction": {
+            "sequence": 5,
+            "screen": "Sign in",
+            "action": "Sign in as approver",
+            "operation_id": "lab_issue_token"
+          }
         },
         {
           "id": "invoice_approve",
@@ -146,8 +461,13 @@
           "actor": "actor-admin-a",
           "method": "POST",
           "path": "/lab/v1/invoices/invoice-a-001/approve",
-          "expect_status": 200,
-          "expect_state": "approved"
+          "interaction": {
+            "sequence": 6,
+            "screen": "Invoice approvals",
+            "action": "Approve invoice",
+            "operation_id": "lab_invoice_approve",
+            "object_id": "invoice-a-001"
+          }
         },
         {
           "id": "invoice_pay",
@@ -155,15 +475,27 @@
           "actor": "actor-admin-a",
           "method": "POST",
           "path": "/lab/v1/invoices/invoice-a-001/pay",
-          "expect_status": 200,
-          "expect_state": "paid"
+          "interaction": {
+            "sequence": 7,
+            "screen": "Invoice details",
+            "action": "Pay invoice",
+            "operation_id": "lab_invoice_pay",
+            "object_id": "invoice-a-001"
+          }
         },
         {
           "id": "invoice_history",
           "dsl": "request",
           "actor": "actor-admin-a",
           "method": "GET",
-          "path": "/lab/v1/invoices/invoice-a-001/history"
+          "path": "/lab/v1/invoices/invoice-a-001/history",
+          "interaction": {
+            "sequence": 8,
+            "screen": "Invoice details",
+            "action": "View activity",
+            "operation_id": "lab_invoice_history",
+            "object_id": "invoice-a-001"
+          }
         }
       ]
     },
@@ -171,11 +503,80 @@
       "id": "workflow-payout-release",
       "name": "Payout approval and release",
       "reset_required": true,
+      "user_journey": [
+        {
+          "sequence": 1,
+          "actor": "actor-admin-a",
+          "screen": "Sign in",
+          "action": "Sign in as finance admin",
+          "operation_id": "lab_issue_token",
+          "object_id": null
+        },
+        {
+          "sequence": 2,
+          "actor": "actor-admin-a",
+          "screen": "Payouts",
+          "action": "Load payouts",
+          "operation_id": "lab_list_payouts",
+          "object_id": null
+        },
+        {
+          "sequence": 3,
+          "actor": "actor-admin-a",
+          "screen": "Payouts",
+          "action": "Open payout details",
+          "operation_id": "lab_get_payout",
+          "object_id": "payout-a-001"
+        },
+        {
+          "sequence": 4,
+          "actor": "actor-admin-a",
+          "screen": "Payout details",
+          "action": "Approve payout",
+          "operation_id": "lab_payout_approve",
+          "object_id": "payout-a-001"
+        },
+        {
+          "sequence": 5,
+          "actor": "actor-admin-a",
+          "screen": "Payout details",
+          "action": "Release payout",
+          "operation_id": "lab_payout_release",
+          "object_id": "payout-a-001"
+        },
+        {
+          "sequence": 6,
+          "actor": "actor-admin-a",
+          "screen": "Payout details",
+          "action": "View activity",
+          "operation_id": "lab_payout_history",
+          "object_id": "payout-a-001"
+        }
+      ],
       "steps": [
         {
           "id": "login_admin",
           "dsl": "login",
-          "actor": "actor-admin-a"
+          "actor": "actor-admin-a",
+          "interaction": {
+            "sequence": 1,
+            "screen": "Sign in",
+            "action": "Sign in as finance admin",
+            "operation_id": "lab_issue_token"
+          }
+        },
+        {
+          "id": "payout_list",
+          "dsl": "request",
+          "actor": "actor-admin-a",
+          "method": "GET",
+          "path": "/lab/v1/payouts",
+          "interaction": {
+            "sequence": 2,
+            "screen": "Payouts",
+            "action": "Load payouts",
+            "operation_id": "lab_list_payouts"
+          }
         },
         {
           "id": "payout_read_before",
@@ -183,8 +584,13 @@
           "actor": "actor-admin-a",
           "method": "GET",
           "path": "/lab/v1/payouts/payout-a-001",
-          "expect_status": 200,
-          "expect_state": "pending"
+          "interaction": {
+            "sequence": 3,
+            "screen": "Payouts",
+            "action": "Open payout details",
+            "operation_id": "lab_get_payout",
+            "object_id": "payout-a-001"
+          }
         },
         {
           "id": "payout_approve",
@@ -192,8 +598,13 @@
           "actor": "actor-admin-a",
           "method": "POST",
           "path": "/lab/v1/payouts/payout-a-001/approve",
-          "expect_status": 200,
-          "expect_state": "approved"
+          "interaction": {
+            "sequence": 4,
+            "screen": "Payout details",
+            "action": "Approve payout",
+            "operation_id": "lab_payout_approve",
+            "object_id": "payout-a-001"
+          }
         },
         {
           "id": "payout_release",
@@ -201,15 +612,27 @@
           "actor": "actor-admin-a",
           "method": "POST",
           "path": "/lab/v1/payouts/payout-a-001/release",
-          "expect_status": 200,
-          "expect_state": "released"
+          "interaction": {
+            "sequence": 5,
+            "screen": "Payout details",
+            "action": "Release payout",
+            "operation_id": "lab_payout_release",
+            "object_id": "payout-a-001"
+          }
         },
         {
           "id": "payout_history",
           "dsl": "request",
           "actor": "actor-admin-a",
           "method": "GET",
-          "path": "/lab/v1/payouts/payout-a-001/history"
+          "path": "/lab/v1/payouts/payout-a-001/history",
+          "interaction": {
+            "sequence": 6,
+            "screen": "Payout details",
+            "action": "View activity",
+            "operation_id": "lab_payout_history",
+            "object_id": "payout-a-001"
+          }
         }
       ]
     },
@@ -217,11 +640,67 @@
       "id": "workflow-ticket-escalation",
       "name": "Assigned ticket escalation and resolution",
       "reset_required": true,
+      "user_journey": [
+        {
+          "sequence": 1,
+          "actor": "actor-support-a",
+          "screen": "Sign in",
+          "action": "Sign in as support",
+          "operation_id": "lab_issue_token",
+          "object_id": null
+        },
+        {
+          "sequence": 2,
+          "actor": "actor-support-a",
+          "screen": "Support tickets",
+          "action": "Assign ticket",
+          "operation_id": "lab_transition",
+          "object_id": "ticket-a-001"
+        },
+        {
+          "sequence": 3,
+          "actor": "actor-support-a",
+          "screen": "Ticket details",
+          "action": "Escalate ticket",
+          "operation_id": "lab_ticket_escalate",
+          "object_id": "ticket-a-001"
+        },
+        {
+          "sequence": 4,
+          "actor": "actor-admin-a",
+          "screen": "Sign in",
+          "action": "Sign in as admin",
+          "operation_id": "lab_issue_token",
+          "object_id": null
+        },
+        {
+          "sequence": 5,
+          "actor": "actor-admin-a",
+          "screen": "Escalated tickets",
+          "action": "Resolve ticket",
+          "operation_id": "lab_ticket_resolve",
+          "object_id": "ticket-a-001"
+        },
+        {
+          "sequence": 6,
+          "actor": "actor-admin-a",
+          "screen": "Ticket details",
+          "action": "Refresh ticket",
+          "operation_id": "lab_get_resource",
+          "object_id": "ticket-a-001"
+        }
+      ],
       "steps": [
         {
           "id": "login_support_a",
           "dsl": "login",
-          "actor": "actor-support-a"
+          "actor": "actor-support-a",
+          "interaction": {
+            "sequence": 1,
+            "screen": "Sign in",
+            "action": "Sign in as support",
+            "operation_id": "lab_issue_token"
+          }
         },
         {
           "id": "ticket_assign",
@@ -229,8 +708,13 @@
           "actor": "actor-support-a",
           "method": "POST",
           "path": "/lab/v1/resources/ticket-a-001/actions/assign",
-          "expect_status": 200,
-          "expect_state": "assigned"
+          "interaction": {
+            "sequence": 2,
+            "screen": "Support tickets",
+            "action": "Assign ticket",
+            "operation_id": "lab_transition",
+            "object_id": "ticket-a-001"
+          }
         },
         {
           "id": "ticket_escalate",
@@ -238,13 +722,24 @@
           "actor": "actor-support-a",
           "method": "POST",
           "path": "/lab/v1/tickets/ticket-a-001/escalate",
-          "expect_status": 200,
-          "expect_state": "escalated"
+          "interaction": {
+            "sequence": 3,
+            "screen": "Ticket details",
+            "action": "Escalate ticket",
+            "operation_id": "lab_ticket_escalate",
+            "object_id": "ticket-a-001"
+          }
         },
         {
           "id": "login_admin",
           "dsl": "login",
-          "actor": "actor-admin-a"
+          "actor": "actor-admin-a",
+          "interaction": {
+            "sequence": 4,
+            "screen": "Sign in",
+            "action": "Sign in as admin",
+            "operation_id": "lab_issue_token"
+          }
         },
         {
           "id": "ticket_resolve",
@@ -252,8 +747,13 @@
           "actor": "actor-admin-a",
           "method": "POST",
           "path": "/lab/v1/tickets/ticket-a-001/resolve",
-          "expect_status": 200,
-          "expect_state": "resolved"
+          "interaction": {
+            "sequence": 5,
+            "screen": "Escalated tickets",
+            "action": "Resolve ticket",
+            "operation_id": "lab_ticket_resolve",
+            "object_id": "ticket-a-001"
+          }
         },
         {
           "id": "ticket_read_after",
@@ -261,149 +761,13 @@
           "actor": "actor-admin-a",
           "method": "GET",
           "path": "/lab/v1/resources/ticket-a-001",
-          "expect_status": 200,
-          "expect_state": "resolved"
-        }
-      ]
-    },
-    {
-      "id": "authorization-read-probes",
-      "name": "Read-only ownership and tenant probes",
-      "reset_required": false,
-      "steps": [
-        {
-          "id": "login_customer_a",
-          "dsl": "login",
-          "actor": "actor-customer-a"
-        },
-        {
-          "id": "customer_a_list_orders",
-          "dsl": "request",
-          "actor": "actor-customer-a",
-          "method": "GET",
-          "path": "/lab/v1/resources",
-          "params": {
-            "resource_type": "order"
+          "interaction": {
+            "sequence": 6,
+            "screen": "Ticket details",
+            "action": "Refresh ticket",
+            "operation_id": "lab_get_resource",
+            "object_id": "ticket-a-001"
           }
-        },
-        {
-          "id": "customer_a_read_own",
-          "dsl": "request",
-          "actor": "actor-customer-a",
-          "method": "GET",
-          "path": "/lab/v1/resources/order-a-001",
-          "expect_status": 200,
-          "expect_state": "delivered"
-        },
-        {
-          "id": "customer_a_read_peer_tenant",
-          "dsl": "request",
-          "actor": "actor-customer-a",
-          "method": "GET",
-          "path": "/lab/v1/resources/order-b-001",
-          "expect_status": 403
-        },
-        {
-          "id": "login_customer_b",
-          "dsl": "login",
-          "actor": "actor-customer-b"
-        },
-        {
-          "id": "customer_b_read_own",
-          "dsl": "request",
-          "actor": "actor-customer-b",
-          "method": "GET",
-          "path": "/lab/v1/resources/order-b-001",
-          "expect_status": 200,
-          "expect_state": "created"
-        },
-        {
-          "id": "customer_b_read_other_tenant",
-          "dsl": "request",
-          "actor": "actor-customer-b",
-          "method": "GET",
-          "path": "/lab/v1/resources/order-a-001",
-          "expect_status": 403
-        },
-        {
-          "id": "login_supplier_a",
-          "dsl": "login",
-          "actor": "actor-supplier-a"
-        },
-        {
-          "id": "supplier_list_invoices",
-          "dsl": "request",
-          "actor": "actor-supplier-a",
-          "method": "GET",
-          "path": "/lab/v1/invoices"
-        },
-        {
-          "id": "supplier_read_invoice_a",
-          "dsl": "request",
-          "actor": "actor-supplier-a",
-          "method": "GET",
-          "path": "/lab/v1/invoices/invoice-a-001",
-          "expect_status": 200,
-          "expect_state": "draft"
-        },
-        {
-          "id": "login_admin",
-          "dsl": "login",
-          "actor": "actor-admin-a"
-        },
-        {
-          "id": "admin_list_payouts",
-          "dsl": "request",
-          "actor": "actor-admin-a",
-          "method": "GET",
-          "path": "/lab/v1/payouts"
-        },
-        {
-          "id": "customer_a_read_same_tenant_other_owner",
-          "dsl": "request",
-          "actor": "actor-customer-a",
-          "method": "GET",
-          "path": "/lab/v1/resources/doc-a-002",
-          "expect_status": 403
-        },
-        {
-          "id": "login_supplier_b",
-          "dsl": "login",
-          "actor": "actor-supplier-b"
-        },
-        {
-          "id": "supplier_b_read_invoice_b",
-          "dsl": "request",
-          "actor": "actor-supplier-b",
-          "method": "GET",
-          "path": "/lab/v1/invoices/invoice-b-001",
-          "expect_status": 200,
-          "expect_state": "approved"
-        },
-        {
-          "id": "supplier_a_read_invoice_b_cross_tenant",
-          "dsl": "request",
-          "actor": "actor-supplier-a",
-          "method": "GET",
-          "path": "/lab/v1/invoices/invoice-b-001",
-          "expect_status": 403
-        },
-        {
-          "id": "supplier_a_read_payout_a",
-          "dsl": "request",
-          "actor": "actor-supplier-a",
-          "method": "GET",
-          "path": "/lab/v1/payouts/payout-a-001",
-          "expect_status": 200,
-          "expect_state": "pending"
-        },
-        {
-          "id": "supplier_a_read_payout_b_cross_tenant",
-          "dsl": "request",
-          "actor": "actor-supplier-a",
-          "method": "GET",
-          "path": "/lab/v1/payouts/payout-b-001",
-          "expect_status": 403
         }
       ]
     }

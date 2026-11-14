@@ -76,7 +76,7 @@ class DSLExecutor:
         self.step_idx += 1
         return current
 
-    def login(self, actor: str) -> dict:
+    def login(self, actor: str, *, interaction: dict | None = None) -> dict:
         cfg = ACTORS.get(actor)
         if not cfg: raise ValueError(f"Unknown actor alias: {actor}")
         if self.gateway.dry_run:
@@ -96,7 +96,7 @@ class DSLExecutor:
             step_idx = self._next()
             token = self.gateway.issue_token(actor, email, password, self.run_id,
                                              sequence_id=self.sequence_id, step_idx=step_idx,
-                                             workflow_id=self.workflow_id)
+                                             workflow_id=self.workflow_id, interaction=interaction)
         self.tokens[actor] = token
         self.current_actor = actor
         return {"actor": actor, "authenticated": True}
@@ -185,15 +185,25 @@ class DSLExecutor:
 
     def execute_step(self, step: dict) -> dict:
         kind, actor = step["dsl"], step.get("actor", "")
-        if kind == "login": value = self.login(actor)
+        interaction = step.get("interaction", {})
+        if kind == "login": value = self.login(actor, interaction=interaction)
         elif kind == "list": value = self.list_resources(actor, step.get("resource_type"))
         elif kind == "switch_actor": value = self.switch_actor(actor)
         elif kind == "assert": value = self.assert_condition(step["name"], step["passed"], step.get("details"))
         elif kind == "replay":
             value = self.replay(step["request"], step["as_actor"])
         elif kind == "request":
+            headers = dict(step.get("headers") or {})
+            headers.update({
+                "x-lab-operation-id": interaction.get("operation_id", ""),
+                "x-lab-screen": interaction.get("screen", ""),
+                "x-lab-user-action": interaction.get("action", ""),
+                "x-lab-object-id": interaction.get("object_id", ""),
+                "x-lab-usecase-step": str(interaction.get("sequence", "")),
+            })
+            headers = {key: value for key, value in headers.items() if value != ""}
             value = self.call(actor, step["method"], step["path"],
-                              body=step.get("body"), params=step.get("params"), headers=step.get("headers"),
+                              body=step.get("body"), params=step.get("params"), headers=headers,
                               approval=step.get("approval", False))
             self.last_http_result = value
             if step.get("expect_status") is not None or step.get("expect_state") is not None:
@@ -208,6 +218,7 @@ class DSLExecutor:
                 self.delete(actor, step["path"], step.get("approval", False)) if kind == "delete" else self.read(actor, step["path"]))
         else: raise ValueError(f"Unsupported DSL command: {kind}")
         return {"step_id": step["id"], "dsl": kind, "actor": actor,
+                "interaction": interaction,
                 "result": self.gateway.redact(_public_result(value)),
                 "assertions": self.assertions[-2:]}
 

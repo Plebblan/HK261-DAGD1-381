@@ -197,6 +197,10 @@ class SafetyGateway:
                      "case_id": safe_headers.get("x-lab-case-id"),
                      "valid_request": safe_headers.get("x-lab-valid-request"),
                      "operation_id": safe_headers.get("x-lab-operation-id"),
+                     "screen": safe_headers.get("x-lab-screen"),
+                     "user_action": safe_headers.get("x-lab-user-action"),
+                     "object_id": safe_headers.get("x-lab-object-id"),
+                     "usecase_step": safe_headers.get("x-lab-usecase-step"),
                      "actor": actor, "method": method, "path": path, "allowlist_id": entry["id"],
                      "request_id": request_id, "request_headers": self.redact(semantic_headers),
                      "request": self.redact(request_payload),
@@ -213,13 +217,21 @@ class SafetyGateway:
 
     def issue_token(self, actor: str, email: str, password: str,
                     run_id: str | None = None, *, sequence_id: str | None = None,
-                    step_idx: int | None = None, workflow_id: str | None = None) -> str:
+                    step_idx: int | None = None, workflow_id: str | None = None,
+                    interaction: dict | None = None) -> str:
         # Auth bootstrap is also allowlisted and always uses synthetic seed credentials.
         headers = {"x-lab-valid-request": "true"}
         if step_idx is not None:
             headers["x-lab-step-index"] = str(step_idx)
         if workflow_id:
             headers["x-lab-workflow-id"] = workflow_id
+        interaction = interaction or {"operation_id": "lab_issue_token", "screen": "Sign in",
+                                      "action": "Sign in", "sequence": step_idx}
+        for source, target in (("operation_id", "x-lab-operation-id"), ("screen", "x-lab-screen"),
+                               ("action", "x-lab-user-action"), ("object_id", "x-lab-object-id"),
+                               ("sequence", "x-lab-usecase-step")):
+            if interaction.get(source) is not None:
+                headers[target] = str(interaction[source])
         result = self.send(actor=actor, method="POST", path="/__lab/auth/token",
                            json_body={"Email": email, "Password": password}, headers=headers,
                            run_id=run_id, sequence_id=sequence_id)

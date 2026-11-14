@@ -1,0 +1,179 @@
+{
+  "id": "workflow-invoice-payment",
+  "name": "Seeded invoice submission and payment",
+  "intent": "Capture a valid user journey through the API operations shown by this use case. Evidence is observational; no expected status/state is scored.",
+  "reset_required": true,
+  "user_journey": [
+    {
+      "sequence": 1,
+      "actor": "actor-supplier-a",
+      "screen": "Sign in",
+      "action": "Sign in as supplier",
+      "operation_id": "lab_issue_token",
+      "object_id": null
+    },
+    {
+      "sequence": 2,
+      "actor": "actor-supplier-a",
+      "screen": "Invoices",
+      "action": "Load supplier invoices",
+      "operation_id": "lab_list_invoices",
+      "object_id": null
+    },
+    {
+      "sequence": 3,
+      "actor": "actor-supplier-a",
+      "screen": "Invoices",
+      "action": "Open invoice details",
+      "operation_id": "lab_get_invoice",
+      "object_id": "invoice-a-001"
+    },
+    {
+      "sequence": 4,
+      "actor": "actor-supplier-a",
+      "screen": "Invoice details",
+      "action": "Submit invoice",
+      "operation_id": "lab_invoice_submit",
+      "object_id": "invoice-a-001"
+    },
+    {
+      "sequence": 5,
+      "actor": "actor-admin-a",
+      "screen": "Sign in",
+      "action": "Sign in as approver",
+      "operation_id": "lab_issue_token",
+      "object_id": null
+    },
+    {
+      "sequence": 6,
+      "actor": "actor-admin-a",
+      "screen": "Invoice approvals",
+      "action": "Approve invoice",
+      "operation_id": "lab_invoice_approve",
+      "object_id": "invoice-a-001"
+    },
+    {
+      "sequence": 7,
+      "actor": "actor-admin-a",
+      "screen": "Invoice details",
+      "action": "Pay invoice",
+      "operation_id": "lab_invoice_pay",
+      "object_id": "invoice-a-001"
+    },
+    {
+      "sequence": 8,
+      "actor": "actor-admin-a",
+      "screen": "Invoice details",
+      "action": "View activity",
+      "operation_id": "lab_invoice_history",
+      "object_id": "invoice-a-001"
+    }
+  ],
+  "steps": [
+    {
+      "id": "login_supplier_a",
+      "dsl": "login",
+      "actor": "actor-supplier-a",
+      "interaction": {
+        "sequence": 1,
+        "screen": "Sign in",
+        "action": "Sign in as supplier",
+        "operation_id": "lab_issue_token"
+      }
+    },
+    {
+      "id": "invoice_list",
+      "dsl": "request",
+      "actor": "actor-supplier-a",
+      "method": "GET",
+      "path": "/lab/v1/invoices",
+      "interaction": {
+        "sequence": 2,
+        "screen": "Invoices",
+        "action": "Load supplier invoices",
+        "operation_id": "lab_list_invoices"
+      }
+    },
+    {
+      "id": "invoice_read_before",
+      "dsl": "request",
+      "actor": "actor-supplier-a",
+      "method": "GET",
+      "path": "/lab/v1/invoices/invoice-a-001",
+      "interaction": {
+        "sequence": 3,
+        "screen": "Invoices",
+        "action": "Open invoice details",
+        "operation_id": "lab_get_invoice",
+        "object_id": "invoice-a-001"
+      }
+    },
+    {
+      "id": "invoice_submit",
+      "dsl": "request",
+      "actor": "actor-supplier-a",
+      "method": "POST",
+      "path": "/lab/v1/invoices/invoice-a-001/submit",
+      "interaction": {
+        "sequence": 4,
+        "screen": "Invoice details",
+        "action": "Submit invoice",
+        "operation_id": "lab_invoice_submit",
+        "object_id": "invoice-a-001"
+      }
+    },
+    {
+      "id": "login_admin",
+      "dsl": "login",
+      "actor": "actor-admin-a",
+      "interaction": {
+        "sequence": 5,
+        "screen": "Sign in",
+        "action": "Sign in as approver",
+        "operation_id": "lab_issue_token"
+      }
+    },
+    {
+      "id": "invoice_approve",
+      "dsl": "request",
+      "actor": "actor-admin-a",
+      "method": "POST",
+      "path": "/lab/v1/invoices/invoice-a-001/approve",
+      "interaction": {
+        "sequence": 6,
+        "screen": "Invoice approvals",
+        "action": "Approve invoice",
+        "operation_id": "lab_invoice_approve",
+        "object_id": "invoice-a-001"
+      }
+    },
+    {
+      "id": "invoice_pay",
+      "dsl": "request",
+      "actor": "actor-admin-a",
+      "method": "POST",
+      "path": "/lab/v1/invoices/invoice-a-001/pay",
+      "interaction": {
+        "sequence": 7,
+        "screen": "Invoice details",
+        "action": "Pay invoice",
+        "operation_id": "lab_invoice_pay",
+        "object_id": "invoice-a-001"
+      }
+    },
+    {
+      "id": "invoice_history",
+      "dsl": "request",
+      "actor": "actor-admin-a",
+      "method": "GET",
+      "path": "/lab/v1/invoices/invoice-a-001/history",
+      "interaction": {
+        "sequence": 8,
+        "screen": "Invoice details",
+        "action": "View activity",
+        "operation_id": "lab_invoice_history",
+        "object_id": "invoice-a-001"
+      }
+    }
+  ]
+}

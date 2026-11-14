@@ -1,0 +1,45 @@
+{
+  "id": "workflow-resource-browse",
+  "name": "Customer browses own orders and document",
+  "intent": "Capture a read-only customer journey through resource list and detail screens.",
+  "reset_required": false,
+  "user_journey": [
+    {"sequence": 1, "actor": "actor-customer-a", "screen": "Sign in", "action": "Sign in", "operation_id": "lab_issue_token"},
+    {"sequence": 2, "actor": "actor-customer-a", "screen": "Orders", "action": "Load own orders", "operation_id": "lab_list_resources"},
+    {"sequence": 3, "actor": "actor-customer-a", "screen": "Order details", "action": "Open order-a-001", "operation_id": "lab_get_resource", "object_id": "order-a-001"},
+    {"sequence": 4, "actor": "actor-customer-a", "screen": "Documents", "action": "Open doc-a-001", "operation_id": "lab_get_resource", "object_id": "doc-a-001"}
+  ],
+  "steps": [
+    {
+      "id": "customer_sign_in",
+      "dsl": "login",
+      "actor": "actor-customer-a",
+      "interaction": {"sequence": 1, "screen": "Sign in", "action": "Sign in", "operation_id": "lab_issue_token"}
+    },
+    {
+      "id": "load_orders",
+      "dsl": "request",
+      "actor": "actor-customer-a",
+      "method": "GET",
+      "path": "/lab/v1/resources",
+      "params": {"resource_type": "order"},
+      "interaction": {"sequence": 2, "screen": "Orders", "action": "Load own orders", "operation_id": "lab_list_resources"}
+    },
+    {
+      "id": "open_order_details",
+      "dsl": "request",
+      "actor": "actor-customer-a",
+      "method": "GET",
+      "path": "/lab/v1/resources/order-a-001",
+      "interaction": {"sequence": 3, "screen": "Order details", "action": "Open order-a-001", "operation_id": "lab_get_resource", "object_id": "order-a-001"}
+    },
+    {
+      "id": "open_document",
+      "dsl": "request",
+      "actor": "actor-customer-a",
+      "method": "GET",
+      "path": "/lab/v1/resources/doc-a-001",
+      "interaction": {"sequence": 4, "screen": "Documents", "action": "Open doc-a-001", "operation_id": "lab_get_resource", "object_id": "doc-a-001"}
+    }
+  ]
+}
