@@ -1,0 +1,56 @@
+# Business state graph for TenantDesk. Source of truth for the F5 state_invariant oracle.
+# Every transition mirrors a step of workflows/workflows_custom.yaml (field `action`), and the edges mirror the patched twin's code.
+schema_version: "0.1"
+status: draft
+taxonomy_ref: docs/Taxonomy/families.yaml
+access_policy_ref: access_policy_custom.yaml
+flaw_catalog_ref: flaw_catalog_custom.yaml
+workflows_ref: workflows/workflows_custom.yaml
+
+apps:
+  tenantdesk:
+    entities:
+      ticket:
+        workflow: workflow-ticket
+        state_field: status
+        initial: open
+        states:
+          open: {terminal: false}
+          in_progress: {terminal: false}
+          resolved: {terminal: false}
+          closed: {terminal: true}
+        transitions:
+          - {id: TICKET-T01, workflow_action: "transition_ticket:start",   from: [open],        to: in_progress, roles: [Agent, Admin]}
+          - {id: TICKET-T02, workflow_action: "transition_ticket:resolve", from: [in_progress], to: resolved,    roles: [Agent, Admin]}
+          - {id: TICKET-T03, workflow_action: "transition_ticket:revert",  from: [in_progress], to: open,        roles: [Agent, Admin]}
+          - {id: TICKET-T04, workflow_action: "transition_ticket:close",   from: [resolved],    to: closed,      roles: [Member, Agent, Admin], relation_for_member: owner}
+          - {id: TICKET-T05, workflow_action: "transition_ticket:reopen",  from: [resolved],    to: open,        roles: [Member, Agent, Admin], relation_for_member: owner}
+        invariants:
+          - {id: TICKET-I01, condition: closed_is_terminal, description: "A closed ticket cannot change state."}
+          - {id: TICKET-I02, condition: closed_only_from_resolved, description: "closed is reachable only from resolved; open/in_progress cannot jump to closed.", flaw: TD-12}
+          - {id: TICKET-I03, condition: member_cannot_set_status_directly, description: "A member never sets status through PATCH; members change status only through the transition endpoint (resolved to closed/open).", flaw: TD-05}
+      document:
+        workflow: workflow-document
+        state_field: status
+        initial: draft
+        states:
+          draft: {terminal: false}
+          review: {terminal: false}
+          published: {terminal: true}
+        transitions:
+          - {id: DOCUMENT-T01, workflow_action: submit_document,  from: [draft],  to: review,    roles: [Member, Agent, Admin], relation: owner}
+          - {id: DOCUMENT-T02, workflow_action: approve_document, from: [review], to: published, roles: [Agent, Admin], relation: not_owner}
+        invariants:
+          - {id: DOCUMENT-I01, condition: published_is_immutable, description: "Only drafts are editable; a published document cannot be edited.", flaw: TD-14}
+          - {id: DOCUMENT-I02, condition: approver_is_not_owner, description: "The approver must not be the document owner (separation of duties).", flaw: TD-13}
+          - {id: DOCUMENT-I03, condition: approve_requires_review, description: "Only a document in review can be approved."}
+          - {id: DOCUMENT-I04, condition: submit_requires_draft_and_owner, description: "Only the owner can submit, and only from draft."}
+
+evaluation:
+  oracle: state_invariant
+  rules:
+    - "Every attempted transition must be declared (from-state, to-state, role, relation) or it is a violation."
+    - "A rejected transition must leave the state unchanged."
+    - "A 2xx response alone is not a finding: compare before/after state, the invariant and the enabled flag."
+    - "A case counts only when its flag is enabled and the before/after evidence shows the invariant broken."
+  evidence: [attempted_edge, actor, before_state, after_state, response, invariant_results, raw_hash]

@@ -1,0 +1,541 @@
+{
+  "schema_version": "0.1",
+  "apps": [
+    "tenantdesk"
+  ],
+  "status": "draft",
+  "taxonomy_ref": "docs/Taxonomy/families.yaml",
+  "ground_truth_ref": "ground_truth/ground_truth.yaml",
+  "access_policy_ref": "access_policy_custom.yaml",
+  "business_state_graph_ref": "business_state_graph_custom.yaml",
+  "family_counts": {
+    "F1": 3,
+    "F4": 4,
+    "F3": 4,
+    "F2": 3,
+    "F5": 3
+  },
+  "case_counts": {
+    "planted": 17,
+    "benign": 6,
+    "per_app": {
+      "tenantdesk": {
+        "planted": 17,
+        "benign": 6
+      }
+    }
+  },
+  "enabling": {
+    "env": {
+      "tenantdesk": "TD_ENABLED_FLAWS (ENABLED_FLAWS inside the container)"
+    },
+    "values": "ALL | NONE | comma-separated flags, e.g. TD-03,TD-12",
+    "twin": "NONE is the patched twin: every flaw below behaves safely"
+  },
+  "note": "ground_truth.yaml is the single source of per-case records (setup, request, vulnerable_if, evidence). This catalog indexes the same flaws by flag with the code location, the policy rule and the state-graph invariant they deviate from. (Split view: tenantdesk flaws only.)",
+  "out_of_scope": [
+    {
+      "item": "broken authentication / login brute force / token forgery",
+      "reason": "D2: anonymous is a regular actor; authentication flaws are not modelled"
+    },
+    {
+      "item": "rate limiting, volume and resource-consumption abuse",
+      "reason": "D4: F5 covers state-transition violations only"
+    },
+    {
+      "item": "agent PATCH of ticket status (DEV-01)",
+      "reason": "unplanted implementation behaviours, listed in access_policy_custom.yaml under known_unplanted_deviations"
+    }
+  ],
+  "flaws": [
+    {
+      "id": "TD-01",
+      "case_id": "AUTHZ-101",
+      "family": "F1",
+      "secondary_families": [],
+      "app": "tenantdesk",
+      "in_scope": true,
+      "method": "GET",
+      "endpoint": "/tickets/1002",
+      "operation_id": "get_ticket",
+      "policy_ref": "GET /tickets/{ticket_id}",
+      "code_ref": "tenantdesk.py::get_ticket_ep",
+      "actors": {
+        "reference": "actor-ann",
+        "test": "actor-amy"
+      },
+      "object_id": "ticket-1002",
+      "expected_safe_response": "403",
+      "observed_when_enabled": "200 + ticket body",
+      "oracle": "differential_authorization",
+      "severity": "high",
+      "split": "development",
+      "mapping": {
+        "cwe": "CWE-639",
+        "owasp_api_2023": "API1:2023"
+      },
+      "verified": false
+    },
+    {
+      "id": "TD-02",
+      "case_id": "AUTHZ-102",
+      "family": "F4",
+      "secondary_families": [],
+      "app": "tenantdesk",
+      "in_scope": true,
+      "method": "GET",
+      "endpoint": "/documents/2004",
+      "operation_id": "get_document",
+      "policy_ref": "GET /documents/{doc_id}",
+      "code_ref": "tenantdesk.py::get_doc_ep",
+      "actors": {
+        "reference": "actor-gina",
+        "test": "actor-amy"
+      },
+      "object_id": "document-2004",
+      "expected_safe_response": "403/404",
+      "observed_when_enabled": "200 + document body",
+      "oracle": "differential_authorization",
+      "severity": "high",
+      "split": "development",
+      "mapping": {
+        "cwe": "CWE-639",
+        "owasp_api_2023": "API1:2023"
+      },
+      "verified": false
+    },
+    {
+      "id": "TD-03",
+      "case_id": "AUTHZ-103",
+      "family": "F1",
+      "secondary_families": [],
+      "app": "tenantdesk",
+      "in_scope": true,
+      "method": "PATCH",
+      "endpoint": "/tickets/1002",
+      "operation_id": "patch_ticket",
+      "policy_ref": "PATCH /tickets/{ticket_id}",
+      "code_ref": "tenantdesk.py::patch_ticket",
+      "actors": {
+        "reference": "actor-ann",
+        "test": "actor-amy"
+      },
+      "object_id": "ticket-1002",
+      "expected_safe_response": "403",
+      "observed_when_enabled": "200 + title changed",
+      "oracle": "differential_authorization",
+      "severity": "high",
+      "split": "development",
+      "mapping": {
+        "cwe": "CWE-639",
+        "owasp_api_2023": "API1:2023"
+      },
+      "verified": false
+    },
+    {
+      "id": "TD-04",
+      "case_id": "AUTHZ-104",
+      "family": "F3",
+      "subtype": "W",
+      "secondary_families": [],
+      "app": "tenantdesk",
+      "in_scope": true,
+      "method": "PATCH",
+      "endpoint": "/users/me",
+      "operation_id": "patch_me",
+      "policy_ref": "PATCH /users/me",
+      "code_ref": "tenantdesk.py::patch_me",
+      "actors": {
+        "reference": "actor-amy",
+        "test": "actor-amy"
+      },
+      "object_id": "user-3",
+      "expected_safe_response": "400/403",
+      "observed_when_enabled": "200 + role becomes admin",
+      "oracle": "property_policy_diff",
+      "severity": "high",
+      "split": "development",
+      "mapping": {
+        "cwe": "CWE-915",
+        "owasp_api_2023": "API3:2023"
+      },
+      "verified": false
+    },
+    {
+      "id": "TD-05",
+      "case_id": "AUTHZ-105",
+      "family": "F3",
+      "subtype": "W",
+      "secondary_families": [
+        "F5"
+      ],
+      "app": "tenantdesk",
+      "in_scope": true,
+      "method": "PATCH",
+      "endpoint": "/tickets/1001",
+      "operation_id": "patch_ticket",
+      "policy_ref": "PATCH /tickets/{ticket_id}",
+      "code_ref": "tenantdesk.py::patch_ticket",
+      "actors": {
+        "reference": "actor-amy",
+        "test": "actor-amy"
+      },
+      "object_id": "ticket-1001",
+      "expected_safe_response": "400/403",
+      "observed_when_enabled": "200 + status set directly",
+      "oracle": "property_policy_diff",
+      "severity": "high",
+      "split": "development",
+      "mapping": {
+        "cwe": "CWE-915",
+        "owasp_api_2023": "API3:2023"
+      },
+      "verified": false,
+      "invariant_id": "TICKET-I03"
+    },
+    {
+      "id": "TD-06",
+      "case_id": "AUTHZ-106",
+      "family": "F3",
+      "subtype": "R",
+      "secondary_families": [],
+      "app": "tenantdesk",
+      "in_scope": true,
+      "method": "GET",
+      "endpoint": "/users/4",
+      "operation_id": "get_user",
+      "policy_ref": "GET /users/{user_id}",
+      "code_ref": "tenantdesk.py::get_user",
+      "actors": {
+        "reference": "actor-ann",
+        "test": "actor-amy"
+      },
+      "object_id": "user-4",
+      "expected_safe_response": "200 + public view without api_key",
+      "observed_when_enabled": "response contains api_key",
+      "oracle": "property_policy_diff",
+      "severity": "medium",
+      "split": "development",
+      "mapping": {
+        "cwe": "CWE-213",
+        "owasp_api_2023": "API3:2023"
+      },
+      "verified": false
+    },
+    {
+      "id": "TD-07",
+      "case_id": "AUTHZ-107",
+      "family": "F3",
+      "subtype": "R",
+      "secondary_families": [],
+      "app": "tenantdesk",
+      "in_scope": true,
+      "method": "GET",
+      "endpoint": "/tickets/1002/comments",
+      "operation_id": "list_comments",
+      "policy_ref": "GET /tickets/{ticket_id}/comments",
+      "code_ref": "tenantdesk.py::list_comments",
+      "actors": {
+        "reference": "actor-ann",
+        "test": "actor-ann"
+      },
+      "object_id": "ticket-1002",
+      "expected_safe_response": "200 + internal comments filtered out",
+      "observed_when_enabled": "internal comment returned",
+      "oracle": "property_policy_diff",
+      "severity": "medium",
+      "split": "development",
+      "mapping": {
+        "cwe": "CWE-213",
+        "owasp_api_2023": "API3:2023"
+      },
+      "verified": false
+    },
+    {
+      "id": "TD-08",
+      "case_id": "AUTHZ-108",
+      "family": "F2",
+      "secondary_families": [],
+      "app": "tenantdesk",
+      "in_scope": true,
+      "method": "POST",
+      "endpoint": "/users",
+      "operation_id": "create_user",
+      "policy_ref": "POST /users",
+      "code_ref": "tenantdesk.py::create_user",
+      "actors": {
+        "reference": "actor-alice",
+        "test": "actor-adam"
+      },
+      "object_id": "",
+      "expected_safe_response": "403",
+      "observed_when_enabled": "201 + new admin user",
+      "oracle": "differential_authorization",
+      "severity": "high",
+      "split": "development",
+      "mapping": {
+        "cwe": "CWE-285",
+        "owasp_api_2023": "API5:2023"
+      },
+      "verified": false
+    },
+    {
+      "id": "TD-09",
+      "case_id": "AUTHZ-109",
+      "family": "F2",
+      "secondary_families": [],
+      "app": "tenantdesk",
+      "in_scope": true,
+      "method": "GET",
+      "endpoint": "/admin/audit",
+      "operation_id": "get_audit",
+      "policy_ref": "GET /admin/audit",
+      "code_ref": "tenantdesk.py::get_audit",
+      "actors": {
+        "reference": "actor-alice",
+        "test": "actor-adam"
+      },
+      "object_id": "",
+      "expected_safe_response": "403",
+      "observed_when_enabled": "200 + audit entries",
+      "oracle": "differential_authorization",
+      "severity": "medium",
+      "split": "development",
+      "mapping": {
+        "cwe": "CWE-285",
+        "owasp_api_2023": "API5:2023"
+      },
+      "verified": false
+    },
+    {
+      "id": "TD-10",
+      "case_id": "AUTHZ-110",
+      "family": "F2",
+      "secondary_families": [],
+      "app": "tenantdesk",
+      "in_scope": true,
+      "method": "DELETE",
+      "endpoint": "/users/4",
+      "operation_id": "delete_user",
+      "policy_ref": "DELETE /users/{user_id}",
+      "code_ref": "tenantdesk.py::delete_user",
+      "actors": {
+        "reference": "actor-alice",
+        "test": "actor-adam"
+      },
+      "object_id": "user-4",
+      "expected_safe_response": "403",
+      "observed_when_enabled": "200 + user deleted",
+      "oracle": "differential_authorization",
+      "severity": "high",
+      "split": "development",
+      "mapping": {
+        "cwe": "CWE-285",
+        "owasp_api_2023": "API5:2023"
+      },
+      "verified": false
+    },
+    {
+      "id": "TD-11",
+      "case_id": "AUTHZ-111",
+      "family": "F4",
+      "secondary_families": [],
+      "app": "tenantdesk",
+      "in_scope": true,
+      "method": "POST",
+      "endpoint": "/tickets/1001/assign",
+      "operation_id": "assign_ticket",
+      "policy_ref": "POST /tickets/{ticket_id}/assign",
+      "code_ref": "tenantdesk.py::assign_ticket",
+      "actors": {
+        "reference": "actor-amy",
+        "test": "actor-adam"
+      },
+      "object_id": "ticket-1001",
+      "expected_safe_response": "400/403/404",
+      "observed_when_enabled": "200 + cross-tenant assignee",
+      "oracle": "differential_authorization",
+      "severity": "high",
+      "split": "development",
+      "mapping": {
+        "cwe": "CWE-639",
+        "owasp_api_2023": "API1:2023"
+      },
+      "verified": false
+    },
+    {
+      "id": "TD-12",
+      "case_id": "AUTHZ-112",
+      "family": "F5",
+      "secondary_families": [],
+      "app": "tenantdesk",
+      "in_scope": true,
+      "method": "POST",
+      "endpoint": "/tickets/1001/transition",
+      "operation_id": "transition_ticket",
+      "policy_ref": "POST /tickets/{ticket_id}/transition",
+      "code_ref": "tenantdesk.py::transition",
+      "actors": {
+        "reference": "actor-amy",
+        "test": "actor-adam"
+      },
+      "object_id": "ticket-1001",
+      "expected_safe_response": "409",
+      "observed_when_enabled": "200 + status closed",
+      "oracle": "state_invariant",
+      "severity": "high",
+      "split": "development",
+      "mapping": {
+        "cwe": "CWE-841",
+        "owasp_api_2023": "API6:2023"
+      },
+      "verified": false,
+      "invariant_id": "TICKET-I02"
+    },
+    {
+      "id": "TD-13",
+      "case_id": "AUTHZ-113",
+      "family": "F5",
+      "secondary_families": [
+        "F2"
+      ],
+      "app": "tenantdesk",
+      "in_scope": true,
+      "method": "POST",
+      "endpoint": "/documents/2005/approve",
+      "operation_id": "approve_document",
+      "policy_ref": "POST /documents/{doc_id}/approve",
+      "code_ref": "tenantdesk.py::approve_doc",
+      "actors": {
+        "reference": "actor-adam",
+        "test": "actor-adam"
+      },
+      "object_id": "document-2005",
+      "expected_safe_response": "403",
+      "observed_when_enabled": "200 + published, approved_by == owner",
+      "oracle": "state_invariant",
+      "severity": "high",
+      "split": "development",
+      "mapping": {
+        "cwe": "CWE-841",
+        "owasp_api_2023": "API6:2023"
+      },
+      "verified": false,
+      "invariant_id": "DOCUMENT-I02",
+      "transition_ref": "DOCUMENT-T02"
+    },
+    {
+      "id": "TD-14",
+      "case_id": "AUTHZ-114",
+      "family": "F5",
+      "secondary_families": [],
+      "app": "tenantdesk",
+      "in_scope": true,
+      "method": "PUT",
+      "endpoint": "/documents/2002",
+      "operation_id": "update_document",
+      "policy_ref": "PUT /documents/{doc_id}",
+      "code_ref": "tenantdesk.py::update_doc",
+      "actors": {
+        "reference": "actor-ann",
+        "test": "actor-ann"
+      },
+      "object_id": "document-2002",
+      "expected_safe_response": "409",
+      "observed_when_enabled": "200 + content changed",
+      "oracle": "state_invariant",
+      "severity": "high",
+      "split": "development",
+      "mapping": {
+        "cwe": "CWE-841",
+        "owasp_api_2023": "API6:2023"
+      },
+      "verified": false,
+      "invariant_id": "DOCUMENT-I01"
+    },
+    {
+      "id": "TD-15",
+      "case_id": "AUTHZ-115",
+      "family": "F4",
+      "secondary_families": [],
+      "app": "tenantdesk",
+      "in_scope": true,
+      "method": "GET",
+      "endpoint": "/users",
+      "operation_id": "list_users",
+      "policy_ref": "GET /users",
+      "code_ref": "tenantdesk.py::list_users",
+      "actors": {
+        "reference": "actor-adam",
+        "test": "actor-adam"
+      },
+      "object_id": "",
+      "expected_safe_response": "200 + only tenant-acme users",
+      "observed_when_enabled": "200 + includes tenant-globex users",
+      "oracle": "differential_authorization",
+      "severity": "medium",
+      "split": "development",
+      "mapping": {
+        "cwe": "CWE-639",
+        "owasp_api_2023": "API1:2023"
+      },
+      "verified": false
+    },
+    {
+      "id": "TD-16",
+      "case_id": "AUTHZ-116",
+      "family": "F1",
+      "secondary_families": [],
+      "app": "tenantdesk",
+      "in_scope": true,
+      "method": "DELETE",
+      "endpoint": "/documents/2001",
+      "operation_id": "delete_document",
+      "policy_ref": "DELETE /documents/{doc_id}",
+      "code_ref": "tenantdesk.py::delete_doc",
+      "actors": {
+        "reference": "actor-amy",
+        "test": "actor-ann"
+      },
+      "object_id": "document-2001",
+      "expected_safe_response": "403",
+      "observed_when_enabled": "200 + document deleted",
+      "oracle": "differential_authorization",
+      "severity": "high",
+      "split": "development",
+      "mapping": {
+        "cwe": "CWE-639",
+        "owasp_api_2023": "API1:2023"
+      },
+      "verified": false
+    },
+    {
+      "id": "TD-17",
+      "case_id": "AUTHZ-117",
+      "family": "F4",
+      "secondary_families": [],
+      "app": "tenantdesk",
+      "in_scope": true,
+      "method": "POST",
+      "endpoint": "/documents/2001/share",
+      "operation_id": "share_document",
+      "policy_ref": "POST /documents/{doc_id}/share",
+      "code_ref": "tenantdesk.py::share_doc",
+      "actors": {
+        "reference": "actor-amy",
+        "test": "actor-amy"
+      },
+      "object_id": "document-2001",
+      "expected_safe_response": "400/403/404",
+      "observed_when_enabled": "200 + cross-tenant share recorded",
+      "oracle": "differential_authorization",
+      "severity": "high",
+      "split": "development",
+      "mapping": {
+        "cwe": "CWE-639",
+        "owasp_api_2023": "API1:2023"
+      },
+      "verified": false
+    }
+  ]
+}

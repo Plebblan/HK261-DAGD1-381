@@ -1,0 +1,455 @@
+{
+  "schema_version": "0.1",
+  "apps": [
+    "shopflow"
+  ],
+  "status": "draft",
+  "taxonomy_ref": "docs/Taxonomy/families.yaml",
+  "ground_truth_ref": "ground_truth/ground_truth.yaml",
+  "access_policy_ref": "access_policy_custom.yaml",
+  "business_state_graph_ref": "business_state_graph_custom.yaml",
+  "family_counts": {
+    "F1": 2,
+    "F4": 2,
+    "F3": 3,
+    "F2": 3,
+    "F5": 4
+  },
+  "case_counts": {
+    "planted": 14,
+    "benign": 6,
+    "per_app": {
+      "shopflow": {
+        "planted": 14,
+        "benign": 6
+      }
+    }
+  },
+  "enabling": {
+    "env": {
+      "shopflow": "SF_ENABLED_FLAWS (ENABLED_FLAWS inside the container)"
+    },
+    "values": "ALL | NONE | comma-separated flags, e.g. TD-03,TD-12",
+    "twin": "NONE is the patched twin: every flaw below behaves safely"
+  },
+  "note": "ground_truth.yaml is the single source of per-case records (setup, request, vulnerable_if, evidence). This catalog indexes the same flaws by flag with the code location, the policy rule and the state-graph invariant they deviate from. (Split view: shopflow flaws only.)",
+  "out_of_scope": [
+    {
+      "item": "broken authentication / login brute force / token forgery",
+      "reason": "D2: anonymous is a regular actor; authentication flaws are not modelled"
+    },
+    {
+      "item": "rate limiting, volume and resource-consumption abuse",
+      "reason": "D4: F5 covers state-transition violations only"
+    },
+    {
+      "item": "cancel-without-refund (DEV-02)",
+      "reason": "unplanted implementation behaviours, listed in access_policy_custom.yaml under known_unplanted_deviations"
+    }
+  ],
+  "flaws": [
+    {
+      "id": "SF-01",
+      "case_id": "AUTHZ-201",
+      "family": "F1",
+      "secondary_families": [],
+      "app": "shopflow",
+      "in_scope": true,
+      "method": "GET",
+      "endpoint": "/orders/7001",
+      "operation_id": "get_order",
+      "policy_ref": "GET /orders/{order_id}",
+      "code_ref": "shopflow.py::get_order",
+      "actors": {
+        "reference": "actor-cathy",
+        "test": "actor-carl"
+      },
+      "object_id": "order-7001",
+      "expected_safe_response": "403",
+      "observed_when_enabled": "200 + order body",
+      "oracle": "differential_authorization",
+      "severity": "high",
+      "split": "held-out",
+      "mapping": {
+        "cwe": "CWE-639",
+        "owasp_api_2023": "API1:2023"
+      },
+      "verified": false
+    },
+    {
+      "id": "SF-02",
+      "case_id": "AUTHZ-202",
+      "family": "F4",
+      "secondary_families": [],
+      "app": "shopflow",
+      "in_scope": true,
+      "method": "GET",
+      "endpoint": "/orders/7001",
+      "operation_id": "get_order",
+      "policy_ref": "GET /orders/{order_id}",
+      "code_ref": "shopflow.py::get_order",
+      "actors": {
+        "reference": "actor-cathy",
+        "test": "actor-steve"
+      },
+      "object_id": "order-7001",
+      "expected_safe_response": "403/404",
+      "observed_when_enabled": "200 + order body",
+      "oracle": "differential_authorization",
+      "severity": "high",
+      "split": "held-out",
+      "mapping": {
+        "cwe": "CWE-639",
+        "owasp_api_2023": "API1:2023"
+      },
+      "verified": false
+    },
+    {
+      "id": "SF-03",
+      "case_id": "AUTHZ-203",
+      "family": "F1",
+      "secondary_families": [],
+      "app": "shopflow",
+      "in_scope": true,
+      "method": "PATCH",
+      "endpoint": "/orders/7001",
+      "operation_id": "patch_order",
+      "policy_ref": "PATCH /orders/{order_id}",
+      "code_ref": "shopflow.py::patch_order",
+      "actors": {
+        "reference": "actor-cathy",
+        "test": "actor-carl"
+      },
+      "object_id": "order-7001",
+      "expected_safe_response": "403",
+      "observed_when_enabled": "200 + address changed",
+      "oracle": "differential_authorization",
+      "severity": "high",
+      "split": "held-out",
+      "mapping": {
+        "cwe": "CWE-639",
+        "owasp_api_2023": "API1:2023"
+      },
+      "verified": false
+    },
+    {
+      "id": "SF-04",
+      "case_id": "AUTHZ-204",
+      "family": "F3",
+      "subtype": "W",
+      "secondary_families": [],
+      "app": "shopflow",
+      "in_scope": true,
+      "method": "PATCH",
+      "endpoint": "/orders/7001",
+      "operation_id": "patch_order",
+      "policy_ref": "PATCH /orders/{order_id}",
+      "code_ref": "shopflow.py::patch_order",
+      "actors": {
+        "reference": "actor-cathy",
+        "test": "actor-cathy"
+      },
+      "object_id": "order-7001",
+      "expected_safe_response": "400/403",
+      "observed_when_enabled": "200 + total changed",
+      "oracle": "property_policy_diff",
+      "severity": "high",
+      "split": "held-out",
+      "mapping": {
+        "cwe": "CWE-915",
+        "owasp_api_2023": "API3:2023"
+      },
+      "verified": false
+    },
+    {
+      "id": "SF-05",
+      "case_id": "AUTHZ-205",
+      "family": "F3",
+      "subtype": "W",
+      "secondary_families": [],
+      "app": "shopflow",
+      "in_scope": true,
+      "method": "POST",
+      "endpoint": "/orders",
+      "operation_id": "create_order",
+      "policy_ref": "POST /orders",
+      "code_ref": "shopflow.py::create_order",
+      "actors": {
+        "reference": "actor-cathy",
+        "test": "actor-cathy"
+      },
+      "object_id": "",
+      "expected_safe_response": "201 + unit_price ignored (server price used)",
+      "observed_when_enabled": "201 + total computed from client price",
+      "oracle": "property_policy_diff",
+      "severity": "high",
+      "split": "held-out",
+      "mapping": {
+        "cwe": "CWE-915",
+        "owasp_api_2023": "API3:2023"
+      },
+      "verified": false
+    },
+    {
+      "id": "SF-06",
+      "case_id": "AUTHZ-206",
+      "family": "F2",
+      "secondary_families": [
+        "F5"
+      ],
+      "app": "shopflow",
+      "in_scope": true,
+      "method": "POST",
+      "endpoint": "/orders/7003/ship",
+      "operation_id": "ship_order",
+      "policy_ref": "POST /orders/{order_id}/ship",
+      "code_ref": "shopflow.py::ship_order",
+      "actors": {
+        "reference": "actor-olga",
+        "test": "actor-cathy"
+      },
+      "object_id": "order-7003",
+      "expected_safe_response": "403",
+      "observed_when_enabled": "200 + status shipped",
+      "oracle": "differential_authorization",
+      "severity": "high",
+      "split": "held-out",
+      "mapping": {
+        "cwe": "CWE-285",
+        "owasp_api_2023": "API5:2023"
+      },
+      "verified": false,
+      "transition_ref": "ORDER-T02"
+    },
+    {
+      "id": "SF-07",
+      "case_id": "AUTHZ-207",
+      "family": "F2",
+      "secondary_families": [],
+      "app": "shopflow",
+      "in_scope": true,
+      "method": "POST",
+      "endpoint": "/refunds/9001/approve",
+      "operation_id": "approve_refund",
+      "policy_ref": "POST /refunds/{refund_id}/approve",
+      "code_ref": "shopflow.py::approve_refund",
+      "actors": {
+        "reference": "actor-olga",
+        "test": "actor-sam"
+      },
+      "object_id": "refund-9001",
+      "expected_safe_response": "403",
+      "observed_when_enabled": "200 + refund approved",
+      "oracle": "differential_authorization",
+      "severity": "high",
+      "split": "held-out",
+      "mapping": {
+        "cwe": "CWE-285",
+        "owasp_api_2023": "API5:2023"
+      },
+      "verified": false
+    },
+    {
+      "id": "SF-08",
+      "case_id": "AUTHZ-208",
+      "family": "F2",
+      "secondary_families": [],
+      "app": "shopflow",
+      "in_scope": true,
+      "method": "GET",
+      "endpoint": "/reports/sales",
+      "operation_id": "sales_report",
+      "policy_ref": "GET /reports/sales",
+      "code_ref": "shopflow.py::sales_report",
+      "actors": {
+        "reference": "actor-olga",
+        "test": "actor-cathy"
+      },
+      "object_id": "",
+      "expected_safe_response": "403",
+      "observed_when_enabled": "200 + sales figures",
+      "oracle": "differential_authorization",
+      "severity": "medium",
+      "split": "held-out",
+      "mapping": {
+        "cwe": "CWE-285",
+        "owasp_api_2023": "API5:2023"
+      },
+      "verified": false
+    },
+    {
+      "id": "SF-09",
+      "case_id": "AUTHZ-209",
+      "family": "F5",
+      "secondary_families": [],
+      "app": "shopflow",
+      "in_scope": true,
+      "method": "POST",
+      "endpoint": "/orders/7001/ship",
+      "operation_id": "ship_order",
+      "policy_ref": "POST /orders/{order_id}/ship",
+      "code_ref": "shopflow.py::ship_order",
+      "actors": {
+        "reference": "actor-cathy",
+        "test": "actor-sam"
+      },
+      "object_id": "order-7001",
+      "expected_safe_response": "409",
+      "observed_when_enabled": "200 + status shipped",
+      "oracle": "state_invariant",
+      "severity": "high",
+      "split": "held-out",
+      "mapping": {
+        "cwe": "CWE-841",
+        "owasp_api_2023": "API6:2023"
+      },
+      "verified": false,
+      "invariant_id": "ORDER-I01",
+      "transition_ref": "ORDER-T02"
+    },
+    {
+      "id": "SF-10",
+      "case_id": "AUTHZ-210",
+      "family": "F5",
+      "secondary_families": [],
+      "app": "shopflow",
+      "in_scope": true,
+      "method": "POST",
+      "endpoint": "/orders/7003/refund",
+      "operation_id": "request_refund",
+      "policy_ref": "POST /orders/{order_id}/refund",
+      "code_ref": "shopflow.py::request_refund",
+      "actors": {
+        "reference": "actor-cathy",
+        "test": "actor-cathy"
+      },
+      "object_id": "order-7003",
+      "expected_safe_response": "409",
+      "observed_when_enabled": "201 + second refund accepted",
+      "oracle": "state_invariant",
+      "severity": "high",
+      "split": "held-out",
+      "mapping": {
+        "cwe": "CWE-841",
+        "owasp_api_2023": "API6:2023"
+      },
+      "verified": false,
+      "invariant_id": "REFUND-I02"
+    },
+    {
+      "id": "SF-11",
+      "case_id": "AUTHZ-211",
+      "family": "F5",
+      "secondary_families": [],
+      "app": "shopflow",
+      "in_scope": true,
+      "method": "POST",
+      "endpoint": "/orders/7002/apply-coupon",
+      "operation_id": "apply_coupon",
+      "policy_ref": "POST /orders/{order_id}/apply-coupon",
+      "code_ref": "shopflow.py::apply_coupon",
+      "actors": {
+        "reference": "actor-olga",
+        "test": "actor-carl"
+      },
+      "object_id": "coupon-ACME10",
+      "expected_safe_response": "409",
+      "observed_when_enabled": "200 + exhausted coupon applied",
+      "oracle": "state_invariant",
+      "severity": "medium",
+      "split": "held-out",
+      "mapping": {
+        "cwe": "CWE-841",
+        "owasp_api_2023": "API6:2023"
+      },
+      "verified": false,
+      "invariant_id": "COUPON-I01"
+    },
+    {
+      "id": "SF-12",
+      "case_id": "AUTHZ-212",
+      "family": "F5",
+      "secondary_families": [],
+      "app": "shopflow",
+      "in_scope": true,
+      "method": "POST",
+      "endpoint": "/orders/7005/cancel",
+      "operation_id": "cancel_order",
+      "policy_ref": "POST /orders/{order_id}/cancel",
+      "code_ref": "shopflow.py::cancel_order",
+      "actors": {
+        "reference": "actor-cathy",
+        "test": "actor-cathy"
+      },
+      "object_id": "order-7005",
+      "expected_safe_response": "409",
+      "observed_when_enabled": "200 + status cancelled",
+      "oracle": "state_invariant",
+      "severity": "high",
+      "split": "held-out",
+      "mapping": {
+        "cwe": "CWE-841",
+        "owasp_api_2023": "API6:2023"
+      },
+      "verified": false,
+      "invariant_id": "ORDER-I02"
+    },
+    {
+      "id": "SF-13",
+      "case_id": "AUTHZ-213",
+      "family": "F4",
+      "secondary_families": [],
+      "app": "shopflow",
+      "in_scope": true,
+      "method": "POST",
+      "endpoint": "/orders/7001/apply-coupon",
+      "operation_id": "apply_coupon",
+      "policy_ref": "POST /orders/{order_id}/apply-coupon",
+      "code_ref": "shopflow.py::apply_coupon",
+      "actors": {
+        "reference": "actor-greta",
+        "test": "actor-cathy"
+      },
+      "object_id": "coupon-GLOBEX15",
+      "expected_safe_response": "403/404",
+      "observed_when_enabled": "200 + foreign coupon applied",
+      "oracle": "differential_authorization",
+      "severity": "high",
+      "split": "held-out",
+      "mapping": {
+        "cwe": "CWE-639",
+        "owasp_api_2023": "API1:2023"
+      },
+      "verified": false
+    },
+    {
+      "id": "SF-14",
+      "case_id": "AUTHZ-214",
+      "family": "F3",
+      "subtype": "R",
+      "secondary_families": [],
+      "app": "shopflow",
+      "in_scope": true,
+      "method": "GET",
+      "endpoint": "/products",
+      "operation_id": "list_products",
+      "policy_ref": "GET /products",
+      "code_ref": "shopflow.py::list_products",
+      "actors": {
+        "reference": "actor-olga",
+        "test": "actor-cathy"
+      },
+      "object_id": "product-501",
+      "expected_safe_response": "200 + cost_price omitted for customers",
+      "observed_when_enabled": "cost_price present",
+      "oracle": "property_policy_diff",
+      "severity": "medium",
+      "split": "held-out",
+      "mapping": {
+        "cwe": "CWE-213",
+        "owasp_api_2023": "API3:2023"
+      },
+      "verified": false
+    }
+  ]
+}

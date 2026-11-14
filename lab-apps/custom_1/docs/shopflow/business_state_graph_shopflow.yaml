@@ -1,0 +1,68 @@
+# Business state graph for ShopFlow. Source of truth for the F5 state_invariant oracle.
+# Every transition mirrors a step of workflows/workflows_custom.yaml (field `action`), and the edges mirror the patched twin's code.
+schema_version: "0.1"
+status: draft
+taxonomy_ref: docs/Taxonomy/families.yaml
+access_policy_ref: access_policy_custom.yaml
+flaw_catalog_ref: flaw_catalog_custom.yaml
+workflows_ref: workflows/workflows_custom.yaml
+
+apps:
+  shopflow:
+    entities:
+      order:
+        workflow: workflow-order
+        state_field: status
+        initial: draft
+        states:
+          draft: {terminal: false}
+          paid: {terminal: false}
+          shipped: {terminal: false}
+          delivered: {terminal: false}
+          cancelled: {terminal: true}
+          refunded: {terminal: true}
+        transitions:
+          - {id: ORDER-T01, workflow_action: pay_order,               from: [draft],   to: paid,      roles: [Customer], relation: owner}
+          - {id: ORDER-T02, workflow_action: ship_order,              from: [paid],    to: shipped,   roles: [Staff, MerchantAdmin]}
+          - {id: ORDER-T03, workflow_action: deliver_order,           from: [shipped], to: delivered, roles: [Staff, MerchantAdmin]}
+          - {id: ORDER-T04, workflow_action: "cancel_order:from_draft", from: [draft], to: cancelled, roles: [Customer, Staff, MerchantAdmin], relation_for_customer: owner}
+          - {id: ORDER-T05, workflow_action: "cancel_order:from_paid",  from: [paid],  to: cancelled, roles: [Customer, Staff, MerchantAdmin], relation_for_customer: owner}
+          - {id: ORDER-T06, system: true, trigger: "approve_refund when refunded_total >= paid_amount", from: [paid, shipped, delivered], to: refunded, roles: [MerchantAdmin]}
+        invariants:
+          - {id: ORDER-I01, condition: ship_requires_paid, description: "An order can be shipped only from paid; an unpaid draft cannot be shipped.", flaw: SF-09}
+          - {id: ORDER-I02, condition: cancel_only_draft_or_paid, description: "An order can be cancelled only from draft or paid; shipped, delivered and refunded orders cannot.", flaw: SF-12}
+          - {id: ORDER-I03, condition: pay_requires_draft, description: "Only a draft order can be paid."}
+          - {id: ORDER-I04, condition: deliver_requires_shipped, description: "Only a shipped order can be delivered."}
+          - {id: ORDER-I05, condition: coupon_only_on_draft_once, description: "A coupon can be applied only to a draft order that has no coupon yet."}
+      refund:
+        workflow: workflow-refund
+        state_field: status
+        initial: pending
+        guard_entity: order
+        guard_states: [paid, shipped, delivered]
+        states:
+          pending: {terminal: false}
+          approved: {terminal: true}
+        transitions:
+          - {id: REFUND-T01, workflow_action: request_refund, from: [], to: pending,  roles: [Customer, Staff, MerchantAdmin], guard: "order.status in [paid, shipped, delivered]", creates: true}
+          - {id: REFUND-T02, workflow_action: approve_refund, from: [pending], to: approved, roles: [MerchantAdmin]}
+        invariants:
+          - {id: REFUND-I01, condition: refund_requires_live_order, description: "A refund can be requested only for a paid, shipped or delivered order."}
+          - {id: REFUND-I02, condition: refunds_sum_le_paid_amount, description: "The sum of pending and approved refunds never exceeds order.paid_amount.", flaw: SF-10}
+          - {id: REFUND-I03, condition: approve_requires_pending, description: "Only a pending refund can be approved, and only once."}
+      coupon:
+        state_field: uses
+        states: {available: {terminal: false}, exhausted: {terminal: false}}
+        transitions: []
+        counter: {field: uses, max_field: max_uses}
+        invariants:
+          - {id: COUPON-I01, condition: uses_le_max_uses, description: "coupon.uses never exceeds coupon.max_uses; an exhausted coupon cannot be applied.", flaw: SF-11}
+
+evaluation:
+  oracle: state_invariant
+  rules:
+    - "Every attempted transition must be declared (from-state, to-state, role, relation) or it is a violation."
+    - "A rejected transition must leave the state unchanged."
+    - "A 2xx response alone is not a finding: compare before/after state, the invariant and the enabled flag."
+    - "A case counts only when its flag is enabled and the before/after evidence shows the invariant broken."
+  evidence: [attempted_edge, actor, before_state, after_state, response, invariant_results, raw_hash]

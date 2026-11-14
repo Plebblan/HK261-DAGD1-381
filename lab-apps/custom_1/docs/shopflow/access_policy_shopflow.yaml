@@ -1,0 +1,95 @@
+# Intended (safe) authorization behaviour of ShopFlow (split from the combined policy).
+# Planted flaws (see flaw_catalog_custom.yaml) are deliberate deviations from this policy.
+# Written from the patched twin (ENABLED_FLAWS=NONE); every rule is keyed by "METHOD path" exactly as in rso_custom.yaml.
+schema_version: "0.1"
+status: draft
+taxonomy_ref: docs/Taxonomy/families.yaml
+rso_ref: model/rso_custom.yaml
+flaw_catalog_ref: flaw_catalog_custom.yaml
+default: deny
+relations: [self, owner, same_tenant_non_owner, cross_tenant, unauthenticated]
+notes:
+  - "Every operation except login requires a valid bearer token (anonymous is denied, taxonomy decision D2)."
+  - "Cross-tenant object access is answered with 404 (existence is hidden); same-tenant non-owner access with 403. Both 401/403/404 count as safe (D3)."
+  - "Rate/volume abuse and broken authentication are out of scope (D2, D4)."
+
+apps:
+  shopflow:
+    roles: [anonymous, Customer, Staff, MerchantAdmin]
+    tenants: [tenant-acme-shop, tenant-globex-shop]
+    owner_attribute: {order: customer_id, refund: customer_id}
+    rules:
+      - {op: "POST /auth/login", id: shopflow_login, allow: [{role: anonymous}, {role: Customer}, {role: Staff}, {role: MerchantAdmin}]}
+      - {op: "POST /auth/logout", id: shopflow_logout, allow: [{role: Customer, relation: self}, {role: Staff, relation: self}, {role: MerchantAdmin, relation: self}]}
+      - {op: "GET /me", id: shopflow_get_me, allow: [{role: Customer, relation: self}, {role: Staff, relation: self}, {role: MerchantAdmin, relation: self}]}
+      - op: "GET /products"
+        id: list_products
+        allow: [{role: Customer, tenant_scope: self, view: customer}, {role: Staff, tenant_scope: self, view: staff}, {role: MerchantAdmin, tenant_scope: self, view: staff}]
+      - {op: "POST /products", id: create_product, allow: [{role: Staff, tenant_scope: self}, {role: MerchantAdmin, tenant_scope: self}], deny: [{role: Customer}]}
+      - op: "PATCH /products/{product_id}"
+        id: patch_product
+        allow: [{role: MerchantAdmin, relation: same_tenant_non_owner, fields: [price, stock]}]
+        deny: [{role: Customer}, {role: Staff}, {role: MerchantAdmin, relation: cross_tenant}]
+      - {op: "POST /orders", id: create_order, allow: [{role: Customer, tenant_scope: self, price_source: server}], deny: [{role: Staff}, {role: MerchantAdmin}]}
+      - {op: "GET /orders", id: list_orders, allow: [{role: Customer, tenant_scope: self, rows: owned}, {role: Staff, tenant_scope: self}, {role: MerchantAdmin, tenant_scope: self}]}
+      - op: "GET /orders/{order_id}"
+        id: get_order
+        allow: [{role: Customer, relation: owner}, {role: Staff, relation: same_tenant_non_owner}, {role: MerchantAdmin, relation: same_tenant_non_owner}]
+        deny: [{role: Customer, relation: same_tenant_non_owner}, {role: Customer, relation: cross_tenant}, {role: Staff, relation: cross_tenant}, {role: MerchantAdmin, relation: cross_tenant}]
+      - op: "PATCH /orders/{order_id}"
+        id: patch_order
+        allow: [{role: Customer, relation: owner, state: draft, fields: [address]}, {role: Staff, relation: same_tenant_non_owner, state: draft, fields: [address]}, {role: MerchantAdmin, relation: same_tenant_non_owner, state: draft, fields: [address]}]
+        deny: [{role: Customer, relation: same_tenant_non_owner}, {role: Customer, relation: cross_tenant}]
+        deny_fields: [total, subtotal, discount, status, paid_amount, refunded_total, customer_id, tenant]
+      - op: "POST /orders/{order_id}/apply-coupon"
+        id: apply_coupon
+        allow: [{role: Customer, relation: owner, state: draft, coupon_tenant: same_tenant}, {role: Staff, relation: same_tenant_non_owner, state: draft, coupon_tenant: same_tenant}, {role: MerchantAdmin, relation: same_tenant_non_owner, state: draft, coupon_tenant: same_tenant}]
+        deny: [{role: Customer, relation: same_tenant_non_owner}, {role: Customer, relation: owner, coupon_tenant: cross_tenant}, {role: Customer, relation: owner, coupon_state: exhausted}]
+      - op: "POST /orders/{order_id}/pay"
+        id: pay_order
+        allow: [{role: Customer, relation: owner, state: draft}]
+        deny: [{role: Staff}, {role: MerchantAdmin}, {role: Customer, relation: same_tenant_non_owner}]
+      - op: "POST /orders/{order_id}/ship"
+        id: ship_order
+        allow: [{role: Staff, relation: same_tenant_non_owner, state: paid}, {role: MerchantAdmin, relation: same_tenant_non_owner, state: paid}]
+        deny: [{role: Customer}, {role: Staff, relation: cross_tenant}]
+      - op: "POST /orders/{order_id}/deliver"
+        id: deliver_order
+        allow: [{role: Staff, relation: same_tenant_non_owner, state: shipped}, {role: MerchantAdmin, relation: same_tenant_non_owner, state: shipped}]
+        deny: [{role: Customer}, {role: Staff, relation: cross_tenant}]
+      - op: "POST /orders/{order_id}/cancel"
+        id: cancel_order
+        allow: [{role: Customer, relation: owner, state: [draft, paid]}, {role: Staff, relation: same_tenant_non_owner, state: [draft, paid]}, {role: MerchantAdmin, relation: same_tenant_non_owner, state: [draft, paid]}]
+        deny: [{role: Customer, relation: same_tenant_non_owner}, {role: Customer, relation: owner, state: [shipped, delivered, cancelled, refunded]}]
+      - {op: "GET /orders/{order_id}/invoice", id: get_invoice, allow: [{role: Customer, relation: owner}, {role: Staff, relation: same_tenant_non_owner}, {role: MerchantAdmin, relation: same_tenant_non_owner}], deny: [{role: Customer, relation: same_tenant_non_owner}, {role: Customer, relation: cross_tenant}]}
+      - op: "POST /orders/{order_id}/refund"
+        id: request_refund
+        allow: [{role: Customer, relation: owner, state: [paid, shipped, delivered], amount: "prior_refunds + amount <= paid_amount"}, {role: Staff, relation: same_tenant_non_owner, state: [paid, shipped, delivered], amount: "prior_refunds + amount <= paid_amount"}, {role: MerchantAdmin, relation: same_tenant_non_owner, state: [paid, shipped, delivered], amount: "prior_refunds + amount <= paid_amount"}]
+        deny: [{role: Customer, relation: same_tenant_non_owner}, {role: Customer, relation: cross_tenant}]
+      - op: "GET /refunds/{refund_id}"
+        id: get_refund
+        allow: [{role: Customer, relation: owner}, {role: Staff, relation: same_tenant_non_owner}, {role: MerchantAdmin, relation: same_tenant_non_owner}]
+        deny: [{role: Customer, relation: same_tenant_non_owner}, {role: Customer, relation: cross_tenant}]
+      - op: "POST /refunds/{refund_id}/approve"
+        id: approve_refund
+        allow: [{role: MerchantAdmin, relation: same_tenant_non_owner, state: pending}]
+        deny: [{role: Customer}, {role: Staff}, {role: MerchantAdmin, relation: cross_tenant}]
+      - {op: "GET /coupons", id: list_coupons, allow: [{role: MerchantAdmin, tenant_scope: self}], deny: [{role: Customer}, {role: Staff}]}
+      - {op: "POST /coupons", id: create_coupon, allow: [{role: MerchantAdmin, tenant_scope: self}], deny: [{role: Customer}, {role: Staff}]}
+      - {op: "GET /reports/sales", id: sales_report, allow: [{role: MerchantAdmin, tenant_scope: self}], deny: [{role: Customer}, {role: Staff}]}
+    field_policy:
+      product:
+        customer_read: [id, tenant, name, price, stock]
+        staff_read: [id, tenant, name, price, cost_price, stock]
+        merchant_admin_write: [price, stock]
+      order:
+        owner_write: [address]
+        server_computed: [subtotal, discount, total, paid_amount, refunded_total, items.unit_price]
+        client_supplied_on_create: [items.product_id, items.qty, address]
+
+known_unplanted_deviations:
+  - id: DEV-02
+    app: shopflow
+    op: "POST /orders/{order_id}/cancel"
+    description: "Cancelling a paid order neither refunds nor restocks it. A money-flow issue, outside the authorization/state-transition scope."
+    treatment: "Not modelled by any oracle."
