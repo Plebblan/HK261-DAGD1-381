@@ -33,11 +33,6 @@ External entities are people, systems, or actors outside the process being model
 | E5 | Anonymous user | Client that accesses public endpoints without an authenticated identity. Include this actor when assessing whether protected resources or operations are unintentionally accessible. |
 | E6 | API client / frontend | Browser, frontend, script, or other HTTP client that sends requests to the API and receives responses. This is a technical caller rather than a business role. |
 
-**Role distinction:** The implementation's lab actor model includes
-customer, supplier, support, and admin roles. Do not assume that every
-lab-only role or administrative capability is part of a separate
-production marketplace deployment unless confirmed.
-
 ## 3. Processes
 
 Processes represent application functions that receive input, perform
@@ -64,13 +59,6 @@ runtime services.
 | P15 | Lab resource management | Exposes lab-oriented resources and state used by the authorized Cyber Range exercises. |
 | P16 | Business workflow management | Handles stateful marketplace/lab workflows involving resources such as orders, tickets, invoices, payouts, reviews, and related transitions. |
 | P17 | Lab administration | Provides lab-specific status, reset, token, resource, and administrative-action functionality under the lab route namespace (including `/__lab/*`). |
-
-### Important implementation/documentation differences
-
-- The OpenAPI contract documents password-reset/OTP behavior, but the inspected implementation returns `501` for the password-reset operation. Treat the documented behavior as intended/contractual behavior, not as a currently functioning integration.
-- Payment-option endpoints do not, by themselves, prove the existence of an external payment gateway.
-- The OpenAPI contract describes file-upload behavior, including product-photo and certificate uploads. Confirm the actual storage path, filesystem permissions, retention, and serving mechanism in the deployment.
-- Lab administration endpoints and lab actors are part of the local Cyber Range implementation. Keep them distinct from ordinary marketplace functionality in the diagram and risk assessment.
 
 ## 4. Trust boundaries
 
@@ -137,12 +125,6 @@ configuration.
 
 ## 6. Threat Table — Inlanefreight E-Commerce Marketplace Mock API
 
-The table below follows the **Threat / STRIDE category / Attack Vector / Impact level / Risk rating / Affected components** format used in the crAPI report.
-
-I’ve incorporated your business state graph as context enrichment, especially the order-return/refund, ticket, invoice, and payout workflows. One important distinction: the supplied FastAPI implementation contains a generic e-commerce API and a separate lab-resource workflow handler. The lab handler implements order and ticket actions, but I did not find corresponding invoice or payout transitions in that handler. Therefore, invoice and payout entries below are treated as modeled workflow risks to validate, not confirmed implementation flaws.
-
-The ratings are preliminary threat-model judgments, not claims that every issue is currently exploitable. Several lab vulnerabilities are conditional on their `LAB_VULNERABILITIES` flags being enabled.
-
 ## Threat Table
 
 | Threat | STRIDE category | Attack Vector | Impact level | Risk rating | Affected components |
@@ -162,16 +144,6 @@ The ratings are preliminary threat-model judgments, not claims that every issue 
 | **Unauthorized Access to Administrative Lab Actions** | ELEVATION OF PRIVILEGE | A non-admin actor may attempt to invoke administrative actions such as archive or export. The lab handler normally restricts these actions to Admin, but includes conditional vulnerability cases for selected actors when the corresponding lab flags are enabled. Tests should verify both the role decision and whether any protected state or operation changes after a denied attempt. | HIGH | HIGH | Customer, Support, Admin, Lab Administration Process, Authorization Process, Lab Resource Management Process, Service Authorization Boundary |
 | **Unauthorized Deletion of Another Actor’s Resource** | TAMPERING | A caller may attempt to delete a resource that they do not own. The lab-resource delete handler checks ownership or Admin role, but contains a conditional test case that permits a specified customer to delete a selected resource when its vulnerability flag is enabled. A successful deletion outside the actor’s ownership or administrative scope would violate the object-access policy. | HIGH | HIGH | Customer, Admin, Lab Resource Management Process, Database Management Process, Object Ownership Boundary |
 | **Denial of Service Through Unbounded API Requests** | DOS | Repeated requests to list, search, count, or retrieve resources may consume application or database capacity if request rates, query cost, pagination, and resource limits are not controlled. The generic dispatcher applies a fixed result limit to some collection reads, but this alone does not establish comprehensive rate limiting or protection against expensive request patterns. | MEDIUM | MEDIUM | API Client, Customer Management Process, Supplier Management Process, Product Management Process, Order Management Process, Database Management Process, Internet Boundary |
-
----
-
-## Important Validation Notes
-
-* **Order workflow:** The graph declares refund as an Admin action, but the lab transition handler allows both Customer and Admin actors into the refund branch under certain conditions. This is a direct mismatch worth testing against `ORDER-I01` to `ORDER-I03`.
-* **Ticket workflow:** The graph includes escalation and resolution, but the lab handler shown implements assignment and closure only. Do not report missing escalation or resolution as an exploitable flaw until the intended runtime behavior is confirmed.
-* **Invoice and payout workflows:** Their state machines are defined in your YAML, but I could not verify corresponding transition handlers in the supplied implementation. Keep these as requirements and validation targets for now.
-* **Authorization:** The OpenAPI contract declares role requirements and object-ownership expectations. The generic dispatcher’s visible authorization logic does not consistently demonstrate enforcement of those requirements, so runtime checks are important.
-* **Authentication:** The source explicitly describes this as a local development mock, not a production authentication server. The local bearer-token format should therefore be documented as a mock-environment limitation, not attributed to a production deployment.
 
 ---
 
@@ -197,9 +169,3 @@ The ratings are preliminary threat-model judgments, not claims that every issue 
 - [ ] Verify that lab reset and administrative controls cannot be reached or exercised outside the intended Cyber Range context.
 - [ ] Separate implemented behavior from OpenAPI-described but unimplemented behavior (notably password reset).
 - [ ] Confirm whether any external services (email, SMS, payment processor, identity provider, object storage) are actually configured before adding them as external entities.
-
-## 7. Source basis
-
-- **Application implementation:** `Pasted text.txt` --- FastAPI/MongoDB implementation (`main.py`).
-- **OpenAPI contract:** `Pasted text (2).txt` --- OpenAPI 3.0 contract for the E-Commerce Marketplace API.
-- **Supporting project context:** Uploaded project description PDF and `families.yaml` taxonomy were not used to invent application components; this inventory is focused on the app implementation and its API contract.
