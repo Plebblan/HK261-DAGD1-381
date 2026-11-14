@@ -1,12 +1,12 @@
 # crAPI flaw catalog: concrete instances of the shared taxonomy
-# Source: docs/threat_model/crAPI_survey.md (survey-derived).
+# Source: lab-apps/crAPI/docs/threat_model/crAPI_survey.md (survey-derived).
 # Every entry is verified: false until replayed in our own range with evidence.
 
 schema_version: "0.1"
 app: crapi
 taxonomy_ref: docs/Taxonomy/families.yaml
 
-# Actor names are placeholders until apps/crapi/access_policy.yaml exists.
+# Actor names follow lab-apps/crAPI/docs/access_policy.yaml.
 actors: [owner_a, user_b, admin, anonymous]
 
 flaws:
@@ -50,7 +50,7 @@ flaws:
     endpoint: /workshop/api/mechanic/mechanic_report?report_id={report_id}
     actors: {reference: owner_a, test: user_b}
     object_id_origin:
-      method: GET
+      method: POST
       endpoint: /workshop/api/merchant/contact_mechanic
       note: Response shows the valid report_id endpoint
     expected_safe_response: "401/403/404, no report data"

@@ -71,7 +71,8 @@
       "case_id": "AUTHZ-116",
       "headers": {
         "x-lab-case-id": "AUTHZ-116"
-      }
+      },
+      "approval": true
     },
     {
       "id": "probe_f5_edit_published",
@@ -213,6 +214,14 @@
       "path": "/documents/{did}",
       "expect_status": 200,
       "expect_state": "published"
+    },
+    {
+      "id": "ann_lists_documents",
+      "dsl": "request",
+      "actor": "actor-ann",
+      "method": "GET",
+      "path": "/documents",
+      "expect_status": 200
     }
   ]
 }

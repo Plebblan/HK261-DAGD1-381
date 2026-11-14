@@ -105,6 +105,19 @@
       "actor": "actor-cathy"
     },
     {
+      "id": "owner_reads_own_profile",
+      "dsl": "request",
+      "actor": "actor-cathy",
+      "method": "GET",
+      "path": "/me",
+      "expect_status": 200,
+      "expect": {
+        "body_eq": {
+          "username": "cathy"
+        }
+      }
+    },
+    {
       "id": "owner_reads_own_order",
       "dsl": "request",
       "actor": "actor-cathy",
@@ -344,6 +357,30 @@
       }
     },
     {
+      "id": "apply_coupon",
+      "dsl": "request",
+      "actor": "actor-cathy",
+      "method": "POST",
+      "path": "/orders/{oid}/apply-coupon",
+      "expect_status": 200,
+      "body": {
+        "code": "ACME10"
+      },
+      "expect_state": "draft",
+      "expect": {
+        "body_eq": {
+          "coupon": "ACME10",
+          "discount": 150,
+          "total": 1350
+        }
+      },
+      "wf": {
+        "workflow": "workflow-order",
+        "action": "apply_coupon",
+        "object": "oid"
+      }
+    },
+    {
       "id": "pay",
       "dsl": "request",
       "actor": "actor-cathy",
@@ -489,6 +526,52 @@
         "action": "cancel_order:from_paid",
         "object": "oid3"
       }
+    },
+    {
+      "id": "staff_creates_product",
+      "dsl": "request",
+      "actor": "actor-sam",
+      "method": "POST",
+      "path": "/products",
+      "expect_status": 201,
+      "body": {
+        "name": "Acme Poster",
+        "price": 2000,
+        "cost_price": 700,
+        "stock": 5
+      },
+      "capture": {
+        "pid": "id"
+      }
+    },
+    {
+      "id": "login_olga",
+      "dsl": "login",
+      "actor": "actor-olga"
+    },
+    {
+      "id": "merchant_admin_reprices_product",
+      "dsl": "request",
+      "actor": "actor-olga",
+      "method": "PATCH",
+      "path": "/products/{pid}",
+      "expect_status": 200,
+      "body": {
+        "price": 2100
+      },
+      "expect": {
+        "body_eq": {
+          "price": 2100
+        }
+      }
+    },
+    {
+      "id": "customer_logs_out",
+      "dsl": "request",
+      "actor": "actor-cathy",
+      "method": "POST",
+      "path": "/auth/logout",
+      "expect_status": 200
     }
   ]
 }
