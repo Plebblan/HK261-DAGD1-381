@@ -1,0 +1,5 @@
+# My proposal for the direction of our current project:
+Based on the content drafted for the directions of the project, I think we should collect informations such as valid requests from OpenAPI, proxy traffic, HAR, or manual scripts and other informations that may be useful to assess the context of a request in the webapp in order to infer dependencies, object-ID flows, transitions, and actor/object substitution points. 
+From there we can propose rules based on the evidences on how the web apps operate, specifically which request with what context is allowed through to the next
+Then with those sets of rules and RSO we generate tests which have context that satisfy the rules we think match that of the webapps and run them against the webapps to see if they're allowed, we can then induce the vulnerabilities these tests might trigger since we now have the full context of the attack
+IF the test trigger a violation before the expected violations, we can resolve it in one of two ways,, we can flag it for that vulnerability and continue or break, or we can simply ignore it and focus on the expected error the test is targetting, I suggest following the first
