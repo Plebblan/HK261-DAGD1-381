@@ -1,0 +1,197 @@
+# Intended (safe) authorization behaviour of TenantDesk and ShopFlow.
+# Planted flaws (see flaw_catalog_custom.yaml) are deliberate deviations from this policy.
+# Written from the patched twin (ENABLED_FLAWS=NONE); every rule is keyed by "METHOD path" exactly as in rso_custom.yaml.
+schema_version: "0.1"
+status: draft
+taxonomy_ref: docs/Taxonomy/families.yaml
+rso_ref: model/rso_custom.yaml
+flaw_catalog_ref: flaw_catalog_custom.yaml
+default: deny
+relations: [self, owner, same_tenant_non_owner, cross_tenant, unauthenticated]
+notes:
+  - "Every operation except login requires a valid bearer token (anonymous is denied, taxonomy decision D2)."
+  - "Cross-tenant object access is answered with 404 (existence is hidden); same-tenant non-owner access with 403. Both 401/403/404 count as safe (D3)."
+  - "Rate/volume abuse and broken authentication are out of scope (D2, D4)."
+
+apps:
+  tenantdesk:
+    roles: [anonymous, Member, Agent, Admin]
+    tenants: [tenant-acme, tenant-globex]
+    owner_attribute: {ticket: owner_id, document: owner_id, user: id}
+    rules:
+      - {op: "POST /auth/login", id: login, allow: [{role: anonymous}, {role: Member}, {role: Agent}, {role: Admin}]}
+      - {op: "POST /auth/logout", id: logout, allow: [{role: Member, relation: self}, {role: Agent, relation: self}, {role: Admin, relation: self}]}
+      - {op: "GET /users/me", id: get_me, allow: [{role: Member, relation: self}, {role: Agent, relation: self}, {role: Admin, relation: self}]}
+      - op: "PATCH /users/me"
+        id: patch_me
+        allow: [{role: Member, relation: self, fields: [display_name, email]}, {role: Agent, relation: self, fields: [display_name, email]}, {role: Admin, relation: self, fields: [display_name, email]}]
+        deny_fields: [role, tenant, id, api_key]
+      - {op: "GET /users", id: list_users, allow: [{role: Agent, tenant_scope: self}, {role: Admin, tenant_scope: self}], deny: [{role: Member}]}
+      - op: "POST /users"
+        id: create_user
+        allow: [{role: Admin, tenant_scope: self}]
+        deny: [{role: Agent}, {role: Member}]
+      - op: "GET /users/{user_id}"
+        id: get_user
+        allow: [{role: Member, relation: self, view: private}, {role: Member, relation: same_tenant_non_owner, view: public}, {role: Agent, relation: self, view: private}, {role: Agent, relation: same_tenant_non_owner, view: public}, {role: Admin, relation: self, view: private}, {role: Admin, relation: same_tenant_non_owner, view: public}]
+        deny: [{role: Member, relation: cross_tenant}, {role: Agent, relation: cross_tenant}, {role: Admin, relation: cross_tenant}]
+      - op: "DELETE /users/{user_id}"
+        id: delete_user
+        allow: [{role: Admin, relation: same_tenant_non_owner}]
+        deny: [{role: Agent}, {role: Member}, {role: Admin, relation: self}, {role: Admin, relation: cross_tenant}]
+      - {op: "POST /tickets", id: create_ticket, allow: [{role: Member}, {role: Agent}, {role: Admin}]}
+      - {op: "GET /tickets", id: list_tickets, allow: [{role: Member, tenant_scope: self, rows: owned}, {role: Agent, tenant_scope: self}, {role: Admin, tenant_scope: self}]}
+      - op: "GET /tickets/{ticket_id}"
+        id: get_ticket
+        allow: [{role: Member, relation: owner}, {role: Agent, relation: same_tenant_non_owner}, {role: Admin, relation: same_tenant_non_owner}]
+        deny: [{role: Member, relation: same_tenant_non_owner}, {role: Member, relation: cross_tenant}, {role: Agent, relation: cross_tenant}, {role: Admin, relation: cross_tenant}]
+      - op: "PATCH /tickets/{ticket_id}"
+        id: patch_ticket
+        allow: [{role: Member, relation: owner, fields: [title, body]}, {role: Agent, relation: same_tenant_non_owner, fields: [title, body, priority, assignee_id]}, {role: Admin, relation: same_tenant_non_owner, fields: [title, body, priority, assignee_id]}]
+        deny: [{role: Member, relation: same_tenant_non_owner}, {role: Member, relation: cross_tenant}]
+        deny_fields_for_member: [priority, status, assignee_id]
+      - op: "DELETE /tickets/{ticket_id}"
+        id: delete_ticket
+        allow: [{role: Member, relation: owner}, {role: Admin, relation: same_tenant_non_owner}]
+        deny: [{role: Agent}, {role: Member, relation: same_tenant_non_owner}, {role: Member, relation: cross_tenant}]
+      - op: "POST /tickets/{ticket_id}/comments"
+        id: add_comment
+        allow: [{role: Member, relation: owner, internal: false}, {role: Agent, relation: same_tenant_non_owner, internal: true}, {role: Admin, relation: same_tenant_non_owner, internal: true}]
+        deny: [{role: Member, relation: same_tenant_non_owner}, {role: Member, relation: cross_tenant}]
+      - op: "GET /tickets/{ticket_id}/comments"
+        id: list_comments
+        allow: [{role: Member, relation: owner, rows: not_internal}, {role: Agent, relation: same_tenant_non_owner, rows: all}, {role: Admin, relation: same_tenant_non_owner, rows: all}]
+        deny: [{role: Member, relation: same_tenant_non_owner}, {role: Member, relation: cross_tenant}]
+      - op: "POST /tickets/{ticket_id}/assign"
+        id: assign_ticket
+        allow: [{role: Agent, assignee_tenant: same_tenant, assignee_role: [Agent, Admin]}, {role: Admin, assignee_tenant: same_tenant, assignee_role: [Agent, Admin]}]
+        deny: [{role: Member}, {role: Agent, assignee_tenant: cross_tenant}, {role: Admin, assignee_tenant: cross_tenant}]
+      - op: "POST /tickets/{ticket_id}/transition"
+        id: transition_ticket
+        allow: [{role: Member, relation: owner, state: resolved, to: [closed, open]}, {role: Agent, relation: same_tenant_non_owner, edges: "business_state_graph_custom.yaml#ticket"}, {role: Admin, relation: same_tenant_non_owner, edges: "business_state_graph_custom.yaml#ticket"}]
+        deny: [{role: Member, relation: same_tenant_non_owner}, {role: Member, relation: cross_tenant}]
+      - {op: "POST /documents", id: create_document, allow: [{role: Member}, {role: Agent}, {role: Admin}]}
+      - {op: "GET /documents", id: list_documents, allow: [{role: Member, tenant_scope: self, rows: readable}, {role: Agent, tenant_scope: self, rows: readable}, {role: Admin, tenant_scope: self, rows: all}]}
+      - op: "GET /documents/{doc_id}"
+        id: get_document
+        allow: [{role: Member, relation: owner}, {role: Member, relation: same_tenant_non_owner, when: "shared_with or (visibility=tenant and status=published)"}, {role: Agent, relation: same_tenant_non_owner, when: "shared_with or (visibility=tenant and status=published)"}, {role: Admin, relation: same_tenant_non_owner}]
+        deny: [{role: Member, relation: cross_tenant}, {role: Agent, relation: cross_tenant}, {role: Admin, relation: cross_tenant}, {role: Member, relation: same_tenant_non_owner, when: private_and_not_shared}]
+      - op: "PUT /documents/{doc_id}"
+        id: update_document
+        allow: [{role: Member, relation: owner, state: draft, fields: [title, content]}, {role: Agent, relation: owner, state: draft, fields: [title, content]}, {role: Admin, relation: same_tenant_non_owner, state: draft, fields: [title, content]}, {role: Admin, relation: owner, state: draft, fields: [title, content]}]
+        deny: [{role: Member, relation: same_tenant_non_owner}, {role: Agent, relation: same_tenant_non_owner}, {role: Member, relation: cross_tenant}, {role: Member, relation: owner, state: [review, published]}]
+      - op: "DELETE /documents/{doc_id}"
+        id: delete_document
+        allow: [{role: Member, relation: owner}, {role: Agent, relation: owner}, {role: Admin, relation: same_tenant_non_owner}, {role: Admin, relation: owner}]
+        deny: [{role: Member, relation: same_tenant_non_owner}, {role: Agent, relation: same_tenant_non_owner}, {role: Member, relation: cross_tenant}]
+      - op: "POST /documents/{doc_id}/share"
+        id: share_document
+        allow: [{role: Member, relation: owner, target_tenant: same_tenant}, {role: Agent, relation: owner, target_tenant: same_tenant}, {role: Admin, relation: same_tenant_non_owner, target_tenant: same_tenant}, {role: Admin, relation: owner, target_tenant: same_tenant}]
+        deny: [{role: Member, relation: same_tenant_non_owner}, {role: Member, relation: owner, target_tenant: cross_tenant}, {role: Agent, relation: owner, target_tenant: cross_tenant}]
+      - op: "POST /documents/{doc_id}/submit"
+        id: submit_document
+        allow: [{role: Member, relation: owner, state: draft}, {role: Agent, relation: owner, state: draft}, {role: Admin, relation: owner, state: draft}]
+        deny: [{role: Admin, relation: same_tenant_non_owner}, {role: Member, relation: same_tenant_non_owner}]
+      - op: "POST /documents/{doc_id}/approve"
+        id: approve_document
+        allow: [{role: Agent, relation: same_tenant_non_owner, state: review}, {role: Admin, relation: same_tenant_non_owner, state: review}]
+        deny: [{role: Member}, {role: Agent, relation: owner}, {role: Admin, relation: owner}, {role: Agent, relation: cross_tenant}]
+      - {op: "GET /admin/audit", id: get_audit, allow: [{role: Admin, tenant_scope: self}], deny: [{role: Agent}, {role: Member}]}
+    field_policy:
+      user:
+        self_read: [id, username, tenant, role, display_name, email, api_key]
+        other_read: [id, username, tenant, role, display_name, email]
+        self_write: [display_name, email]
+      ticket:
+        member_write: [title, body]
+        agent_admin_write: [title, body, priority, assignee_id]
+      comment:
+        member_read: [id, ticket_id, author_id, body, internal]
+        member_read_rows: "internal == false"
+      document:
+        owner_write: [title, content]
+
+  shopflow:
+    roles: [anonymous, Customer, Staff, MerchantAdmin]
+    tenants: [tenant-acme-shop, tenant-globex-shop]
+    owner_attribute: {order: customer_id, refund: customer_id}
+    rules:
+      - {op: "POST /auth/login", id: shopflow_login, allow: [{role: anonymous}, {role: Customer}, {role: Staff}, {role: MerchantAdmin}]}
+      - {op: "POST /auth/logout", id: shopflow_logout, allow: [{role: Customer, relation: self}, {role: Staff, relation: self}, {role: MerchantAdmin, relation: self}]}
+      - {op: "GET /me", id: shopflow_get_me, allow: [{role: Customer, relation: self}, {role: Staff, relation: self}, {role: MerchantAdmin, relation: self}]}
+      - op: "GET /products"
+        id: list_products
+        allow: [{role: Customer, tenant_scope: self, view: customer}, {role: Staff, tenant_scope: self, view: staff}, {role: MerchantAdmin, tenant_scope: self, view: staff}]
+      - {op: "POST /products", id: create_product, allow: [{role: Staff, tenant_scope: self}, {role: MerchantAdmin, tenant_scope: self}], deny: [{role: Customer}]}
+      - op: "PATCH /products/{product_id}"
+        id: patch_product
+        allow: [{role: MerchantAdmin, relation: same_tenant_non_owner, fields: [price, stock]}]
+        deny: [{role: Customer}, {role: Staff}, {role: MerchantAdmin, relation: cross_tenant}]
+      - {op: "POST /orders", id: create_order, allow: [{role: Customer, tenant_scope: self, price_source: server}], deny: [{role: Staff}, {role: MerchantAdmin}]}
+      - {op: "GET /orders", id: list_orders, allow: [{role: Customer, tenant_scope: self, rows: owned}, {role: Staff, tenant_scope: self}, {role: MerchantAdmin, tenant_scope: self}]}
+      - op: "GET /orders/{order_id}"
+        id: get_order
+        allow: [{role: Customer, relation: owner}, {role: Staff, relation: same_tenant_non_owner}, {role: MerchantAdmin, relation: same_tenant_non_owner}]
+        deny: [{role: Customer, relation: same_tenant_non_owner}, {role: Customer, relation: cross_tenant}, {role: Staff, relation: cross_tenant}, {role: MerchantAdmin, relation: cross_tenant}]
+      - op: "PATCH /orders/{order_id}"
+        id: patch_order
+        allow: [{role: Customer, relation: owner, state: draft, fields: [address]}, {role: Staff, relation: same_tenant_non_owner, state: draft, fields: [address]}, {role: MerchantAdmin, relation: same_tenant_non_owner, state: draft, fields: [address]}]
+        deny: [{role: Customer, relation: same_tenant_non_owner}, {role: Customer, relation: cross_tenant}]
+        deny_fields: [total, subtotal, discount, status, paid_amount, refunded_total, customer_id, tenant]
+      - op: "POST /orders/{order_id}/apply-coupon"
+        id: apply_coupon
+        allow: [{role: Customer, relation: owner, state: draft, coupon_tenant: same_tenant}, {role: Staff, relation: same_tenant_non_owner, state: draft, coupon_tenant: same_tenant}, {role: MerchantAdmin, relation: same_tenant_non_owner, state: draft, coupon_tenant: same_tenant}]
+        deny: [{role: Customer, relation: same_tenant_non_owner}, {role: Customer, relation: owner, coupon_tenant: cross_tenant}, {role: Customer, relation: owner, coupon_state: exhausted}]
+      - op: "POST /orders/{order_id}/pay"
+        id: pay_order
+        allow: [{role: Customer, relation: owner, state: draft}]
+        deny: [{role: Staff}, {role: MerchantAdmin}, {role: Customer, relation: same_tenant_non_owner}]
+      - op: "POST /orders/{order_id}/ship"
+        id: ship_order
+        allow: [{role: Staff, relation: same_tenant_non_owner, state: paid}, {role: MerchantAdmin, relation: same_tenant_non_owner, state: paid}]
+        deny: [{role: Customer}, {role: Staff, relation: cross_tenant}]
+      - op: "POST /orders/{order_id}/deliver"
+        id: deliver_order
+        allow: [{role: Staff, relation: same_tenant_non_owner, state: shipped}, {role: MerchantAdmin, relation: same_tenant_non_owner, state: shipped}]
+        deny: [{role: Customer}, {role: Staff, relation: cross_tenant}]
+      - op: "POST /orders/{order_id}/cancel"
+        id: cancel_order
+        allow: [{role: Customer, relation: owner, state: [draft, paid]}, {role: Staff, relation: same_tenant_non_owner, state: [draft, paid]}, {role: MerchantAdmin, relation: same_tenant_non_owner, state: [draft, paid]}]
+        deny: [{role: Customer, relation: same_tenant_non_owner}, {role: Customer, relation: owner, state: [shipped, delivered, cancelled, refunded]}]
+      - {op: "GET /orders/{order_id}/invoice", id: get_invoice, allow: [{role: Customer, relation: owner}, {role: Staff, relation: same_tenant_non_owner}, {role: MerchantAdmin, relation: same_tenant_non_owner}], deny: [{role: Customer, relation: same_tenant_non_owner}, {role: Customer, relation: cross_tenant}]}
+      - op: "POST /orders/{order_id}/refund"
+        id: request_refund
+        allow: [{role: Customer, relation: owner, state: [paid, shipped, delivered], amount: "prior_refunds + amount <= paid_amount"}, {role: Staff, relation: same_tenant_non_owner, state: [paid, shipped, delivered], amount: "prior_refunds + amount <= paid_amount"}, {role: MerchantAdmin, relation: same_tenant_non_owner, state: [paid, shipped, delivered], amount: "prior_refunds + amount <= paid_amount"}]
+        deny: [{role: Customer, relation: same_tenant_non_owner}, {role: Customer, relation: cross_tenant}]
+      - op: "GET /refunds/{refund_id}"
+        id: get_refund
+        allow: [{role: Customer, relation: owner}, {role: Staff, relation: same_tenant_non_owner}, {role: MerchantAdmin, relation: same_tenant_non_owner}]
+        deny: [{role: Customer, relation: same_tenant_non_owner}, {role: Customer, relation: cross_tenant}]
+      - op: "POST /refunds/{refund_id}/approve"
+        id: approve_refund
+        allow: [{role: MerchantAdmin, relation: same_tenant_non_owner, state: pending}]
+        deny: [{role: Customer}, {role: Staff}, {role: MerchantAdmin, relation: cross_tenant}]
+      - {op: "GET /coupons", id: list_coupons, allow: [{role: MerchantAdmin, tenant_scope: self}], deny: [{role: Customer}, {role: Staff}]}
+      - {op: "POST /coupons", id: create_coupon, allow: [{role: MerchantAdmin, tenant_scope: self}], deny: [{role: Customer}, {role: Staff}]}
+      - {op: "GET /reports/sales", id: sales_report, allow: [{role: MerchantAdmin, tenant_scope: self}], deny: [{role: Customer}, {role: Staff}]}
+    field_policy:
+      product:
+        customer_read: [id, tenant, name, price, stock]
+        staff_read: [id, tenant, name, price, cost_price, stock]
+        merchant_admin_write: [price, stock]
+      order:
+        owner_write: [address]
+        server_computed: [subtotal, discount, total, paid_amount, refunded_total, items.unit_price]
+        client_supplied_on_create: [items.product_id, items.qty, address]
+
+known_unplanted_deviations:
+  - id: DEV-01
+    app: tenantdesk
+    op: "PATCH /tickets/{ticket_id}"
+    description: "Only members are blocked from setting status/priority/assignee_id in PATCH; an agent or admin can set status directly and skip the transition rules. Not a planted flaw (TD-05 covers members)."
+    treatment: "Policy above lists the intended agent/admin write set without status. An agent PATCH of status is expected to be reported as an unplanted finding, not counted against planted recall."
+  - id: DEV-02
+    app: shopflow
+    op: "POST /orders/{order_id}/cancel"
+    description: "Cancelling a paid order neither refunds nor restocks it. A money-flow issue, outside the authorization/state-transition scope."
+    treatment: "Not modelled by any oracle."

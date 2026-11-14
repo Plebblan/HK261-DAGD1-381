@@ -9,11 +9,15 @@ Checks
   model      : RSO / workflows / seed internal references, code routes == RSO == OpenAPI
   taxonomy   : ground_truth.yaml follows docs/Taxonomy/families.yaml (D1 one primary family, oracle per family,
                per-family evidence fields, safe statuses), planted cases <-> flags in the app source
+  policy     : access_policy_custom.yaml covers every RSO action with the same roles; business_state_graph_custom.yaml
+               matches workflows_custom.yaml and the code's transition tables; flaw_catalog_custom.yaml matches the
+               ground truth and the code; every case points at a policy rule and, for F5, at a state-graph invariant
+  gateway    : gateway/*_allowlist.json and *_profile.json match the RSO, the compose ports and the trace approval flags
   traces     : every trace is a VALID SEQUENCE of workflows_custom.yaml (role, pre-state, post-state per step),
                every request is a modelled route, every ground-truth case is probed by its trace_ref,
                every workflow action is exercised by at least one trace
 """
-import csv, collections, json, re, sys
+import ast, csv, collections, json, re, sys
 from pathlib import Path
 
 R = Path(__file__).resolve().parent
@@ -150,6 +154,106 @@ if csv_path.exists():
     with csv_path.open(newline="", encoding="utf-8") as f: rows = list(csv.DictReader(f))
     if [r["case_id"] for r in rows] != ids: err("planted_cases_custom.csv is out of date: regenerate it from ground_truth.yaml")
 
+# ------------------------------------------------------------------ access policy / state graph / flaw catalog
+cat = load(R / "flaw_catalog_custom.yaml")
+ap = sg = None
+try:
+    import yaml
+    ap = yaml.safe_load((R / "access_policy_custom.yaml").read_text(encoding="utf-8"))
+    sg = yaml.safe_load((R / "business_state_graph_custom.yaml").read_text(encoding="utf-8"))
+except ImportError:
+    warns.append("PyYAML missing: access policy / state graph checks skipped")
+policy_ops = {}
+if ap:
+    if ap.get("default") != "deny": err("access policy: default must be deny")
+    for app, spec in ap["apps"].items():
+        rso_roles = {a["Role"] for a in rso["actors"] if a["App"] == app} | {"anonymous"}
+        if set(spec["roles"]) != rso_roles: err(f"policy {app}: roles {sorted(spec['roles'])} != RSO roles {sorted(rso_roles)}")
+        if set(spec["tenants"]) != {t["ID"] for t in rso["tenants"] if t["App"] == app}: err(f"policy {app}: tenants differ from RSO")
+        rules = {r["id"]: r for r in spec["rules"]}
+        if len(rules) != len(spec["rules"]): err(f"policy {app}: duplicate rule ids")
+        policy_ops[app] = {r["op"] for r in spec["rules"]}
+        model = {i: a for i, a in actions.items() if a.get("App") == app}
+        for i, a in model.items():
+            r = rules.get(i)
+            if not r: err(f"policy {app}: no rule for action {i}"); continue
+            if r["op"] != f"{a['method']} {a['path']}" and not (i.startswith("shopflow_") and r["op"] == f"{a['method']} {a['path']}"):
+                err(f"policy {app}: rule {i} op {r['op']!r} != RSO {a['method']} {a['path']}")
+            allowed = {e["role"] for e in r.get("allow", [])} - {"anonymous"}
+            if a["roles"] != ["*"] and allowed != set(a["roles"]): err(f"policy {app}: {i} allows {sorted(allowed)} but RSO roles are {sorted(a['roles'])}")
+            for e in r.get("allow", []) + r.get("deny", []):
+                if e["role"] not in spec["roles"]: err(f"policy {app}: {i} uses unknown role {e['role']}")
+        for i in set(rules) - set(model): err(f"policy {app}: rule {i} has no RSO action")
+if sg:
+    sg_ids, inv_flaw, trans = set(), {}, {}
+    for app, spec in sg["apps"].items():
+        wsteps = {s["Action"]: s for w in wfs["workflows"] if w["App"] == app for s in w["Steps"]}
+        wf_of = {w["ID"]: w for w in wfs["workflows"]}
+        covered = set()
+        for ename, ent in spec["entities"].items():
+            states = set(ent["states"])
+            for tr in ent["transitions"]:
+                if tr["id"] in sg_ids: err(f"state graph: duplicate id {tr['id']}")
+                sg_ids.add(tr["id"]); trans[tr["id"]] = tr
+                for st in tr["from"] + [tr["to"]]:
+                    if st not in states: err(f"state graph {tr['id']}: unknown state {st}")
+                for st in tr["from"]:
+                    if ent["states"][st].get("terminal"): err(f"state graph {tr['id']}: leaves terminal state {st}")
+                if tr.get("system"): continue
+                step = wsteps.get(tr["workflow_action"])
+                if not step: err(f"state graph {tr['id']}: workflow action {tr['workflow_action']} not in workflows_custom.yaml"); continue
+                covered.add(tr["workflow_action"])
+                pre, post = step.get("Precondition", {}), step.get("Postcondition")
+                if tr.get("creates"):
+                    if set(pre.get("State", [])) != set(ent.get("guard_states", [])): err(f"state graph {tr['id']}: guard states differ from workflow precondition")
+                elif set(pre.get("State", [])) != set(tr["from"]): err(f"state graph {tr['id']}: from {tr['from']} != workflow {pre.get('State')}")
+                if not (isinstance(post, dict) and post.get("State") == tr["to"]): err(f"state graph {tr['id']}: to {tr['to']} != workflow {post}")
+                if "Role" in pre and set(pre["Role"]) != set(tr["roles"]): err(f"state graph {tr['id']}: roles {tr['roles']} != workflow {pre['Role']}")
+            for inv in ent["invariants"]:
+                if inv["id"] in sg_ids: err(f"state graph: duplicate id {inv['id']}")
+                sg_ids.add(inv["id"])
+                if inv.get("flaw"): inv_flaw[inv["id"]] = inv["flaw"]
+        for a_, st in wsteps.items():
+            if isinstance(st.get("Postcondition"), dict) and not a_.startswith("create_") and a_ not in covered:
+                err(f"state graph {app}: workflow action {a_} has no transition")
+        src = (ROOT / f"{app}.py").read_text(encoding="utf-8")
+        if app == "tenantdesk":
+            allowed = ast.literal_eval(re.search(r"ALLOWED\s*=\s*(\{.*?\})\s*\n", src, re.S).group(1))
+            code_edges = {(a_, b) for a_, bs in allowed.items() for b in bs}
+            graph_edges = {(f, t["to"]) for t in spec["entities"]["ticket"]["transitions"] if {"Agent", "Admin"} <= set(t["roles"]) for f in t["from"]}
+            if code_edges != graph_edges: err(f"state graph: ticket edges {sorted(graph_edges ^ code_edges)} differ from ALLOWED in code")
+        else:
+            live = set(ast.literal_eval("(" + re.search(r"LIVE\s*=\s*\((.*?)\)", src, re.S).group(1) + ")"))
+            if live != set(spec["entities"]["refund"]["guard_states"]): err("state graph: refund guard_states != LIVE in code")
+    for c in cases:
+        for k in ("invariant_id", "transition_ref"):
+            if c.get(k) and c[k] not in sg_ids: err(f"{c['case_id']}: {k} {c[k]} not in state graph")
+        if not c["is_benign"] and ("F5" == c["family"] or "F5" in c["secondary_families"]) and not c.get("invariant_id") and not c.get("transition_ref"):
+            err(f"{c['case_id']}: F5 case needs invariant_id or transition_ref")
+    for inv, flag in inv_flaw.items():
+        owner = [c["case_id"] for c in cases if not c["is_benign"] and c["flag"] == flag]
+        if not owner or next((c for c in cases if c["case_id"] == owner[0]), {}).get("invariant_id") != inv:
+            err(f"state graph: invariant {inv} names flaw {flag} but that case does not reference it")
+for c in cases:
+    if policy_ops and c["policy_ref"] not in policy_ops.get(c["app"], set()): err(f"{c['case_id']}: policy_ref {c['policy_ref']!r} not in access policy")
+fl = {f["id"]: f for f in cat["flaws"]}
+if len(fl) != len(cat["flaws"]): err("flaw catalog: duplicate flaw ids")
+if set(fl) != {c["flag"] for c in planted}: err(f"flaw catalog flags differ from ground truth: {sorted(set(fl) ^ {c['flag'] for c in planted})}")
+if cat["family_counts"] != gt["family_counts"] or cat["case_counts"] != gt["case_counts"]: err("flaw catalog counts differ from ground truth")
+for c in planted:
+    f = fl.get(c["flag"])
+    if not f: continue
+    for a_, b_ in (("case_id", "case_id"), ("family", "family"), ("app", "app"), ("method", "method"), ("endpoint", "path"), ("operation_id", "operation_id"),
+                   ("policy_ref", "policy_ref"), ("oracle", "oracle_type"), ("split", "split"), ("expected_safe_response", "expected_safe")):
+        if f[a_] != c[b_]: err(f"flaw catalog {f['id']}: {a_} {f[a_]!r} != ground truth {c[b_]!r}")
+    for k in ("invariant_id", "transition_ref", "subtype"):
+        if f.get(k) != c.get(k): err(f"flaw catalog {f['id']}: {k} {f.get(k)!r} != ground truth {c.get(k)!r}")
+    for k in ("reference", "test"):
+        if f["actors"][k] not in actors: err(f"flaw catalog {f['id']}: actor {f['actors'][k]} unknown")
+    fn = f["code_ref"].split("::")[1]
+    body = re.search(rf"def {fn}\(.*?(?=\n    (?:@app|def )|\Z)", (ROOT / f"{c['app']}.py").read_text(encoding="utf-8"), re.S)
+    if not body or f'"{f["id"]}"' not in body.group(0): err(f"flaw catalog {f['id']}: marker not found in {f['code_ref']}")
+
 # ------------------------------------------------------------------ traces (valid sequences)
 wf_steps = {w["ID"]: {s["Action"]: s for s in w["Steps"]} for w in wfs["workflows"]}
 role_of = {k: v["Role"] for k, v in actors.items()}
@@ -204,6 +308,46 @@ for c in cases:
 for wid, steps in wf_steps.items():
     for act in steps:
         if (wid, act) not in covered_actions: err(f"workflow action {wid}/{act} is not exercised by any valid-sequence trace")
+
+# ------------------------------------------------------------------ safety gateway profiles
+compose = (REPO / "lab-apps/docker-compose.yml").read_text(encoding="utf-8") if (REPO / "lab-apps/docker-compose.yml").exists() else ""
+gw_ports, approval_ops = {}, set()
+for app in ("tenantdesk", "shopflow"):
+    try:
+        al, pr = load(R / f"gateway/{app}_allowlist.json"), load(R / f"gateway/{app}_profile.json")
+    except FileNotFoundError as ex:
+        err(f"gateway: missing {ex.filename}"); continue
+    if not al.get("default_deny") or al.get("allow_external_hosts"): err(f"gateway {app}: allowlist must be default-deny and local-only")
+    port = al["target"]["port"]
+    if al["target"]["base_url"] != f"http://localhost:{port}" or pr["upstream_base_url"] != al["target"]["base_url"]: err(f"gateway {app}: profile upstream != allowlist target")
+    if compose and f"127.0.0.1:{port}:{port}" not in compose: err(f"gateway {app}: app port {port} is not published in docker-compose.yml")
+    if pr["listen_host"] not in ("127.0.0.1", "::1", "localhost"): err(f"gateway {app}: listener must be loopback")
+    gw_ports[app] = pr["listen_port"]
+    for k in ("safety_allowlist", "actor_registry", "oracle_policy", "state_graph", "ground_truth"):
+        if not (ROOT.parent / pr[k]).exists(): err(f"gateway {app}: profile {k} -> {pr[k]} does not exist")
+    if not pr["event_log"].startswith("custom_1/cyber-range/logs/"): err(f"gateway {app}: event_log must live under custom_1/cyber-range/logs/")
+    ent = {e["id"]: e for e in al["entries"]}
+    model = {i: a for i, a in actions.items() if a.get("App") == app}
+    for i, a in model.items():
+        e = ent.get(i)
+        if not e: err(f"gateway {app}: action {i} missing from allowlist"); continue
+        if (e["method"], e["path"]) != (a["method"], a["path"]): err(f"gateway {app}: {i} is {e['method']} {e['path']} but RSO says {a['method']} {a['path']}")
+        if a["roles"] != ["*"] and e["required_roles"] != a["roles"]: err(f"gateway {app}: {i} required_roles differ from RSO")
+        if e["auth_required"] != (i not in ("login", "shopflow_login")): err(f"gateway {app}: {i} auth_required is wrong")
+        if a["method"] == "DELETE" and e["execution_mode"] != "approval_required": err(f"gateway {app}: destructive {i} must be approval_required")
+        if e["execution_mode"] == "approval_required": approval_ops.add((app, i))
+    for i in set(ent) - set(model) - {"lab_health", "lab_reset"}: err(f"gateway {app}: allowlist entry {i} has no RSO action")
+    if ent.get("lab_reset", {}).get("execution_mode") != "approval_required": err(f"gateway {app}: lab_reset must be approval_required")
+    if any(not e.get("allow") for e in al["entries"]): err(f"gateway {app}: every entry must be allow: true (default deny covers the rest)")
+if len(set(gw_ports.values())) != len(gw_ports): err("gateway: listener ports must differ")
+for tf in sorted((R / "traces").glob("*.json")):
+    t = load(tf)
+    for st in t["steps"]:
+        if st["dsl"] != "request": continue
+        a_, _ = (lambda m: (m, None))(next((x for x in actions.values() if x.get("App") == t["app"] and x["method"] == st["method"]
+                 and re.match("^" + re.sub(r"\{\w+\}", r"[^/]+", x["path"]) + "$", re.sub(r"\{\w+\}", "1", st["path"]))), None))
+        needs = bool(a_) and (t["app"], a_["id"]) in approval_ops
+        if needs != bool(st.get("approval")): err(f"{t['id']}:{st['id']}: approval flag {bool(st.get('approval'))} but operation requires approval = {needs}")
 
 print(f"checked {len(cases)} cases ({len(planted)} planted), {len(actions)} actions, {len(actors)} actors, "
       f"{len(objects)} objects, {len(wfs['workflows'])} workflows, {len(list((R / 'traces').glob('*.json')))} traces")

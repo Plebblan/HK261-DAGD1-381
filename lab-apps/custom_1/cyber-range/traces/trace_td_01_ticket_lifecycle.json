@@ -38,6 +38,19 @@
       "actor": "actor-amy"
     },
     {
+      "id": "amy_reads_own_profile",
+      "dsl": "request",
+      "actor": "actor-amy",
+      "method": "GET",
+      "path": "/users/me",
+      "expect_status": 200,
+      "expect": {
+        "body_eq": {
+          "username": "amy"
+        }
+      }
+    },
+    {
       "id": "amy_reads_own_ticket",
       "dsl": "request",
       "actor": "actor-amy",
@@ -241,7 +254,8 @@
       "case_id": "AUTHZ-110",
       "headers": {
         "x-lab-case-id": "AUTHZ-110"
-      }
+      },
+      "approval": true
     },
     {
       "id": "probe_f4_cross_tenant_assignee",
@@ -551,6 +565,23 @@
       "body": {
         "to": "open"
       }
+    },
+    {
+      "id": "owner_deletes_ticket",
+      "dsl": "request",
+      "actor": "actor-amy",
+      "method": "DELETE",
+      "path": "/tickets/{tid}",
+      "expect_status": 200,
+      "approval": true
+    },
+    {
+      "id": "amy_logs_out",
+      "dsl": "request",
+      "actor": "actor-amy",
+      "method": "POST",
+      "path": "/auth/logout",
+      "expect_status": 200
     }
   ]
 }

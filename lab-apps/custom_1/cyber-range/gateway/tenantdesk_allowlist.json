@@ -1,0 +1,570 @@
+{
+  "version": "1.0",
+  "purpose": "Safety allowlist for the local custom_1 tenantdesk range app.",
+  "target": {
+    "scheme": "http",
+    "host": "localhost",
+    "port": 8001,
+    "base_url": "http://localhost:8001"
+  },
+  "default_deny": true,
+  "allow_external_hosts": false,
+  "require_safety_gateway": true,
+  "require_synthetic_accounts_and_data": true,
+  "redact_headers": [
+    "authorization",
+    "cookie",
+    "set-cookie",
+    "x-lab-key"
+  ],
+  "redact_json_fields": [
+    "password",
+    "token",
+    "api_key",
+    "secret"
+  ],
+  "global_limits": {
+    "max_concurrency": 1,
+    "timeout_seconds": 10,
+    "max_requests_per_run": 60
+  },
+  "explicit_denies": [
+    {
+      "method": "*",
+      "path": "/docs*",
+      "host": "localhost:8001",
+      "reason": "Interactive docs are not test traffic."
+    },
+    {
+      "method": "*",
+      "path": "/redoc*",
+      "host": "localhost:8001",
+      "reason": "Documentation UI is not test traffic."
+    },
+    {
+      "method": "*",
+      "path": "/openapi.json",
+      "host": "localhost:8001",
+      "reason": "Contract metadata is not business traffic."
+    }
+  ],
+  "runtrace_rules": [
+    "Match the exact HTTP method and normalized path template; no prefix-only matching.",
+    "Only use the synthetic actors in model/rso_custom.yaml; resolve path IDs from the seed or a recorded create response.",
+    "Delete and reset operations require explicit approval (X-Range-Approval) and disposable data.",
+    "Never store bearer tokens or passwords; the gateway redacts them in the event log.",
+    "A request being allowlisted means it is in scope, not that its response is a vulnerability verdict."
+  ],
+  "entries": [
+    {
+      "id": "login",
+      "method": "POST",
+      "path": "/auth/login",
+      "host": "localhost:8001",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "write",
+      "auth_required": false,
+      "required_roles": [],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 60,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "logout",
+      "method": "POST",
+      "path": "/auth/logout",
+      "host": "localhost:8001",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "write",
+      "auth_required": true,
+      "required_roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 60,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "get_me",
+      "method": "GET",
+      "path": "/users/me",
+      "host": "localhost:8001",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "read",
+      "auth_required": true,
+      "required_roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 120,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "patch_me",
+      "method": "PATCH",
+      "path": "/users/me",
+      "host": "localhost:8001",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "write",
+      "auth_required": true,
+      "required_roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 60,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "list_users",
+      "method": "GET",
+      "path": "/users",
+      "host": "localhost:8001",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "read",
+      "auth_required": true,
+      "required_roles": [
+        "Agent",
+        "Admin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 120,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "create_user",
+      "method": "POST",
+      "path": "/users",
+      "host": "localhost:8001",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "write",
+      "auth_required": true,
+      "required_roles": [
+        "Admin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 60,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "get_user",
+      "method": "GET",
+      "path": "/users/{user_id}",
+      "host": "localhost:8001",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "read",
+      "auth_required": true,
+      "required_roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 120,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "delete_user",
+      "method": "DELETE",
+      "path": "/users/{user_id}",
+      "host": "localhost:8001",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "approval_required",
+      "risk_tier": "destructive",
+      "auth_required": true,
+      "required_roles": [
+        "Admin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 10,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "create_ticket",
+      "method": "POST",
+      "path": "/tickets",
+      "host": "localhost:8001",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "write",
+      "auth_required": true,
+      "required_roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 60,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "list_tickets",
+      "method": "GET",
+      "path": "/tickets",
+      "host": "localhost:8001",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "read",
+      "auth_required": true,
+      "required_roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 120,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "get_ticket",
+      "method": "GET",
+      "path": "/tickets/{ticket_id}",
+      "host": "localhost:8001",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "read",
+      "auth_required": true,
+      "required_roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 120,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "patch_ticket",
+      "method": "PATCH",
+      "path": "/tickets/{ticket_id}",
+      "host": "localhost:8001",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "write",
+      "auth_required": true,
+      "required_roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 60,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "delete_ticket",
+      "method": "DELETE",
+      "path": "/tickets/{ticket_id}",
+      "host": "localhost:8001",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "approval_required",
+      "risk_tier": "destructive",
+      "auth_required": true,
+      "required_roles": [
+        "Member",
+        "Admin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 10,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "add_comment",
+      "method": "POST",
+      "path": "/tickets/{ticket_id}/comments",
+      "host": "localhost:8001",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "write",
+      "auth_required": true,
+      "required_roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 60,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "list_comments",
+      "method": "GET",
+      "path": "/tickets/{ticket_id}/comments",
+      "host": "localhost:8001",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "read",
+      "auth_required": true,
+      "required_roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 120,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "assign_ticket",
+      "method": "POST",
+      "path": "/tickets/{ticket_id}/assign",
+      "host": "localhost:8001",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "write",
+      "auth_required": true,
+      "required_roles": [
+        "Agent",
+        "Admin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 60,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "transition_ticket",
+      "method": "POST",
+      "path": "/tickets/{ticket_id}/transition",
+      "host": "localhost:8001",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "write",
+      "auth_required": true,
+      "required_roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 60,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "create_document",
+      "method": "POST",
+      "path": "/documents",
+      "host": "localhost:8001",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "write",
+      "auth_required": true,
+      "required_roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 60,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "list_documents",
+      "method": "GET",
+      "path": "/documents",
+      "host": "localhost:8001",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "read",
+      "auth_required": true,
+      "required_roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 120,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "get_document",
+      "method": "GET",
+      "path": "/documents/{doc_id}",
+      "host": "localhost:8001",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "read",
+      "auth_required": true,
+      "required_roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 120,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "update_document",
+      "method": "PUT",
+      "path": "/documents/{doc_id}",
+      "host": "localhost:8001",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "write",
+      "auth_required": true,
+      "required_roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 60,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "delete_document",
+      "method": "DELETE",
+      "path": "/documents/{doc_id}",
+      "host": "localhost:8001",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "approval_required",
+      "risk_tier": "destructive",
+      "auth_required": true,
+      "required_roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 10,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "share_document",
+      "method": "POST",
+      "path": "/documents/{doc_id}/share",
+      "host": "localhost:8001",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "write",
+      "auth_required": true,
+      "required_roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 60,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "submit_document",
+      "method": "POST",
+      "path": "/documents/{doc_id}/submit",
+      "host": "localhost:8001",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "write",
+      "auth_required": true,
+      "required_roles": [
+        "Member",
+        "Agent",
+        "Admin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 60,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "approve_document",
+      "method": "POST",
+      "path": "/documents/{doc_id}/approve",
+      "host": "localhost:8001",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "write",
+      "auth_required": true,
+      "required_roles": [
+        "Agent",
+        "Admin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 60,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "get_audit",
+      "method": "GET",
+      "path": "/admin/audit",
+      "host": "localhost:8001",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "read",
+      "auth_required": true,
+      "required_roles": [
+        "Admin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 120,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "lab_health",
+      "method": "GET",
+      "path": "/_lab/health",
+      "host": "localhost:8001",
+      "allow": true,
+      "traffic_class": "lab_control",
+      "execution_mode": "autonomous",
+      "risk_tier": "read",
+      "auth_required": false,
+      "required_roles": [],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 60,
+      "notes": "Reports seed and enabled flaw flags for evidence."
+    },
+    {
+      "id": "lab_reset",
+      "method": "POST",
+      "path": "/_lab/reset",
+      "host": "localhost:8001",
+      "allow": true,
+      "traffic_class": "lab_control",
+      "execution_mode": "approval_required",
+      "risk_tier": "destructive",
+      "auth_required": false,
+      "required_roles": [],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 10,
+      "notes": "Resets the disposable range database. Needs X-Range-Approval and the X-Lab-Key header; never autonomous."
+    }
+  ]
+}

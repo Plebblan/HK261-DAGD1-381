@@ -1,7 +1,7 @@
 schema_version: "0.1"
 app: crapi
 taxonomy_ref: docs/Taxonomy/families.yaml
-flaw_catalog_ref: docs/Taxonomy/crAPI/flaw_catalog.yaml
+flaw_catalog_ref: lab-apps/crAPI/docs/flaw_catalog.yaml
 
 default: deny
 role-relation mapping to flaw_catalog:
