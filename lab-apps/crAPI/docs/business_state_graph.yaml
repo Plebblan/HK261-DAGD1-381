@@ -4,8 +4,8 @@ app: crapi
 status: draft
 
 taxonomy_ref: docs/Taxonomy/families.yaml
-access_policy_ref: docs/Taxonomy/crAPI/access_policy.yaml
-flaw_catalog_ref: docs/Taxonomy/crAPI/flaw_catalog.yaml
+access_policy_ref: lab-apps/crAPI/docs/access_policy.yaml
+flaw_catalog_ref: lab-apps/crAPI/docs/flaw_catalog.yaml
 
 entities:
   order:

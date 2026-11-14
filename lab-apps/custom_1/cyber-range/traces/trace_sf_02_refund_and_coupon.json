@@ -155,6 +155,15 @@
       }
     },
     {
+      "id": "order_becomes_refunded",
+      "dsl": "request",
+      "actor": "actor-cathy",
+      "method": "GET",
+      "path": "/orders/7003",
+      "expect_status": 200,
+      "expect_state": "refunded"
+    },
+    {
       "id": "probe_f4_foreign_coupon",
       "dsl": "request",
       "actor": "actor-cathy",

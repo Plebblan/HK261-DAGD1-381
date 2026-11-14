@@ -1,0 +1,14 @@
+{
+  "profile_id": "custom_1_shopflow",
+  "description": "Runtime profile of the shared Safety Gateway engine (custom/app/gateway.py) for custom_1 shopflow.",
+  "listen_host": "127.0.0.1",
+  "listen_port": 8102,
+  "upstream_base_url": "http://localhost:8002",
+  "safety_allowlist": "custom_1/cyber-range/gateway/shopflow_allowlist.json",
+  "actor_registry": "custom_1/cyber-range/model/rso_custom.yaml",
+  "event_log": "custom_1/cyber-range/logs/shopflow_gateway_events.jsonl",
+  "oracle_policy": "custom_1/cyber-range/access_policy_custom.yaml",
+  "state_graph": "custom_1/cyber-range/business_state_graph_custom.yaml",
+  "ground_truth": "custom_1/cyber-range/ground_truth/ground_truth.yaml",
+  "notes": "Paths are relative to lab-apps/. oracle_policy, state_graph and ground_truth are model references; they never authorize or block proxy forwarding."
+}

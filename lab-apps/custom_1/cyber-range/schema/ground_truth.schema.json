@@ -28,6 +28,9 @@
     "severity",
     "split",
     "evidence_required",
+    "policy_ref",
+    "invariant_id",
+    "transition_ref",
     "verification_status",
     "verified_by",
     "verified_at",
@@ -121,6 +124,18 @@
     "request_body": {
       "type": "string",
       "description": "JSON-encoded object ({} when none)."
+    },
+    "policy_ref": {
+      "type": "string",
+      "description": "Access-policy rule key (METHOD path) in access_policy_custom.yaml."
+    },
+    "invariant_id": {
+      "type": "string",
+      "description": "State-graph invariant violated (F5 and F5-secondary cases)."
+    },
+    "transition_ref": {
+      "type": "string",
+      "description": "State-graph transition involved, when one exists."
     },
     "trace_ref": {
       "type": "string",

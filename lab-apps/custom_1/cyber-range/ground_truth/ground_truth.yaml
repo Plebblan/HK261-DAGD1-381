@@ -191,7 +191,8 @@
       "verified_at": null,
       "actor_tenant_id": "tenant-acme",
       "object_tenant_id": "tenant-acme",
-      "object_id_origin": "seed: ticket-1002 listed by agent view; owner ann"
+      "object_id_origin": "seed: ticket-1002 listed by agent view; owner ann",
+      "policy_ref": "GET /tickets/{ticket_id}"
     },
     {
       "case_id": "AUTHZ-102",
@@ -235,7 +236,8 @@
       "verified_by": null,
       "verified_at": null,
       "actor_tenant_id": "tenant-acme",
-      "object_tenant_id": "tenant-globex"
+      "object_tenant_id": "tenant-globex",
+      "policy_ref": "GET /documents/{doc_id}"
     },
     {
       "case_id": "AUTHZ-103",
@@ -285,7 +287,8 @@
       "verified_at": null,
       "actor_tenant_id": "tenant-acme",
       "object_tenant_id": "tenant-acme",
-      "object_id_origin": "seeded object id"
+      "object_id_origin": "seeded object id",
+      "policy_ref": "PATCH /tickets/{ticket_id}"
     },
     {
       "case_id": "AUTHZ-104",
@@ -337,7 +340,8 @@
       "verified_at": null,
       "restricted_properties": [
         "role"
-      ]
+      ],
+      "policy_ref": "PATCH /users/me"
     },
     {
       "case_id": "AUTHZ-105",
@@ -391,7 +395,9 @@
       "verified_at": null,
       "restricted_properties": [
         "status"
-      ]
+      ],
+      "policy_ref": "PATCH /tickets/{ticket_id}",
+      "invariant_id": "TICKET-I03"
     },
     {
       "case_id": "AUTHZ-106",
@@ -444,7 +450,8 @@
       ],
       "forbidden_field_set": [
         "api_key"
-      ]
+      ],
+      "policy_ref": "GET /users/{user_id}"
     },
     {
       "case_id": "AUTHZ-107",
@@ -499,7 +506,8 @@
       "forbidden_field_set": [],
       "forbidden_row_filter": {
         "internal": true
-      }
+      },
+      "policy_ref": "GET /tickets/{ticket_id}/comments"
     },
     {
       "case_id": "AUTHZ-108",
@@ -548,7 +556,8 @@
         "role": "Agent",
         "action": "create_user",
         "allowed": false
-      }
+      },
+      "policy_ref": "POST /users"
     },
     {
       "case_id": "AUTHZ-109",
@@ -594,7 +603,8 @@
         "role": "Agent",
         "action": "get_audit",
         "allowed": false
-      }
+      },
+      "policy_ref": "GET /admin/audit"
     },
     {
       "case_id": "AUTHZ-110",
@@ -640,7 +650,8 @@
         "role": "Agent",
         "action": "delete_user",
         "allowed": false
-      }
+      },
+      "policy_ref": "DELETE /users/{user_id}"
     },
     {
       "case_id": "AUTHZ-111",
@@ -690,7 +701,8 @@
       "verified_by": null,
       "verified_at": null,
       "actor_tenant_id": "tenant-acme",
-      "object_tenant_id": "tenant-globex"
+      "object_tenant_id": "tenant-globex",
+      "policy_ref": "POST /tickets/{ticket_id}/assign"
     },
     {
       "case_id": "AUTHZ-112",
@@ -743,7 +755,9 @@
         "to": "closed",
         "actor": "adam"
       },
-      "violated_invariant": "workflow-ticket: closed is reachable only from resolved"
+      "violated_invariant": "TICKET-I02: closed is reachable only from resolved",
+      "policy_ref": "POST /tickets/{ticket_id}/transition",
+      "invariant_id": "TICKET-I02"
     },
     {
       "case_id": "AUTHZ-113",
@@ -812,7 +826,10 @@
         "to": "published",
         "actor": "adam"
       },
-      "violated_invariant": "workflow-document: approver must not be the document owner (NotOwner)"
+      "violated_invariant": "DOCUMENT-I02: the approver must not be the document owner (separation of duties)",
+      "policy_ref": "POST /documents/{doc_id}/approve",
+      "invariant_id": "DOCUMENT-I02",
+      "transition_ref": "DOCUMENT-T02"
     },
     {
       "case_id": "AUTHZ-114",
@@ -865,7 +882,9 @@
         "to": "published (content mutated)",
         "actor": "ann"
       },
-      "violated_invariant": "workflow-document: update_document requires state draft; published is immutable"
+      "violated_invariant": "DOCUMENT-I01: only drafts are editable; published is immutable",
+      "policy_ref": "PUT /documents/{doc_id}",
+      "invariant_id": "DOCUMENT-I01"
     },
     {
       "case_id": "AUTHZ-115",
@@ -911,7 +930,8 @@
       "verified_by": null,
       "verified_at": null,
       "actor_tenant_id": "tenant-acme",
-      "object_tenant_id": "tenant-globex"
+      "object_tenant_id": "tenant-globex",
+      "policy_ref": "GET /users"
     },
     {
       "case_id": "AUTHZ-116",
@@ -956,7 +976,8 @@
       "verified_at": null,
       "actor_tenant_id": "tenant-acme",
       "object_tenant_id": "tenant-acme",
-      "object_id_origin": "seeded object id"
+      "object_id_origin": "seeded object id",
+      "policy_ref": "DELETE /documents/{doc_id}"
     },
     {
       "case_id": "AUTHZ-117",
@@ -1003,7 +1024,8 @@
       "verified_by": null,
       "verified_at": null,
       "actor_tenant_id": "tenant-acme",
-      "object_tenant_id": "tenant-globex"
+      "object_tenant_id": "tenant-globex",
+      "policy_ref": "POST /documents/{doc_id}/share"
     },
     {
       "case_id": "AUTHZ-201",
@@ -1048,7 +1070,8 @@
       "verified_at": null,
       "actor_tenant_id": "tenant-acme-shop",
       "object_tenant_id": "tenant-acme-shop",
-      "object_id_origin": "seeded object id"
+      "object_id_origin": "seeded object id",
+      "policy_ref": "GET /orders/{order_id}"
     },
     {
       "case_id": "AUTHZ-202",
@@ -1092,7 +1115,8 @@
       "verified_by": null,
       "verified_at": null,
       "actor_tenant_id": "tenant-globex-shop",
-      "object_tenant_id": "tenant-acme-shop"
+      "object_tenant_id": "tenant-acme-shop",
+      "policy_ref": "GET /orders/{order_id}"
     },
     {
       "case_id": "AUTHZ-203",
@@ -1142,7 +1166,8 @@
       "verified_at": null,
       "actor_tenant_id": "tenant-acme-shop",
       "object_tenant_id": "tenant-acme-shop",
-      "object_id_origin": "seeded object id"
+      "object_id_origin": "seeded object id",
+      "policy_ref": "PATCH /orders/{order_id}"
     },
     {
       "case_id": "AUTHZ-204",
@@ -1194,7 +1219,8 @@
       "verified_at": null,
       "restricted_properties": [
         "total"
-      ]
+      ],
+      "policy_ref": "PATCH /orders/{order_id}"
     },
     {
       "case_id": "AUTHZ-205",
@@ -1250,7 +1276,8 @@
       "verified_at": null,
       "restricted_properties": [
         "items[].unit_price"
-      ]
+      ],
+      "policy_ref": "POST /orders"
     },
     {
       "case_id": "AUTHZ-206",
@@ -1298,7 +1325,9 @@
         "role": "Customer",
         "action": "ship_order",
         "allowed": false
-      }
+      },
+      "policy_ref": "POST /orders/{order_id}/ship",
+      "transition_ref": "ORDER-T02"
     },
     {
       "case_id": "AUTHZ-207",
@@ -1354,7 +1383,8 @@
         "role": "Staff",
         "action": "approve_refund",
         "allowed": false
-      }
+      },
+      "policy_ref": "POST /refunds/{refund_id}/approve"
     },
     {
       "case_id": "AUTHZ-208",
@@ -1400,7 +1430,8 @@
         "role": "Customer",
         "action": "sales_report",
         "allowed": false
-      }
+      },
+      "policy_ref": "GET /reports/sales"
     },
     {
       "case_id": "AUTHZ-209",
@@ -1451,7 +1482,10 @@
         "to": "shipped",
         "actor": "sam"
       },
-      "violated_invariant": "workflow-order: ship_order requires state paid"
+      "violated_invariant": "ORDER-I01: ship requires state paid",
+      "policy_ref": "POST /orders/{order_id}/ship",
+      "invariant_id": "ORDER-I01",
+      "transition_ref": "ORDER-T02"
     },
     {
       "case_id": "AUTHZ-210",
@@ -1511,7 +1545,9 @@
         "to": "second refund requested",
         "actor": "cathy"
       },
-      "violated_invariant": "sum(refunds pending|approved) <= order.paid_amount"
+      "violated_invariant": "REFUND-I02: sum of pending and approved refunds <= order.paid_amount",
+      "policy_ref": "POST /orders/{order_id}/refund",
+      "invariant_id": "REFUND-I02"
     },
     {
       "case_id": "AUTHZ-211",
@@ -1574,7 +1610,9 @@
         "to": "coupon redeemed again",
         "actor": "carl"
       },
-      "violated_invariant": "coupon.uses <= coupon.max_uses"
+      "violated_invariant": "COUPON-I01: coupon.uses <= coupon.max_uses",
+      "policy_ref": "POST /orders/{order_id}/apply-coupon",
+      "invariant_id": "COUPON-I01"
     },
     {
       "case_id": "AUTHZ-212",
@@ -1625,7 +1663,9 @@
         "to": "cancelled",
         "actor": "cathy"
       },
-      "violated_invariant": "workflow-order: cancel only from draft or paid"
+      "violated_invariant": "ORDER-I02: cancel only from draft or paid",
+      "policy_ref": "POST /orders/{order_id}/cancel",
+      "invariant_id": "ORDER-I02"
     },
     {
       "case_id": "AUTHZ-213",
@@ -1674,7 +1714,8 @@
       "verified_by": null,
       "verified_at": null,
       "actor_tenant_id": "tenant-acme-shop",
-      "object_tenant_id": "tenant-globex-shop"
+      "object_tenant_id": "tenant-globex-shop",
+      "policy_ref": "POST /orders/{order_id}/apply-coupon"
     },
     {
       "case_id": "AUTHZ-214",
@@ -1726,7 +1767,8 @@
       ],
       "forbidden_field_set": [
         "cost_price"
-      ]
+      ],
+      "policy_ref": "GET /products"
     },
     {
       "case_id": "BENIGN-101",
@@ -1764,7 +1806,8 @@
       "trace_ref": "trace_td_01_ticket_lifecycle",
       "verification_status": "fixture",
       "verified_by": null,
-      "verified_at": null
+      "verified_at": null,
+      "policy_ref": "GET /tickets/{ticket_id}"
     },
     {
       "case_id": "BENIGN-102",
@@ -1802,7 +1845,8 @@
       "trace_ref": "trace_td_01_ticket_lifecycle",
       "verification_status": "fixture",
       "verified_by": null,
-      "verified_at": null
+      "verified_at": null,
+      "policy_ref": "GET /admin/audit"
     },
     {
       "case_id": "BENIGN-103",
@@ -1843,7 +1887,8 @@
       "trace_ref": "trace_td_01_ticket_lifecycle",
       "verification_status": "fixture",
       "verified_by": null,
-      "verified_at": null
+      "verified_at": null,
+      "policy_ref": "PATCH /tickets/{ticket_id}"
     },
     {
       "case_id": "BENIGN-104",
@@ -1885,7 +1930,8 @@
       "list_invariant_all_rows": {
         "tenant": "acme",
         "owner_id": 3
-      }
+      },
+      "policy_ref": "GET /tickets"
     },
     {
       "case_id": "BENIGN-105",
@@ -1925,7 +1971,8 @@
       "trace_ref": "trace_td_01_ticket_lifecycle",
       "verification_status": "fixture",
       "verified_by": null,
-      "verified_at": null
+      "verified_at": null,
+      "policy_ref": "POST /tickets/{ticket_id}/transition"
     },
     {
       "case_id": "BENIGN-106",
@@ -1964,7 +2011,8 @@
       "trace_ref": "trace_td_01_ticket_lifecycle",
       "verification_status": "fixture",
       "verified_by": null,
-      "verified_at": null
+      "verified_at": null,
+      "policy_ref": "GET /tickets/{ticket_id}"
     },
     {
       "case_id": "BENIGN-201",
@@ -2002,7 +2050,8 @@
       "trace_ref": "trace_sf_01_order_fulfilment",
       "verification_status": "fixture",
       "verified_by": null,
-      "verified_at": null
+      "verified_at": null,
+      "policy_ref": "GET /orders/{order_id}"
     },
     {
       "case_id": "BENIGN-202",
@@ -2040,7 +2089,8 @@
       "trace_ref": "trace_sf_01_order_fulfilment",
       "verification_status": "fixture",
       "verified_by": null,
-      "verified_at": null
+      "verified_at": null,
+      "policy_ref": "POST /orders/{order_id}/ship"
     },
     {
       "case_id": "BENIGN-203",
@@ -2081,7 +2131,8 @@
       "trace_ref": "trace_sf_01_order_fulfilment",
       "verification_status": "fixture",
       "verified_by": null,
-      "verified_at": null
+      "verified_at": null,
+      "policy_ref": "PATCH /orders/{order_id}"
     },
     {
       "case_id": "BENIGN-204",
@@ -2123,7 +2174,8 @@
       "list_invariant_all_rows": {
         "tenant": "acme-shop",
         "customer_id": 3
-      }
+      },
+      "policy_ref": "GET /orders"
     },
     {
       "case_id": "BENIGN-205",
@@ -2161,7 +2213,8 @@
       "trace_ref": "trace_sf_01_order_fulfilment",
       "verification_status": "fixture",
       "verified_by": null,
-      "verified_at": null
+      "verified_at": null,
+      "policy_ref": "POST /orders/{order_id}/pay"
     },
     {
       "case_id": "BENIGN-206",
@@ -2200,7 +2253,8 @@
       "trace_ref": "trace_sf_01_order_fulfilment",
       "verification_status": "fixture",
       "verified_by": null,
-      "verified_at": null
+      "verified_at": null,
+      "policy_ref": "GET /orders/{order_id}"
     }
   ]
 }

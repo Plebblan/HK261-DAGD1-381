@@ -1,0 +1,487 @@
+{
+  "version": "1.0",
+  "purpose": "Safety allowlist for the local custom_1 shopflow range app.",
+  "target": {
+    "scheme": "http",
+    "host": "localhost",
+    "port": 8002,
+    "base_url": "http://localhost:8002"
+  },
+  "default_deny": true,
+  "allow_external_hosts": false,
+  "require_safety_gateway": true,
+  "require_synthetic_accounts_and_data": true,
+  "redact_headers": [
+    "authorization",
+    "cookie",
+    "set-cookie",
+    "x-lab-key"
+  ],
+  "redact_json_fields": [
+    "password",
+    "token",
+    "api_key",
+    "secret"
+  ],
+  "global_limits": {
+    "max_concurrency": 1,
+    "timeout_seconds": 10,
+    "max_requests_per_run": 60
+  },
+  "explicit_denies": [
+    {
+      "method": "*",
+      "path": "/docs*",
+      "host": "localhost:8002",
+      "reason": "Interactive docs are not test traffic."
+    },
+    {
+      "method": "*",
+      "path": "/redoc*",
+      "host": "localhost:8002",
+      "reason": "Documentation UI is not test traffic."
+    },
+    {
+      "method": "*",
+      "path": "/openapi.json",
+      "host": "localhost:8002",
+      "reason": "Contract metadata is not business traffic."
+    }
+  ],
+  "runtrace_rules": [
+    "Match the exact HTTP method and normalized path template; no prefix-only matching.",
+    "Only use the synthetic actors in model/rso_custom.yaml; resolve path IDs from the seed or a recorded create response.",
+    "Delete and reset operations require explicit approval (X-Range-Approval) and disposable data.",
+    "Never store bearer tokens or passwords; the gateway redacts them in the event log.",
+    "A request being allowlisted means it is in scope, not that its response is a vulnerability verdict."
+  ],
+  "entries": [
+    {
+      "id": "shopflow_login",
+      "method": "POST",
+      "path": "/auth/login",
+      "host": "localhost:8002",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "write",
+      "auth_required": false,
+      "required_roles": [],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 60,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "shopflow_logout",
+      "method": "POST",
+      "path": "/auth/logout",
+      "host": "localhost:8002",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "write",
+      "auth_required": true,
+      "required_roles": [
+        "Customer",
+        "Staff",
+        "MerchantAdmin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 60,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "shopflow_get_me",
+      "method": "GET",
+      "path": "/me",
+      "host": "localhost:8002",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "read",
+      "auth_required": true,
+      "required_roles": [
+        "Customer",
+        "Staff",
+        "MerchantAdmin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 120,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "list_products",
+      "method": "GET",
+      "path": "/products",
+      "host": "localhost:8002",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "read",
+      "auth_required": true,
+      "required_roles": [
+        "Customer",
+        "Staff",
+        "MerchantAdmin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 120,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "create_product",
+      "method": "POST",
+      "path": "/products",
+      "host": "localhost:8002",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "write",
+      "auth_required": true,
+      "required_roles": [
+        "Staff",
+        "MerchantAdmin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 60,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "patch_product",
+      "method": "PATCH",
+      "path": "/products/{product_id}",
+      "host": "localhost:8002",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "write",
+      "auth_required": true,
+      "required_roles": [
+        "MerchantAdmin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 60,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "create_order",
+      "method": "POST",
+      "path": "/orders",
+      "host": "localhost:8002",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "write",
+      "auth_required": true,
+      "required_roles": [
+        "Customer"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 60,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "list_orders",
+      "method": "GET",
+      "path": "/orders",
+      "host": "localhost:8002",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "read",
+      "auth_required": true,
+      "required_roles": [
+        "Customer",
+        "Staff",
+        "MerchantAdmin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 120,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "get_order",
+      "method": "GET",
+      "path": "/orders/{order_id}",
+      "host": "localhost:8002",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "read",
+      "auth_required": true,
+      "required_roles": [
+        "Customer",
+        "Staff",
+        "MerchantAdmin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 120,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "patch_order",
+      "method": "PATCH",
+      "path": "/orders/{order_id}",
+      "host": "localhost:8002",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "write",
+      "auth_required": true,
+      "required_roles": [
+        "Customer",
+        "Staff",
+        "MerchantAdmin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 60,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "apply_coupon",
+      "method": "POST",
+      "path": "/orders/{order_id}/apply-coupon",
+      "host": "localhost:8002",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "write",
+      "auth_required": true,
+      "required_roles": [
+        "Customer",
+        "Staff",
+        "MerchantAdmin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 60,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "pay_order",
+      "method": "POST",
+      "path": "/orders/{order_id}/pay",
+      "host": "localhost:8002",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "write",
+      "auth_required": true,
+      "required_roles": [
+        "Customer"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 60,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "ship_order",
+      "method": "POST",
+      "path": "/orders/{order_id}/ship",
+      "host": "localhost:8002",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "write",
+      "auth_required": true,
+      "required_roles": [
+        "Staff",
+        "MerchantAdmin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 60,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "deliver_order",
+      "method": "POST",
+      "path": "/orders/{order_id}/deliver",
+      "host": "localhost:8002",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "write",
+      "auth_required": true,
+      "required_roles": [
+        "Staff",
+        "MerchantAdmin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 60,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "cancel_order",
+      "method": "POST",
+      "path": "/orders/{order_id}/cancel",
+      "host": "localhost:8002",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "write",
+      "auth_required": true,
+      "required_roles": [
+        "Customer",
+        "Staff",
+        "MerchantAdmin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 60,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "get_invoice",
+      "method": "GET",
+      "path": "/orders/{order_id}/invoice",
+      "host": "localhost:8002",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "read",
+      "auth_required": true,
+      "required_roles": [
+        "Customer",
+        "Staff",
+        "MerchantAdmin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 120,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "request_refund",
+      "method": "POST",
+      "path": "/orders/{order_id}/refund",
+      "host": "localhost:8002",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "write",
+      "auth_required": true,
+      "required_roles": [
+        "Customer",
+        "Staff",
+        "MerchantAdmin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 60,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "get_refund",
+      "method": "GET",
+      "path": "/refunds/{refund_id}",
+      "host": "localhost:8002",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "read",
+      "auth_required": true,
+      "required_roles": [
+        "Customer",
+        "Staff",
+        "MerchantAdmin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 120,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "approve_refund",
+      "method": "POST",
+      "path": "/refunds/{refund_id}/approve",
+      "host": "localhost:8002",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "write",
+      "auth_required": true,
+      "required_roles": [
+        "MerchantAdmin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 60,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "list_coupons",
+      "method": "GET",
+      "path": "/coupons",
+      "host": "localhost:8002",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "read",
+      "auth_required": true,
+      "required_roles": [
+        "MerchantAdmin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 120,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "create_coupon",
+      "method": "POST",
+      "path": "/coupons",
+      "host": "localhost:8002",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "write",
+      "auth_required": true,
+      "required_roles": [
+        "MerchantAdmin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 60,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "sales_report",
+      "method": "GET",
+      "path": "/reports/sales",
+      "host": "localhost:8002",
+      "allow": true,
+      "traffic_class": "positive_baseline",
+      "execution_mode": "autonomous",
+      "risk_tier": "read",
+      "auth_required": true,
+      "required_roles": [
+        "MerchantAdmin"
+      ],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 120,
+      "notes": "In scope for traces and planner use. Allowlisted means in scope, not a vulnerability verdict."
+    },
+    {
+      "id": "lab_health",
+      "method": "GET",
+      "path": "/_lab/health",
+      "host": "localhost:8002",
+      "allow": true,
+      "traffic_class": "lab_control",
+      "execution_mode": "autonomous",
+      "risk_tier": "read",
+      "auth_required": false,
+      "required_roles": [],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 60,
+      "notes": "Reports seed and enabled flaw flags for evidence."
+    },
+    {
+      "id": "lab_reset",
+      "method": "POST",
+      "path": "/_lab/reset",
+      "host": "localhost:8002",
+      "allow": true,
+      "traffic_class": "lab_control",
+      "execution_mode": "approval_required",
+      "risk_tier": "destructive",
+      "auth_required": false,
+      "required_roles": [],
+      "synthetic_data_only": true,
+      "rate_limit_per_minute": 10,
+      "notes": "Resets the disposable range database. Needs X-Range-Approval and the X-Lab-Key header; never autonomous."
+    }
+  ]
+}
