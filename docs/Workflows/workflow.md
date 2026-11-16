@@ -50,6 +50,7 @@ seed_objects: []  # optional, declared only
 ```
 
 Open question Q1: where does actor identity come from: inventory, one HAR per actor, or both?
+-> Inventory, input HAR is not expected to fully cover the identities, but rather from inventories including sessions, and their related attribute (this should be trusted).
 
 #### P1 (PENDING supervisor decision): state-restoration feature
 
