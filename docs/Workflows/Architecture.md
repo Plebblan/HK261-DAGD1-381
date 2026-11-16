@@ -126,7 +126,8 @@ CREATE TABLE runs (
   run_id TEXT PRIMARY KEY, mode TEXT, started_at TEXT,
   model_version TEXT, allowlist_hash TEXT, config_hash TEXT,
   seed_id TEXT, undocumented_policy TEXT,
-  isolation_mode TEXT                 -- restoration | fresh_objects | read_only
+  isolation_mode TEXT,                -- restoration | fresh_objects | read_only
+  queue_stats TEXT                    -- JSON, written once at run end (see 6.2)
 );
 
 CREATE TABLE actor_sessions (
@@ -145,19 +146,25 @@ CREATE TABLE events (
   method TEXT, host TEXT, path TEXT, query TEXT,
   gateway_verdict TEXT,               -- forwarded | blocked | dry_run | tunneled | imported
   gateway_reason TEXT, rule_id TEXT,
-  status INTEGER,                     -- null when not forwarded
   valid_request INTEGER,
-  request_redacted TEXT, response_redacted TEXT,   -- JSON, size-capped
+  request_redacted TEXT,               -- JSON, size-capped
   raw_body_hash TEXT,                 -- hash of unredacted request body
   request_fingerprint TEXT,           -- canonical method/path/query/header/body
-  response_hash TEXT,
-  normalized_hash TEXT, normalization_version TEXT,
-  before_state_hash TEXT, after_state_hash TEXT,
+  normalization_version TEXT,
   case_id TEXT, tag TEXT, undocumented INTEGER DEFAULT 0
 );
 CREATE INDEX ev_run ON events(run_id, step_idx);
 CREATE INDEX ev_actor_op ON events(actor, operation_id);
 CREATE INDEX ev_verdict ON events(gateway_verdict);
+
+-- response side, written after the target answers (see 6.2); the adapter merges it back into Event
+CREATE TABLE event_responses (
+  event_id TEXT PRIMARY KEY REFERENCES events(event_id),
+  status INTEGER, elapsed_ms REAL,
+  response_redacted TEXT,             -- JSON, size-capped
+  response_hash TEXT, normalized_hash TEXT,
+  before_state_hash TEXT, after_state_hash TEXT
+);
 
 CREATE TABLE model_versions (version TEXT PRIMARY KEY, created_at TEXT,
   reason TEXT, payload TEXT);             -- immutable, frozen models
@@ -188,11 +195,58 @@ Rules:
 1. Callers assign `event_id`; `append_event` is idempotent on it (`INSERT OR IGNORE`).
 2. Events and model versions are append-only; `put_model` raises if the version exists.
 3. The store receives only redacted events. The raw-body hash is computed before redaction, and that order is enforced at the proxy boundary, not in the adapter.
-4. WAL mode and a busy timeout are on. Writes go through a queue and a single writer thread, off the proxy's request path.
+4. WAL mode and a busy timeout are on. Writes go through `StoreWriter` (6.2): one writer thread, group commit, callers released after commit.
 5. Timestamps are ISO UTC strings; body fields are size-capped; no ORM; parameterized SQL only.
 6. Events come back in insertion order within a run.
 
 Tests use a temp file or `:memory:` database and cover idempotent append, atomic batches, ordering, filters, immutable models, and a concurrent write/read check. The same file serves as the acceptance test if the backend changes.
+
+### 6.2 StoreWriter (durable write path)
+
+`StoreWriter` wraps `Store` for the proxy and gateway. It is the only writer, and it gives callers a durability guarantee instead of a fire-and-forget queue. Kafka and a journal file were considered and not adopted (DR12).
+
+**Rule: nothing a caller has seen may exist without a durable record.** The wait for a commit is unavoidable; group commit keeps it to milliseconds.
+
+```python
+class StoreWriter:
+    async def write_event(self, event) -> None        # returns after the batch containing it has committed
+    async def write_response(self, response) -> None  # same, for the response side
+    async def write_control(self, cmd) -> Any         # create_run, put_model, upsert_finding
+    def flush(self, timeout) -> None                  # everything enqueued so far is committed
+    def health(self) -> WriterHealth                  # depth, uncommitted bytes, pressure 0..1, state, last_error
+    def close(self, timeout) -> None                  # drain, then stop
+```
+
+**Commit points (write-ahead).** Each forwarded request has two writes:
+1. **Before forwarding:** the request-side event (request, verdict, hashes) is committed. If it cannot be committed within `audit_timeout_ms`, the request is **not forwarded** and the caller gets a gateway block with reason `audit_unavailable`. Failing closed follows from this rule and needs no separate mechanism.
+2. **After the response:** the response side (`event_responses`) is committed before the caller receives the response.
+
+A process crash between the two leaves an event without a response row. The adapter reports it as `incomplete`; the oracle excludes incomplete events and the run summary counts them. Without step 1, a crash could lose the record of a request that was already sent.
+
+**Batching.** One writer thread drains up to `batch_max_events` or `batch_max_ms`, commits them in one transaction, then resolves each caller's future. Writes are serialized by SQLite, so a second writer thread would only cause lock contention; throughput comes from batching. Writes are idempotent on `event_id`, so a retry after a transient error is safe.
+
+**Backpressure.** Pressure is the larger of uncommitted events over `queue_max_events` and uncommitted bytes over `queue_max_bytes`. The gateway's rate limiter reads it:
+
+| Pressure | Action |
+|---|---|
+| below `throttle_threshold` (0.5) | normal |
+| 0.5 to `pause_threshold` (0.9) | throttle: scale the rate budget down with pressure |
+| above 0.9 | pause forwarding new requests, bounded wait |
+| writer unhealthy, or commit wait over `audit_timeout_ms` | fail closed: stop forwarding, mark the run `degraded` |
+
+Nothing is dropped. `dropped` stays 0 by construction.
+
+**Durability level.** The target is process-crash safety: WAL with `synchronous=NORMAL`. The setting is a config key; use `FULL` if power-loss safety is required later.
+
+**Async proxy.** mitmproxy's addon runs on an asyncio loop. The addon awaits the write futures and never calls a blocking queue operation. The writer thread resolves futures with `loop.call_soon_threadsafe`.
+
+**Reads.** Reads do not use the writer. Each reader has its own read-only connection (small pool) with a query timeout. Because the oracle reads events the proxy has just written, the pipeline calls `flush()` before evaluating a probe's results.
+
+**Shutdown and kill switch.** Stop forwarding first, then drain with a timeout, then close. A kill switch that skips the drain loses the last events.
+
+**Run summary.** `runs.queue_stats` records high-water mark (events and bytes), seconds throttled, seconds paused, write failures, incomplete events, and dropped (must be 0). Throttling changes timing, so the time metrics need these fields to be interpretable.
+
+**Tests:** writer crash simulation (kill the process mid-batch and check that every acknowledged event is present), forced queue-full (throttle, then pause, then fail closed), `flush()` read-after-write, idempotent retry, and a concurrent producer load test.
 
 ---
 
@@ -221,6 +275,15 @@ dry_run: false
 logging:
   level: INFO                       # DEBUG adds detail but is still redacted
   max_bytes_per_file: 10485760      # size-based rotation within a run
+store:
+  synchronous: NORMAL               # NORMAL = process-crash safe; FULL = also power-loss safe
+  batch_max_events: 50
+  batch_max_ms: 5
+  queue_max_events: 10000
+  queue_max_bytes: 67108864
+  throttle_threshold: 0.5
+  pause_threshold: 0.9
+  audit_timeout_ms: 2000
 ```
 
 `allowlist.generated.json` is generated by the tool, versioned, hashed, never hand-edited, and stored per run under `runs/<target>/<run_id>/` (not in `config/`). The exact config used is also copied there as `config.snapshot.yaml`. Spec-derived entries and config `extra_methods` are kept visibly separate in the file.
@@ -248,6 +311,8 @@ logging:
 **DR9: Imported HAR is ingestion, not traffic.** Imported entries are stored with their own origin and verdict, redacted, and excluded from oracle verdicts and forwarding/safety KPIs. They still feed coverage and inference.
 
 **DR10: Approvals are pre-configured.** No interactive hold in the first iteration; a request matching a pre-approved pattern is forwarded, anything else is blocked. The approved set is part of the config hash recorded with each run. Cost of reversing: low (an interactive queue can be added over the same engine).
+
+**DR12: Durable group-commit writer; no Kafka, no journal (for now).** Callers are released only after their batch commits, with a write-ahead request record before forwarding. This meets the no-loss requirement for process crashes with no extra component. Kafka was rejected because its durable acknowledgement costs the same wait as a local commit, it adds a broker to deploy and ship, and the load does not need it. A journal file is the next step only if benchmarks show SQLite stalls. Both can replace the writer behind the `StoreWriter` interface later.
 
 ---
 
