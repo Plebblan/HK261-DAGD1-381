@@ -50,8 +50,13 @@ CREATE TABLE IF NOT EXISTS event_responses (
     event_id TEXT PRIMARY KEY REFERENCES events(event_id),
     ts TEXT NOT NULL,
     status INTEGER,
+    elapsed_ms REAL,
     response_redacted TEXT,
     response_hash TEXT,
+    normalized_hash TEXT,
+    normalization_version TEXT,
+    before_state_hash TEXT,
+    after_state_hash TEXT,
     metadata TEXT NOT NULL DEFAULT '{}'
 );
 

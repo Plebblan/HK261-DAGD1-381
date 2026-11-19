@@ -8,15 +8,18 @@ import queue
 import sqlite3
 import threading
 import uuid
+from contextlib import closing, contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Iterator, Mapping
+from urllib.parse import quote
 
-from src.common.logging import configure_component_logging, log_context
+from src.common.logging import log_context
+from src.common.redaction import redact_payload
 
 logger = logging.getLogger(__name__)
 
-_SCHEMA_VERSION = 2
+_SCHEMA_VERSION = 3
 _MAX_JSON_BYTES = 1_000_000
 _EVENT_COLUMNS = (
     "event_id run_id workflow_id sequence_id step_idx ts origin actor operation_id "
@@ -25,16 +28,22 @@ _EVENT_COLUMNS = (
     "normalized_hash normalization_version before_state_hash after_state_hash case_id tag "
     "undocumented source_file metadata"
 ).split()
+_RESPONSE_FIELDS = {
+    "event_id", "ts", "status", "elapsed_ms", "response_redacted", "response_hash",
+    "normalized_hash", "normalization_version", "before_state_hash", "after_state_hash", "metadata",
+}
 
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
-def _json(value: Any) -> str:
+def _json(value: Any, *, truncate: bool = False) -> str:
     encoded = json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True, default=str)
     raw = encoded.encode("utf-8")
     if len(raw) > _MAX_JSON_BYTES:
+        if not truncate:
+            raise ValueError(f"serialized value exceeds {_MAX_JSON_BYTES} bytes")
         encoded = json.dumps({"_truncated": True, "original_bytes": len(raw), "preview": raw[:_MAX_JSON_BYTES // 2].decode("utf-8", "ignore")}, ensure_ascii=False, separators=(",", ":"))
     return encoded
 
@@ -46,13 +55,21 @@ class Store:
         self,
         path: str | Path,
         *,
-        logging_config: Mapping[str, Any] | None = None,
-        log_dir: str | Path | None = None,
+        synchronous: str = "NORMAL",
+        read_pool_size: int = 4,
     ):
+        if synchronous.upper() not in {"OFF", "NORMAL", "FULL", "EXTRA"}:
+            raise ValueError("synchronous must be OFF, NORMAL, FULL, or EXTRA")
+        if read_pool_size < 1:
+            raise ValueError("read_pool_size must be positive")
         self.path = str(path)
         self._uri = self.path == ":memory:"
-        self._logging_config = logging_config
-        self._log_dir = Path(log_dir) if log_dir is not None else self._infer_log_dir(path)
+        self._synchronous = synchronous.upper()
+        self._readers: queue.LifoQueue[sqlite3.Connection] = queue.LifoQueue(read_pool_size)
+        self._reader_count = 0
+        self._reader_lock = threading.Condition()
+        self._reader_leases = 0
+        self._read_pool_size = read_pool_size
         if self._uri:
             self.path = f"file:store-{uuid.uuid4().hex}?mode=memory&cache=shared"
         else:
@@ -68,30 +85,73 @@ class Store:
             self._writer.join()
             raise RuntimeError("store structure initialization failed") from self._startup_error
 
-    @staticmethod
-    def _infer_log_dir(path: str | Path) -> Path | None:
-        database_path = Path(path)
-        if database_path.name == "store.db" and database_path.parent.parent.name == "runs":
-            return database_path.parent / "logs"
-        return None
-
-    def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.path, timeout=5.0, check_same_thread=False, uri=self._uri)
+    def _connect(self, *, read_only: bool = False) -> sqlite3.Connection:
+        database = self.path
+        uri = self._uri
+        if read_only and not self._uri:
+            database = f"file:{quote(str(Path(self.path).resolve()))}?mode=ro"
+            uri = True
+        conn = sqlite3.connect(database, timeout=5.0, check_same_thread=False, uri=uri)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA busy_timeout=5000")
         conn.execute("PRAGMA foreign_keys=ON")
+        if read_only:
+            conn.execute("PRAGMA query_only=ON")
         return conn
+
+    @contextmanager
+    def _read_connection(self) -> Iterator[sqlite3.Connection]:
+        with self._reader_lock:
+            while True:
+                if self._closed:
+                    raise RuntimeError("Store is closed")
+                try:
+                    conn = self._readers.get_nowait()
+                    break
+                except queue.Empty:
+                    if self._reader_count < self._read_pool_size:
+                        self._reader_count += 1
+                        try:
+                            conn = self._connect(read_only=True)
+                        except BaseException:
+                            self._reader_count -= 1
+                            self._reader_lock.notify()
+                            raise
+                        break
+                    self._reader_lock.wait()
+            self._reader_leases += 1
+        try:
+            yield conn
+        finally:
+            with self._reader_lock:
+                self._reader_leases -= 1
+                if self._closed:
+                    conn.close()
+                    self._reader_count -= 1
+                else:
+                    self._readers.put(conn)
+                self._reader_lock.notify_all()
 
     def _writer_main(self) -> None:
         try:
             conn = self._connect()
             conn.execute("PRAGMA journal_mode=WAL")
-            conn.execute("PRAGMA synchronous=NORMAL")
+            conn.execute(f"PRAGMA synchronous={self._synchronous}")
             schema = Path(__file__).with_name("schema.sql").read_text(encoding="utf-8")
             conn.executescript(schema)
             run_columns = {row["name"] for row in conn.execute("PRAGMA table_info(runs)")}
             if "queue_stats" not in run_columns:
                 conn.execute("ALTER TABLE runs ADD COLUMN queue_stats TEXT")
+            response_columns = {row["name"] for row in conn.execute("PRAGMA table_info(event_responses)")}
+            for column, sql_type in (
+                ("elapsed_ms", "REAL"),
+                ("normalized_hash", "TEXT"),
+                ("normalization_version", "TEXT"),
+                ("before_state_hash", "TEXT"),
+                ("after_state_hash", "TEXT"),
+            ):
+                if column not in response_columns:
+                    conn.execute(f"ALTER TABLE event_responses ADD COLUMN {column} {sql_type}")
             latest_version = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()[0]
             if latest_version is None or latest_version < _SCHEMA_VERSION:
                 conn.execute("INSERT INTO schema_version(version, applied_at) VALUES (?, ?)", (_SCHEMA_VERSION, _utc_now()))
@@ -176,16 +236,10 @@ class Store:
         return result
 
     def create_run(self, *, run_id: str, target: str | None = None, **kwargs: Any) -> None:
-        if self._log_dir is not None:
-            configure_component_logging(
-                self._log_dir,
-                component="store",
-                run_id=run_id,
-                config=self._logging_config,
-                reset=True,
-                logger_name=logger.name,
-            )
         allowed = {"mode", "started_at", "model_version", "allowlist_hash", "config_hash", "seed_id", "undocumented_policy", "isolation_mode", "status", "metadata"}
+        unknown = set(kwargs) - allowed
+        if unknown:
+            raise TypeError(f"unknown run fields: {', '.join(sorted(unknown))}")
         fields = {key: value for key, value in kwargs.items() if key in allowed}
         fields["run_id"] = run_id
         fields["target"] = target
@@ -205,67 +259,89 @@ class Store:
             run_id=run_id,
         )
 
-    def append_event(self, *, event_id: str, run_id: str, ts: str | None = None, **kwargs: Any) -> None:
-        event = {key: kwargs.pop(key, None) for key in _EVENT_COLUMNS if key not in {"event_id", "run_id", "ts"}}
-        event.update(event_id=event_id, run_id=run_id, ts=ts or kwargs.pop("ts", None) or _utc_now())
-        extra = {**(event.get("metadata") or {}), **kwargs}
-        event["metadata"] = extra
+    @staticmethod
+    def _prepare_event(item: Mapping[str, Any]) -> dict[str, Any]:
+        unknown = set(item) - set(_EVENT_COLUMNS)
+        if unknown:
+            raise TypeError(f"unknown event fields: {', '.join(sorted(unknown))}")
+        if not item.get("event_id") or not item.get("run_id"):
+            raise ValueError("event_id and run_id are required")
+        event = {column: item.get(column) for column in _EVENT_COLUMNS}
+        event["ts"] = event["ts"] or _utc_now()
         event["undocumented"] = int(bool(event["undocumented"]))
         event["valid_request"] = None if event["valid_request"] is None else int(bool(event["valid_request"]))
         for key in ("request_redacted", "response_redacted"):
-            event[key] = _json(event[key]) if event[key] is not None else None
-        event["metadata"] = _json(event["metadata"])
-        sql = f"INSERT INTO events ({', '.join(_EVENT_COLUMNS)}) VALUES ({', '.join('?' for _ in _EVENT_COLUMNS)})"
-        self._write(
-            lambda conn: conn.execute(sql, [event[key] for key in _EVENT_COLUMNS]),
-            run_id=run_id,
-            event_id=event_id,
-            operation_id=event["operation_id"],
-        )
+            if event[key] is not None:
+                event[key] = _json(redact_payload(event[key]), truncate=True)
+        event["metadata"] = _json(redact_payload(event["metadata"] or {}))
+        return event
 
-    def append_events(self, events: list[dict[str, Any]]) -> None:
-        prepared = []
-        for item in events:
-            event = dict(item)
-            event_id, run_id = event.pop("event_id"), event.pop("run_id")
-            ts = event.pop("ts", None)
-            prepared.append((event_id, run_id, ts, event))
-        def write(conn: sqlite3.Connection) -> None:
-            for event_id, run_id, ts, event in prepared:
-                self._insert_event(conn, event_id, run_id, ts, event)
+    def append_event(self, *, event_id: str, run_id: str, **kwargs: Any) -> None:
+        self.append_events([{"event_id": event_id, "run_id": run_id, **kwargs}])
+
+    def append_events(self, events: list[Mapping[str, Any]]) -> int:
+        prepared = [self._prepare_event(item) for item in events]
+
+        def write(conn: sqlite3.Connection) -> int:
+            inserted = 0
+            for event in prepared:
+                cursor = conn.execute(
+                    f"INSERT INTO events ({', '.join(_EVENT_COLUMNS)}) VALUES ({', '.join('?' for _ in _EVENT_COLUMNS)}) ON CONFLICT(event_id) DO NOTHING",
+                    [event[key] for key in _EVENT_COLUMNS],
+                )
+                inserted += cursor.rowcount
+            return inserted
+
         context: dict[str, str | None] = {}
         if prepared:
-            run_ids = {item[1] for item in prepared}
+            run_ids = {item["run_id"] for item in prepared}
             if len(run_ids) == 1:
-                context["run_id"] = prepared[0][1]
+                context["run_id"] = prepared[0]["run_id"]
             if len(prepared) == 1:
-                context["event_id"] = prepared[0][0]
-                context["operation_id"] = prepared[0][3].get("operation_id")
-        self._write(write, **context)
+                context["event_id"] = prepared[0]["event_id"]
+                context["operation_id"] = prepared[0]["operation_id"]
+        return self._write(write, **context)
 
-    def append_responses(self, responses: list[dict[str, Any]]) -> None:
+    def append_responses(self, responses: list[dict[str, Any]]) -> int:
         """Atomically commit response-side records for previously stored events."""
         prepared = []
         for response in responses:
+            unknown = set(response) - _RESPONSE_FIELDS
+            if unknown:
+                raise TypeError(f"unknown response fields: {', '.join(sorted(unknown))}")
+            if not response.get("event_id"):
+                raise ValueError("event_id is required for a response")
             row = dict(response)
-            event_id = row.pop("event_id")
-            ts = row.pop("ts", None) or _utc_now()
-            raw_body = row.pop("response_redacted", None)
-            response_body = _json(raw_body) if raw_body is not None else None
-            metadata = _json(row.pop("metadata", {}))
-            prepared.append((event_id, ts, row.pop("status", None), response_body, row.pop("response_hash", None), metadata))
+            body = row.get("response_redacted")
+            metadata = redact_payload(row.get("metadata") or {})
+            prepared.append({
+                "event_id": row["event_id"],
+                "ts": row.get("ts") or _utc_now(),
+                "status": row.get("status"),
+                "elapsed_ms": row.get("elapsed_ms"),
+                "response_redacted": _json(redact_payload(body), truncate=True) if body is not None else None,
+                "response_hash": row.get("response_hash"),
+                "normalized_hash": row.get("normalized_hash"),
+                "normalization_version": row.get("normalization_version"),
+                "before_state_hash": row.get("before_state_hash"),
+                "after_state_hash": row.get("after_state_hash"),
+                "metadata": _json(metadata),
+            })
 
-        def write(conn: sqlite3.Connection) -> None:
-            for values in prepared:
-                conn.execute(
-                    "INSERT INTO event_responses(event_id, ts, status, response_redacted, response_hash, metadata) VALUES (?, ?, ?, ?, ?, ?)",
-                    values,
+        def write(conn: sqlite3.Connection) -> int:
+            inserted = 0
+            for row in prepared:
+                cursor = conn.execute(
+                    "INSERT INTO event_responses(event_id, ts, status, elapsed_ms, response_redacted, response_hash, normalized_hash, normalization_version, before_state_hash, after_state_hash, metadata) VALUES (:event_id, :ts, :status, :elapsed_ms, :response_redacted, :response_hash, :normalized_hash, :normalization_version, :before_state_hash, :after_state_hash, :metadata) ON CONFLICT(event_id) DO NOTHING",
+                    row,
                 )
+                inserted += cursor.rowcount
+            return inserted
 
         context: dict[str, str | None] = {}
         if len(prepared) == 1:
-            context["event_id"] = prepared[0][0]
-        self._write(write, **context)
+            context["event_id"] = prepared[0]["event_id"]
+        return self._write(write, **context)
 
     def update_queue_stats(self, *, run_id: str, stats: Mapping[str, Any]) -> None:
         """Persist final writer counters once the run has stopped accepting writes."""
@@ -281,54 +357,51 @@ class Store:
             run_id=run_id,
         )
 
-    @staticmethod
-    def _insert_event(conn: sqlite3.Connection, event_id: str, run_id: str, ts: str | None, values: dict[str, Any]) -> None:
-        event = {key: values.get(key) for key in _EVENT_COLUMNS if key not in {"event_id", "run_id", "ts"}}
-        event.update(event_id=event_id, run_id=run_id, ts=ts or _utc_now())
-        event["undocumented"] = int(bool(event["undocumented"]))
-        event["valid_request"] = None if event["valid_request"] is None else int(bool(event["valid_request"]))
-        for key in ("request_redacted", "response_redacted"):
-            event[key] = _json(event[key]) if event[key] is not None else None
-        event["metadata"] = _json(event["metadata"] if event["metadata"] is not None else {})
-        conn.execute(f"INSERT INTO events ({', '.join(_EVENT_COLUMNS)}) VALUES ({', '.join('?' for _ in _EVENT_COLUMNS)})", [event[key] for key in _EVENT_COLUMNS])
-
-    def get_events(self, *, run_id: str, actor: str | None = None, operation_id: str | None = None, verdict: str | None = None, limit: int | None = None) -> list[dict[str, Any]]:
+    def get_events(self, *, run_id: str, actor: str | None = None, operation_id: str | None = None, verdict: str | None = None, limit: int | None = None) -> Iterator[dict[str, Any]]:
+        """Yield a run's events in insertion order using a pooled read-only connection."""
         clauses, params = ["run_id = ?"], [run_id]
         for column, value in (("actor", actor), ("operation_id", operation_id), ("gateway_verdict", verdict)):
             if value is not None:
                 clauses.append(f"{column} = ?")
                 params.append(value)
-        sql = f"SELECT events.*, event_responses.ts AS response_ts, event_responses.status AS response_status, event_responses.response_redacted AS committed_response, event_responses.response_hash AS committed_response_hash, event_responses.metadata AS response_metadata FROM events LEFT JOIN event_responses USING(event_id) WHERE {' AND '.join('events.' + clause.replace(' = ?', ' = ?') for clause in clauses)} ORDER BY events.rowid"
+        sql = f"SELECT events.*, event_responses.ts AS response_ts, event_responses.status AS response_status, event_responses.elapsed_ms AS response_elapsed_ms, event_responses.response_redacted AS committed_response, event_responses.response_hash AS committed_response_hash, event_responses.normalized_hash AS response_normalized_hash, event_responses.normalization_version AS response_normalization_version, event_responses.before_state_hash AS response_before_state_hash, event_responses.after_state_hash AS response_after_state_hash, event_responses.metadata AS response_metadata FROM events LEFT JOIN event_responses USING(event_id) WHERE {' AND '.join('events.' + clause for clause in clauses)} ORDER BY events.rowid"
         if limit is not None:
             if limit < 0:
                 raise ValueError("limit must be non-negative")
             sql += " LIMIT ?"
             params.append(limit)
-        with self._connect() as conn:
-            results = []
-            for row in conn.execute(sql, params):
-                item = self._record(row, ("request_redacted", "response_redacted", "metadata", "committed_response", "response_metadata"))
-                if item.get("response_ts") is not None:
-                    item["response_redacted"] = item.pop("committed_response")
-                    item["status"] = item.pop("response_status")
-                    item["response_hash"] = item.pop("committed_response_hash")
-                    item["response_metadata"] = item.pop("response_metadata")
-                    item["incomplete"] = False
-                else:
-                    item["incomplete"] = item.get("response_redacted") is None
-                    item.pop("committed_response", None)
-                    item.pop("committed_response_hash", None)
-                    item.pop("response_metadata", None)
-                    item.pop("response_status", None)
-                results.append(item)
-            return results
+        with self._read_connection() as conn:
+            with closing(conn.execute(sql, params)) as cursor:
+                for row in cursor:
+                    item = self._record(row, ("request_redacted", "response_redacted", "metadata", "committed_response", "response_metadata"))
+                    if item.get("response_ts") is not None:
+                        item["response_redacted"] = item.pop("committed_response")
+                        item["status"] = item.pop("response_status")
+                        item["elapsed_ms"] = item.pop("response_elapsed_ms")
+                        item["response_hash"] = item.pop("committed_response_hash")
+                        for key in ("normalized_hash", "normalization_version", "before_state_hash", "after_state_hash"):
+                            response_key = f"response_{key}"
+                            if item.get(response_key) is not None:
+                                item[key] = item[response_key]
+                            item.pop(response_key, None)
+                        item["response_metadata"] = item.pop("response_metadata")
+                        item["incomplete"] = False
+                    else:
+                        item["incomplete"] = (
+                            item.get("gateway_verdict") == "forwarded"
+                            and item.get("response_redacted") is None
+                        )
+                        for key in ("committed_response", "response_status", "response_elapsed_ms", "committed_response_hash", "response_normalized_hash", "response_normalization_version", "response_before_state_hash", "response_after_state_hash", "response_metadata"):
+                            item.pop(key, None)
+                    yield item
 
     def count_incomplete_events(self, *, run_id: str) -> int:
-        with self._connect() as conn:
-            return conn.execute(
-                "SELECT COUNT(*) FROM events LEFT JOIN event_responses USING(event_id) WHERE events.run_id = ? AND event_responses.event_id IS NULL AND events.response_redacted IS NULL",
+        with self._read_connection() as conn:
+            with closing(conn.execute(
+                "SELECT COUNT(*) FROM events LEFT JOIN event_responses USING(event_id) WHERE events.run_id = ? AND events.gateway_verdict = 'forwarded' AND event_responses.event_id IS NULL AND events.response_redacted IS NULL",
                 (run_id,),
-            ).fetchone()[0]
+            )) as cursor:
+                return cursor.fetchone()[0]
 
     def put_model(self, *, version: str, payload: Any, reason: str | None = None, model_name: str | None = None) -> None:
         if model_name:
@@ -344,18 +417,31 @@ class Store:
         if version is None:
             raise ValueError("version is required")
         key = f"{model_name}:{version}" if model_name else version
-        with self._connect() as conn:
-            row = conn.execute("SELECT payload FROM model_versions WHERE version = ?", (key,)).fetchone()
+        with self._read_connection() as conn:
+            with closing(conn.execute("SELECT payload FROM model_versions WHERE version = ?", (key,))) as cursor:
+                row = cursor.fetchone()
         return json.loads(row["payload"]) if row else None
 
     def upsert_finding(self, *, finding_id: str, run_id: str, **kwargs: Any) -> None:
         columns = ("family", "verdict", "evidence", "reason_code", "review_state", "reviewer_note", "title", "summary", "severity", "metadata")
+        unknown = set(kwargs) - set(columns)
+        if unknown:
+            raise TypeError(f"unknown finding fields: {', '.join(sorted(unknown))}")
         values = {key: kwargs.get(key) for key in columns}
         for key in ("evidence", "metadata"):
-            values[key] = _json(values[key] if values[key] is not None else ({} if key == "metadata" else None))
+            value = values[key]
+            if key == "metadata" and value is None:
+                value = {}
+            values[key] = _json(redact_payload(value)) if value is not None else None
         values.update(finding_id=finding_id, run_id=run_id, created_at=_utc_now())
         names = ["finding_id", "run_id", *columns, "created_at"]
-        updates = ", ".join(f"{key}=excluded.{key}" for key in columns)
+        updates = ", ".join(
+            f"{key}=COALESCE(excluded.{key}, findings.{key})"
+            for key in columns
+            if key in kwargs and kwargs[key] is not None
+        )
+        if not updates:
+            updates = "finding_id=excluded.finding_id"
         sql = f"INSERT INTO findings ({', '.join(names)}) VALUES ({', '.join('?' for _ in names)}) ON CONFLICT(finding_id) DO UPDATE SET {updates}"
         self._write(
             lambda conn: conn.execute(sql, [values[key] for key in names]),
@@ -368,14 +454,27 @@ class Store:
             sql += " AND review_state = ?"
             params.append(review_state)
         sql += " ORDER BY created_at, rowid"
-        with self._connect() as conn:
-            return [self._record(row, ("evidence", "metadata")) for row in conn.execute(sql, params)]
+        with self._read_connection() as conn:
+            with closing(conn.execute(sql, params)) as cursor:
+                return [self._record(row, ("evidence", "metadata")) for row in cursor]
 
     def close(self) -> None:
         if not self._closed:
-            self._closed = True
+            with self._reader_lock:
+                self._closed = True
+                self._reader_lock.notify_all()
             self._queue.put(None)
             self._writer.join()
+            with self._reader_lock:
+                while self._reader_leases:
+                    self._reader_lock.wait()
+            while True:
+                try:
+                    self._readers.get_nowait().close()
+                    with self._reader_lock:
+                        self._reader_count -= 1
+                except queue.Empty:
+                    break
 
     def __enter__(self) -> "Store":
         return self

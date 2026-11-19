@@ -5,11 +5,12 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import queue
+import sqlite3
 import threading
 import time
+from collections import deque
 from dataclasses import asdict, dataclass, is_dataclass
-from typing import Any, Callable, Mapping
+from typing import Any, Mapping
 
 from .store import Store
 
@@ -69,8 +70,8 @@ class StoreWriter:
         self.pause_threshold = pause_threshold
         self.audit_timeout = audit_timeout_ms / 1000
         self.run_id = run_id
-        self._queue: queue.Queue[_Write | None] = queue.Queue()
         self._condition = threading.Condition()
+        self._queue: deque[_Write] = deque()
         self._outstanding_events = 0
         self._outstanding_bytes = 0
         self._high_events = 0
@@ -153,7 +154,8 @@ class StoreWriter:
             self._high_events = max(self._high_events, self._outstanding_events)
             self._high_bytes = max(self._high_bytes, self._outstanding_bytes)
             self._set_pressure_state_locked(self._pressure_locked(), time.monotonic())
-            self._queue.put(item)
+            self._queue.append(item)
+            self._condition.notify_all()
 
     async def _submit(self, kind: str, payload: Any, *, size_payload: Any = None) -> Any:
         loop = asyncio.get_running_loop()
@@ -164,14 +166,15 @@ class StoreWriter:
             await asyncio.to_thread(self._admit, item, self.audit_timeout)
             remaining = deadline - loop.time()
             if remaining <= 0:
-                self._mark_unhealthy("audit commit exceeded audit_timeout_ms")
+                with self._condition:
+                    self._write_failures += 1
                 raise AuditUnavailable("audit commit exceeded audit_timeout_ms")
             return await asyncio.wait_for(asyncio.shield(future), timeout=remaining)
         except asyncio.TimeoutError as exc:
-            self._mark_unhealthy("audit commit exceeded audit_timeout_ms")
+            with self._condition:
+                self._write_failures += 1
             raise AuditUnavailable("audit commit exceeded audit_timeout_ms") from exc
         except AuditUnavailable:
-            self._mark_unhealthy("writer admission failed before durable commit")
             raise
 
     async def write_event(self, event: Mapping[str, Any]) -> None:
@@ -219,7 +222,14 @@ class StoreWriter:
                 item.future.set_result(result)
             else:
                 item.future.set_exception(error)
-        item.loop.call_soon_threadsafe(finish)
+        try:
+            item.loop.call_soon_threadsafe(finish)
+        except RuntimeError:
+            logger.warning("writer could not resolve a future because its event loop is closed")
+
+    @staticmethod
+    def _is_data_error(error: BaseException) -> bool:
+        return isinstance(error, (sqlite3.IntegrityError, sqlite3.DataError, ValueError, TypeError, KeyError, OverflowError))
 
     def _execute_control(self, command: Any) -> Any:
         if callable(command):
@@ -240,22 +250,37 @@ class StoreWriter:
             return
         kind = batch[0].kind
         try:
-            if kind == "event":
-                result = self.store.append_events([item.payload for item in batch])
-            elif kind == "response":
-                result = self.store.append_responses([item.payload for item in batch])
+            if kind in {"event", "response"}:
+                batch_write = self.store.append_events if kind == "event" else self.store.append_responses
+                try:
+                    batch_write([item.payload for item in batch])
+                    for item in batch:
+                        self._resolve(item)
+                    return
+                except BaseException:
+                    logger.exception("store writer batch failed; retrying records individually")
+                for item in batch:
+                    try:
+                        batch_write([item.payload])
+                        self._resolve(item)
+                    except BaseException as exc:
+                        with self._condition:
+                            self._write_failures += 1
+                            if kind == "event":
+                                self._incomplete_events += 1
+                        if not self._is_data_error(exc):
+                            self._mark_unhealthy(str(exc))
+                        self._resolve(item, error=exc)
             else:
-                result = self._execute_control(batch[0].payload)
-            for item in batch:
-                self._resolve(item, result=result)
-        except BaseException as exc:
-            self._mark_unhealthy(str(exc))
-            with self._condition:
-                self._write_failures += len(batch)
-                if kind == "event":
-                    self._incomplete_events += len(batch)
-            for item in batch:
-                self._resolve(item, error=exc)
+                try:
+                    result = self._execute_control(batch[0].payload)
+                    self._resolve(batch[0], result=result)
+                except BaseException as exc:
+                    with self._condition:
+                        self._write_failures += 1
+                    if not self._is_data_error(exc):
+                        self._mark_unhealthy(str(exc))
+                    self._resolve(batch[0], error=exc)
         finally:
             size = sum(item.size for item in batch)
             with self._condition:
@@ -266,26 +291,23 @@ class StoreWriter:
 
     def _run(self) -> None:
         while True:
-            first = self._queue.get()
-            if first is None:
-                return
-            batch = [first]
-            deadline = time.monotonic() + self.batch_max_ms
-            while first.kind != "control" and len(batch) < self.batch_max_events:
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    break
-                try:
-                    item = self._queue.get(timeout=remaining)
-                except queue.Empty:
-                    break
-                if item is None:
-                    self._queue.put(None)
-                    break
-                if item.kind != first.kind:
-                    self._queue.put(item)
-                    break
-                batch.append(item)
+            with self._condition:
+                while not self._queue:
+                    if self._closing:
+                        return
+                    self._condition.wait()
+                first = self._queue.popleft()
+                batch = [first]
+                deadline = time.monotonic() + self.batch_max_ms
+                while first.kind != "control" and len(batch) < self.batch_max_events:
+                    while not self._queue and not self._closing:
+                        remaining = deadline - time.monotonic()
+                        if remaining <= 0:
+                            break
+                        self._condition.wait(remaining)
+                    if not self._queue or self._queue[0].kind != first.kind:
+                        break
+                    batch.append(self._queue.popleft())
             self._finish_batch(batch)
 
     def flush(self, timeout: float | None = None) -> None:
@@ -325,7 +347,6 @@ class StoreWriter:
                 if remaining is not None and remaining <= 0:
                     raise TimeoutError("timed out draining store writer")
                 self._condition.wait(remaining)
-        self._queue.put(None)
         remaining = None if deadline is None else max(0.0, deadline - time.monotonic())
         self._thread.join(remaining)
         if self._thread.is_alive():

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
+from http.cookies import SimpleCookie
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -25,6 +26,8 @@ def import_jsonl(store: Store, *, path: str | Path, actor: str | None = None, so
     """Import event records idempotently as historical (never forwarded) events."""
     source = str(source_file or Path(path).resolve())
     batch: list[dict[str, Any]] = []
+    response_batch: list[dict[str, Any]] = []
+    processed = 0
     with Path(path).open(encoding="utf-8") as handle:
         for line_number, line in enumerate(handle, 1):
             if not line.strip():
@@ -33,6 +36,8 @@ def import_jsonl(store: Store, *, path: str | Path, actor: str | None = None, so
                 row = json.loads(line)
             except json.JSONDecodeError as exc:
                 raise ValueError(f"invalid JSONL at line {line_number}") from exc
+            if not isinstance(row, dict):
+                raise ValueError(f"line {line_number} must contain an event object")
             event = row.get("event", row)
             if not isinstance(event, dict) or not event.get("event_id") or not event.get("run_id"):
                 raise ValueError(f"line {line_number} must include event_id and run_id")
@@ -41,39 +46,91 @@ def import_jsonl(store: Store, *, path: str | Path, actor: str | None = None, so
             event["gateway_verdict"] = "imported"
             event["actor"] = actor if actor is not None else event.get("actor")
             event["source_file"] = source
+            has_response = (
+                event.get("response_ts") is not None
+                or event.get("response_redacted") is not None
+                or event.get("status") is not None
+                or any(event.get(key) is not None for key in (
+                    "elapsed_ms", "response_hash", "normalized_hash", "normalization_version",
+                    "before_state_hash", "after_state_hash",
+                ))
+            )
+            response_keys = {
+                "event_id": event["event_id"],
+                "ts": event.pop("response_ts", None) or event.get("ts"),
+                "status": event.get("status"),
+                "elapsed_ms": event.pop("elapsed_ms", None),
+                "response_redacted": event.get("response_redacted"),
+                "response_hash": event.get("response_hash"),
+                "normalized_hash": event.get("normalized_hash"),
+                "normalization_version": event.get("normalization_version"),
+                "before_state_hash": event.get("before_state_hash"),
+                "after_state_hash": event.get("after_state_hash"),
+                "metadata": event.pop("response_metadata", {}),
+            }
+            for key in ("incomplete", "response_ts", "status", "response_redacted", "response_hash", "normalized_hash", "normalization_version", "before_state_hash", "after_state_hash"):
+                event.pop(key, None)
+            if has_response:
+                response_batch.append(response_keys)
             batch.append(event)
+            processed += 1
+            if len(batch) >= 500:
+                store.append_events(batch)
+                if response_batch:
+                    store.append_responses(response_batch)
+                batch.clear()
+                response_batch.clear()
     if batch:
         store.append_events(batch)
-    return len(batch)
+    if response_batch:
+        store.append_responses(response_batch)
+    return processed
 
 
 def export_har(store: Store, *, run_id: str, path: str | Path, **filters: Any) -> None:
-    """Export stored events in a basic HAR 1.2 shape, preserving trace metadata."""
+    """Export forwarded or imported traffic as HAR 1.2, preserving trace metadata."""
     entries = []
     for event in store.get_events(run_id=run_id, **filters):
+        if event.get("gateway_verdict") not in {"forwarded", "imported"}:
+            continue
         request = event.get("request_redacted") or {}
         response = event.get("response_redacted") or {}
         headers = request.get("headers", []) if isinstance(request, dict) else []
         response_headers = response.get("headers", []) if isinstance(response, dict) else []
+        header_list = _har_headers(headers)
+        response_header_list = _har_headers(response_headers)
+        request_record: dict[str, Any] = {
+            "method": event.get("method") or "GET",
+            "url": _url(event),
+            "httpVersion": "HTTP/1.1",
+            "cookies": _har_cookies(header_list, "cookie"),
+            "headers": header_list,
+            "queryString": _query(event.get("query")),
+            "headersSize": -1,
+            "bodySize": -1,
+        }
+        if isinstance(request, dict) and "body" in request:
+            body = request["body"]
+            content_type = _header_value(header_list, "content-type") or "application/json"
+            request_record["postData"] = {
+                "mimeType": content_type,
+                "text": body if isinstance(body, str) else json.dumps(body, ensure_ascii=False, default=str),
+            }
         entries.append({
             "startedDateTime": event.get("ts") or datetime.now(timezone.utc).isoformat(),
             "time": 0,
-            "request": {
-                "method": event.get("method") or "GET",
-                "url": _url(event),
-                "httpVersion": "HTTP/1.1",
-                "headers": _har_headers(headers),
-                "queryString": _query(event.get("query")),
-                "headersSize": -1,
-                "bodySize": -1,
-                "postData": {"mimeType": "application/json", "text": json.dumps(request.get("body"), default=str)} if isinstance(request, dict) and "body" in request else None,
-            },
+            "request": request_record,
             "response": {
                 "status": event.get("status") or 0,
                 "statusText": "",
                 "httpVersion": "HTTP/1.1",
-                "headers": _har_headers(response_headers),
-                "content": {"size": -1, "mimeType": "application/json", "text": json.dumps(response.get("body"), default=str) if isinstance(response, dict) and "body" in response else ""},
+                "cookies": _har_cookies(response_header_list, "set-cookie"),
+                "headers": response_header_list,
+                "content": {
+                    "size": -1,
+                    "mimeType": _header_value(response_header_list, "content-type") or "application/json",
+                    "text": (response.get("body") if isinstance(response, dict) and isinstance(response.get("body"), str) else json.dumps(response.get("body"), ensure_ascii=False, default=str)) if isinstance(response, dict) and "body" in response else "",
+                },
                 "redirectURL": "",
                 "headersSize": -1,
                 "bodySize": -1,
@@ -107,3 +164,24 @@ def _har_headers(value: Any) -> list[dict[str, str]]:
     if isinstance(value, list):
         return [dict(name=str(item.get("name", "")), value=str(item.get("value", ""))) for item in value if isinstance(item, dict)]
     return []
+
+
+def _header_value(headers: list[dict[str, str]], name: str) -> str | None:
+    for header in headers:
+        if header["name"].lower() == name:
+            return header["value"]
+    return None
+
+
+def _har_cookies(headers: list[dict[str, str]], name: str) -> list[dict[str, str]]:
+    cookies: list[dict[str, str]] = []
+    for header in headers:
+        if header["name"].lower() != name:
+            continue
+        parsed = SimpleCookie()
+        try:
+            parsed.load(header["value"])
+        except Exception:
+            continue
+        cookies.extend({"name": cookie.key, "value": cookie.value} for cookie in parsed.values())
+    return cookies
