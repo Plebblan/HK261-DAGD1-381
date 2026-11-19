@@ -68,6 +68,35 @@ def log_context(
             variable.reset(token)
 
 
+def start_run_logging(log_dir: str | Path, *, run_id: str) -> None:
+    """Reset only this run's log artifacts before configuring components.
+
+    Call once at run startup. It preserves non-log files in the directory and
+    reopens existing handlers so components sharing the directory keep logging.
+    """
+    if not run_id.strip() or "\n" in run_id or "\r" in run_id:
+        raise ValueError("run_id must be a non-empty single-line value")
+    directory = Path(log_dir)
+    directory.mkdir(parents=True, exist_ok=True)
+    normalized_dir = str(directory.resolve())
+    with _lock:
+        for child in directory.glob("*.log*"):
+            if child.is_file() or child.is_symlink():
+                child.unlink()
+        (directory / "run_id.txt").write_text(f"{run_id}\n", encoding="utf-8")
+        for (handler_dir, _), handler in _handlers.items():
+            if handler_dir != normalized_dir:
+                continue
+            handler.acquire()
+            try:
+                if handler.stream is not None:
+                    handler.flush()
+                    handler.stream.close()
+                handler.stream = handler._open()
+            finally:
+                handler.release()
+
+
 def configure_component_logging(
     log_dir: str | Path,
     *,
@@ -80,14 +109,14 @@ def configure_component_logging(
     """Configure a rotating component log under the target's ``logs`` folder.
 
     ``config`` may be either the full gateway configuration or its ``logging``
-    section. Set ``reset`` at the start of a new run to clear prior run files.
+    section. Prefer :func:`start_run_logging` once before configuring components.
     """
     if not _COMPONENT_NAME.fullmatch(component):
         raise ValueError("component must contain only letters, digits, '_' or '-'")
     if run_id is not None and (not run_id.strip() or "\n" in run_id or "\r" in run_id):
         raise ValueError("run_id must be a non-empty single-line value")
-    if reset and run_id is None:
-        raise ValueError("run_id is required when resetting logs for a new run")
+    if reset:
+        raise ValueError("call start_run_logging before configuring components")
 
     settings: Mapping[str, Any] = config or {}
     nested = settings.get("logging")
@@ -110,18 +139,7 @@ def configure_component_logging(
     key = (normalized_dir, logger_name)
 
     with _lock:
-        if reset:
-            for existing_key, handler in list(_handlers.items()):
-                if existing_key[0] == normalized_dir:
-                    existing_logger = logging.getLogger(existing_key[1])
-                    existing_logger.removeHandler(handler)
-                    handler.close()
-                    del _handlers[existing_key]
-            for child in directory.iterdir():
-                if child.is_file() or child.is_symlink():
-                    child.unlink()
-            (directory / "run_id.txt").write_text(f"{run_id}\n", encoding="utf-8")
-        elif run_id is not None:
+        if run_id is not None:
             (directory / "run_id.txt").write_text(f"{run_id}\n", encoding="utf-8")
 
         handler = _handlers.get(key)
