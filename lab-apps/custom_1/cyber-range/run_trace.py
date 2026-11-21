@@ -189,8 +189,8 @@ def run_trace(path, base=None, reset=True, verbose=True, direct=False, run_id=No
                     vars_[var] = p[field]
             raw = json.dumps({"method": step["method"], "path": p_, "body": body, "status": st, "response": p}, sort_keys=True)
             rec = {"step": i, "id": step["id"], "actor": actor, "case_id": step.get("case_id"), "operation_id": action["id"] if action else None,
-                   "request": {"method": step["method"], "url": base + p_, "headers": redact({**hdr, **({"Authorization": "x"} if tok else {})}), "body": body},
-                   "response": {"status_code": st, "body": p}, "wf": step.get("wf"), "ok": not problems, "problems": problems,
+                   "request": {"method": step["method"], "url": base + p_, "headers": redact({**hdr, **({"Authorization": "x"} if tok else {})}), "body": redact_payload(body)},
+                   "response": {"status_code": st, "body": redact_payload(p)}, "wf": step.get("wf"), "ok": not problems, "problems": problems,
                    "gateway_denied": blocked, **({"note": note} if note else {}),
                    "raw_hash": hashlib.sha256(raw.encode()).hexdigest(), "elapsed_ms": round((time.time() - t0) * 1000, 1)}
         evidence.append(rec)
@@ -217,6 +217,7 @@ def main():
     ap.add_argument("--run-id", default=os.getenv("RUNTRACE_RUN_ID"))
     ap.add_argument("--run-dir", default=os.getenv("RUNTRACE_RUN_DIR"))
     a = ap.parse_args()
+    a.run_id = a.run_id or str(uuid.uuid4())
     files = sorted((HERE / "traces").glob("*.json")) if a.all else [Path(x) for x in a.traces]
     if not files:
         ap.error("give a trace file or --all")
