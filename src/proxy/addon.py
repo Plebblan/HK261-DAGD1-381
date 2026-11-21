@@ -417,6 +417,14 @@ class GatewayAddon:
         if not event_id or flow.response is None or self.store is None:
             self._release_request(flow)
             return
+        response = flow.response
+        request_id = flow.metadata.get("gateway_request_id")
+        if request_id:
+            response.headers["X-Request-Id"] = request_id
+        response.headers["X-Gateway-Verdict"] = flow.metadata.get("gateway_verdict", "forwarded")
+        rule_id = flow.metadata.get("gateway_rule_id")
+        if rule_id:
+            response.headers["X-Gateway-Rule"] = rule_id
         elapsed = None
         started = flow.metadata.get("gateway_started_at")
         if started is not None:
