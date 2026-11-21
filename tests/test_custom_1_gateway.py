@@ -56,7 +56,7 @@ def test_reset_is_explicit_extra_method_and_requires_approval():
 
 def test_undocumented_and_out_of_scope_requests_remain_default_denied():
     config, allowlist = target_allowlist("shopflow")
-    assert decide(req("GET", "/tickets/1001", "127.0.0.1:8002"), allowlist=allowlist, config=config).reason == "undocumented_operation"
+    assert decide(req("GET", "/not-documented", "127.0.0.1:8002"), allowlist=allowlist, config=config).reason == "undocumented_operation"
     assert decide(req("GET", "/orders", "127.0.0.1:8001"), allowlist=allowlist, config=config).reason == "out_of_scope_host"
 
 
