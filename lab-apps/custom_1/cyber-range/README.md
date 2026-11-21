@@ -108,7 +108,15 @@ python lab-apps/custom_1/cyber-range/run_trace.py \
 
 Repeat the same process for ShopFlow using port 8002, config
 `config/shopflow/gateway.yaml`, and `start_gateway.py shopflow`. Its proxy
-listens on 8102; TenantDesk listens on 8101.
+listens on 8102; TenantDesk listens on 8101. Run the ShopFlow traces with the
+matching run ID and directory:
+
+```bash
+python lab-apps/custom_1/cyber-range/run_trace.py \
+  lab-apps/custom_1/cyber-range/traces/trace_sf_01_order_fulfilment.json \
+  lab-apps/custom_1/cyber-range/traces/trace_sf_02_refund_and_coupon.json \
+  --run-id "$RUN_ID_SF" --run-dir "$RUN_DIR_SF"
+```
 
 When a trace sequence is complete, stop its proxy with Ctrl-C. The run
 directory contains:
