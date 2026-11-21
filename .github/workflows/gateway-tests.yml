@@ -27,4 +27,4 @@ jobs:
       - name: Install project and test dependencies
         run: python -m pip install -e ".[test]"
       - name: Run gateway, allowlist, and run-trace tests
-        run: python -m pytest tests/gateway tests/allowlist tests/proxy -q
+        run: python -m pytest tests/gateway tests/allowlist tests/proxy tests/test_custom_1_gateway.py -q
