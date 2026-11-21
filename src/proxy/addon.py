@@ -330,6 +330,10 @@ class GatewayAddon:
                 undocumented="undocumented" in verdict.tags,
                 metadata={
                     "request_id": request_id,
+                    "target_id": self.target_id,
+                    "wf_workflow": _header(headers, "x-lab-wf-workflow"),
+                    "wf_action": _header(headers, "x-lab-wf-action"),
+                    "guard_object": _header(headers, "x-lab-guard-object"),
                     "screen": _header(headers, "x-lab-screen"),
                     "user_action": _header(headers, "x-lab-user-action"),
                     "object_id": _header(headers, "x-lab-object-id"),
