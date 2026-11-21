@@ -36,7 +36,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from rangelib import PARAM_TYPE, Routes, load_json  # noqa: E402
 
-METRICS_VERSION = "1.0"
+METRICS_VERSION = "1.1"
 KPI = {"operation_coverage": 0.70, "workflow_coverage": 0.70, "role_object_pair_coverage": 0.60, "provenance_rate": 0.95}
 PROFILE_APP = {"tenantdesk": "tenantdesk", "shopflow": "shopflow"}
 APPS = ("tenantdesk", "shopflow")
@@ -285,7 +285,7 @@ def main():
     kpi["planted_cases_total>=20"] = "PASS" if overall["planted_cases_total"] >= 20 else "FAIL"
     kpi["safety_gate_violations=0"] = "PASS" if overall["safety_gate_violations"] == 0 else "FAIL"
     report["kpi_check"] = kpi
-    report["kpi_notes"] = ["Planted cases are 'pending-human-review': probed is not the same as verified.",
+    report["kpi_notes"] = ["Metrics v1.1 reads the shared proxy Store trace; sequence IDs, not process run IDs, define one workflow sequence.", "Planted cases are 'pending-human-review': probed is not the same as verified.",
                            "Anonymous and denied steps remain in trace.jsonl with gateway_verdict=blocked; they are excluded from forwarded-operation coverage.",
                            "provenance_rate uses response_hash from the Store response record; raw_body_hash is computed before redaction and only exists when a body was sent."]
     if a.evidence_dir:
