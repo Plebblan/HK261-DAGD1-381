@@ -73,6 +73,10 @@ def test_gateway_records_forwarded_and_blocked_events_in_run_trace(tmp_path, mon
     assert (run_dir / "run.json").is_file()
     assert (run_dir / "allowlist.generated.json").is_file()
     assert (run_dir / "evidence.sqlite3").is_file()
+    har = json.loads((run_dir / "trace.har").read_text(encoding="utf-8"))
+    assert har["log"]["version"] == "1.2"
+    assert len(har["log"]["entries"]) == 2
+    assert har["log"]["entries"][0]["_actor"] == "trace-test"
 
     connection = sqlite3.connect(run_dir / "evidence.sqlite3")
     rows = connection.execute(
