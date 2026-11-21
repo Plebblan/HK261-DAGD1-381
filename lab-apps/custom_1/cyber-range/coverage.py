@@ -278,7 +278,8 @@ def main():
         "planted_cases_total": sum(pa[x]["planted_cases"]["total"] for x in APPS),
         "planted_cases_probed": sum(pa[x]["planted_cases"]["probed"] for x in APPS),
         "planted_cases_verified": sum(pa[x]["planted_cases"]["verified"] for x in APPS),
-        "safety_gate_violations": sum(pa[x]["safety_gate_violations"] for x in APPS)}
+        "safety_gate_violations": sum(pa[x]["safety_gate_violations"] for x in APPS),
+        "gateway_denials": sum(pa[x]["gateway_denials"] for x in APPS)}
     report["overall"] = overall
     kpi = {k: ("PASS" if (overall[k] or 0) >= t else "FAIL") for k, t in KPI.items()}
     kpi["planted_cases_total>=20"] = "PASS" if overall["planted_cases_total"] >= 20 else "FAIL"
@@ -289,10 +290,21 @@ def main():
                            "provenance_rate uses response_hash from the Store response record; raw_body_hash is computed before redaction and only exists when a body was sent."]
     if a.evidence_dir:
         runs = []
-        for f in sorted(Path(a.evidence_dir).glob("*.evidence.json")):
+        evidence_files = list(Path(a.evidence_dir).glob("*.evidence.json"))
+        evidence_files += list(Path(a.evidence_dir).rglob("runtrace.json"))
+        for f in sorted(set(evidence_files)):
             ev_ = load_json(f)
-            runs.append({"trace": ev_["trace_id"], "app": ev_["app"], "run_id": ev_["run_id"], "seed": ev_.get("seed"), "enabled_flaws": ev_.get("enabled_flaws"),
-                         "via_gateway": ev_.get("via_gateway"), "step_failures": ev_["failures"], "gateway_denials": ev_.get("gateway_denials")})
+            if "traces" in ev_:
+                for item in ev_["traces"]:
+                    runs.append({"trace": item["trace_id"], "app": item["app"], "run_id": item["run_id"],
+                                 "seed": item.get("seed"), "enabled_flaws": item.get("enabled_flaws"),
+                                 "via_gateway": item.get("via_gateway"), "step_failures": item["failures"],
+                                 "gateway_denials": item.get("gateway_denials")})
+            elif "trace_id" in ev_:
+                runs.append({"trace": ev_["trace_id"], "app": ev_["app"], "run_id": ev_["run_id"],
+                             "seed": ev_.get("seed"), "enabled_flaws": ev_.get("enabled_flaws"),
+                             "via_gateway": ev_.get("via_gateway"), "step_failures": ev_["failures"],
+                             "gateway_denials": ev_.get("gateway_denials")})
         report["runs"] = runs
         report["gateway_denials_total"] = sum(r["gateway_denials"] or 0 for r in runs)
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
