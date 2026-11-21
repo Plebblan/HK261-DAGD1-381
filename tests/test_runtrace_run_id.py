@@ -1,8 +1,15 @@
+import importlib.util
 import json
+from pathlib import Path
 
 import pytest
 
-from lab_apps.custom.app.runtrace import _resolve_run_id
+RUNTRACE_PATH = Path(__file__).resolve().parents[1] / "lab-apps/custom/app/runtrace.py"
+SPEC = importlib.util.spec_from_file_location("custom_runtrace", RUNTRACE_PATH)
+RUNTRACE = importlib.util.module_from_spec(SPEC)
+assert SPEC.loader is not None
+SPEC.loader.exec_module(RUNTRACE)
+_resolve_run_id = RUNTRACE._resolve_run_id
 
 
 def test_runtrace_uses_proxy_run_metadata(tmp_path):
