@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -8,6 +9,7 @@ RUNTRACE_PATH = Path(__file__).resolve().parents[1] / "lab-apps/custom/app/runtr
 SPEC = importlib.util.spec_from_file_location("custom_runtrace", RUNTRACE_PATH)
 RUNTRACE = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
+sys.modules[SPEC.name] = RUNTRACE
 SPEC.loader.exec_module(RUNTRACE)
 _resolve_run_id = RUNTRACE._resolve_run_id
 
