@@ -70,7 +70,10 @@ def test_gateway_records_forwarded_and_blocked_events_in_run_trace(tmp_path, mon
     trace = [json.loads(line) for line in trace_path.read_text(encoding="utf-8").splitlines()]
     assert [event["gateway_verdict"] for event in trace] == ["forwarded", "blocked"]
     assert all(event["run_id"] == run_id for event in trace)
-    assert (run_dir / "run.json").is_file()
+    run_metadata = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
+    assert run_metadata["status"] == "completed"
+    assert run_metadata["trace_sha256"]
+    assert run_metadata["har_sha256"]
     assert (run_dir / "allowlist.generated.json").is_file()
     assert (run_dir / "evidence.sqlite3").is_file()
     har = json.loads((run_dir / "trace.har").read_text(encoding="utf-8"))
