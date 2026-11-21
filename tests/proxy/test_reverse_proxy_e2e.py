@@ -152,4 +152,4 @@ def test_real_reverse_proxy_records_forwarded_and_blocked_runtrace_events(tmp_pa
         "SELECT metadata FROM events WHERE event_id=?", (trace[0]["event_id"],)
     ).fetchone()[0])
     connection.close()
-    assert metadata["request_id"]
+    assert metadata["request_id"] == forwarded.request_id
