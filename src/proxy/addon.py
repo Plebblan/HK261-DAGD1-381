@@ -381,6 +381,7 @@ class GatewayAddon:
         flow.metadata["gateway_event_id"] = event_id
         flow.metadata["gateway_request_id"] = request_id
         flow.metadata["gateway_rule_id"] = verdict.allowlist_rule
+        flow.metadata["gateway_verdict"] = verdict.action
         flow.metadata["gateway_started_at"] = time.monotonic()
         logger.info(
             "gateway verdict=%s reason=%s host=%s path=%s run_id=%s event_id=%s",
