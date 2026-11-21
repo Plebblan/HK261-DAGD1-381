@@ -380,6 +380,26 @@ class GatewayAddon:
         finally:
             self._release_request(flow)
 
+    def error(self, flow: Any) -> None:
+        """Persist upstream connection failures against the committed request event."""
+        event_id = flow.metadata.get("gateway_event_id")
+        if not event_id or self.store is None:
+            self._release_request(flow)
+            return
+        error = getattr(flow, "error", None)
+        message = getattr(error, "msg", None) or str(error or "upstream_error")
+        try:
+            self.store.append_responses([{
+                "event_id": event_id,
+                "status": 502,
+                "response_redacted": {"proxy_error": message[:1000]},
+                "metadata": {"transport_error": True},
+            }])
+        except Exception:
+            logger.exception("failed to persist upstream error for event %s", event_id)
+        finally:
+            self._release_request(flow)
+
     def export_trace(self) -> Path:
         if self.store is None or self.run_dir is None:
             raise RuntimeError("gateway addon is not configured")
