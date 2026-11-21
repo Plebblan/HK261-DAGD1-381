@@ -38,23 +38,28 @@ class GatewayAddon:
         self.allowlist = allowlist
         self.config = config or {}
         self.config_hash = config_hash
-        self.run_id = run_id or uuid.uuid4().hex
+        self.run_id = run_id or (uuid.uuid4().hex if allowlist is not None else None)
         self.target_id = target_id or str((allowlist or {}).get("target_id", "unknown"))
-        self.run_dir = Path(run_dir) if run_dir is not None else Path("runs") / self.target_id / self.run_id
-        self.run_dir.mkdir(parents=True, exist_ok=True)
-        self.store = Store(self.run_dir / "evidence.sqlite3")
-        self.store.create_run(
-            run_id=self.run_id,
-            target=self.target_id,
-            mode="proxy",
-            allowlist_hash=(allowlist or {}).get("allowlist_hash"),
-            config_hash=config_hash,
-            undocumented_policy=(allowlist or {}).get("undocumented_policy"),
-            status="running",
-            metadata={"trace_path": "trace.jsonl", "run_dir": str(self.run_dir)},
-        )
+        self.run_dir = (
+            Path(run_dir) if run_dir is not None
+            else Path("runs") / self.target_id / str(self.run_id)
+        ) if allowlist is not None else None
+        self.store: Store | None = None
         self._closed = False
-        self._export_run_metadata()
+        if allowlist is not None:
+            self.run_dir.mkdir(parents=True, exist_ok=True)
+            self.store = Store(self.run_dir / "evidence.sqlite3")
+            self.store.create_run(
+                run_id=self.run_id,
+                target=self.target_id,
+                mode="proxy",
+                allowlist_hash=allowlist.get("allowlist_hash"),
+                config_hash=config_hash,
+                undocumented_policy=allowlist.get("undocumented_policy"),
+                status="running",
+                metadata={"trace_path": "trace.jsonl", "run_dir": str(self.run_dir)},
+            )
+            self._export_run_metadata()
 
     def _export_run_metadata(self) -> None:
         payload = {
@@ -230,6 +235,8 @@ class GatewayAddon:
 
     def export_trace(self) -> Path:
         """Export the canonical SQLite event stream as run-local JSONL."""
+        if self.store is None or self.run_dir is None:
+            raise RuntimeError("gateway addon is not configured")
         trace_path = self.run_dir / "trace.jsonl"
         with trace_path.open("w", encoding="utf-8") as stream:
             for event in self.store.get_events(run_id=self.run_id):
@@ -242,10 +249,14 @@ class GatewayAddon:
     def close(self) -> None:
         if self._closed:
             return
+        if self.store is None:
+            self._closed = True
+            return
         try:
             self.export_trace()
         finally:
             self.store.close()
+            self.store = None
             self._closed = True
 
 
