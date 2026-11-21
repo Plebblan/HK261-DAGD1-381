@@ -8,9 +8,12 @@ scope:
   out_of_scope_default: block
   pass_hosts: []
 undocumented_policy: block
-approved_patterns: []
+approved_patterns:
+  - {method: POST, path: /_lab/reset, host: "127.0.0.1:8002", actor: lab-control}
 operation_overrides: {}
-extra_methods: []
+extra_methods:
+  - {id: lab_reset, method: POST, path: /_lab/reset, destructiveness: terminal}
+  - {id: lab_health, method: GET, path: /_lab/health, destructiveness: read}
 budgets:
   max_requests_per_run: 5000
   rate_per_second: 10
@@ -18,4 +21,4 @@ budgets:
 destructiveness:
   enabled_tags: [read, create, mutate, advance]
   disabled_tags: [terminal, session_affecting, unknown]
-dry_run: true
+dry_run: false
