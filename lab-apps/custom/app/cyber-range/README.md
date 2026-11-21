@@ -82,3 +82,80 @@ runs/custom/<run-id>/
 - A gateway allow decision is not a vulnerability verdict. Ground truth remains
   outside the gateway and RunTrace inputs.
 - Mutable workflows should start from a clean seed and must not run concurrently.
+
+## Configure Custom app vulnerability flags
+
+The Custom API reads `LAB_VULNERABILITIES` at request time. This is a
+comma-separated allowlist of vulnerability IDs used by the mock app's
+authorization handlers; it is separate from the Gateway allowlist and does
+not change Gateway policy.
+
+Create or edit `lab-apps/.env` (the Compose project directory) and set only
+the vulnerability cases you want to activate:
+
+```dotenv
+# Enable selected lab vulnerabilities
+LAB_VULNERABILITIES=AUTHZ-001,AUTHZ-007,AUTHZ-011
+```
+
+Recreate the Custom API so the container receives the updated environment:
+
+```bash
+docker compose -f lab-apps/docker-compose.yml up -d --force-recreate api
+```
+
+Check the API is ready:
+
+```bash
+curl -fsS http://127.0.0.1:8000/health
+```
+
+Flag behavior:
+
+- Empty or unset `LAB_VULNERABILITIES`: all vulnerability cases are disabled
+  (safe baseline).
+- A comma-separated list, such as `AUTHZ-001,AUTHZ-007`: only those named
+  cases are enabled.
+- `LAB_VULNERABILITIES=*`: enables every vulnerability case implemented by
+  the Custom mock app. Use only in an isolated, disposable lab.
+- IDs are matched exactly; separate multiple IDs with commas and do not add
+  spaces inside an ID.
+
+To return to the safe baseline, remove the value or set it empty in
+`lab-apps/.env`, then recreate the API container with the same Compose
+command. Changing the environment file alone does not update an already
+running container.
+
+## Meaning of the `flags` field in trace JSON
+
+Some probe trace files contain a top-level field such as:
+
+```json
+"flags": "disabled"
+```
+
+This is trace metadata describing the probe's current enablement/intended
+status in the trace catalog. It is **not** the same setting as
+`LAB_VULNERABILITIES`: changing this field does not activate a vulnerability
+inside the API.
+
+The current `runtrace.py` loader selects the trace's `steps` and executes
+them; it does not evaluate the top-level `flags` field. Therefore, do not
+assume `"flags": "disabled"` prevents execution when a trace is passed
+directly with `--scenario`. To control whether a vulnerability is present in
+the Custom API, configure `LAB_VULNERABILITIES` as described above. To run a
+trace, pass its JSON file explicitly:
+
+```bash
+python lab-apps/custom/app/runtrace.py \
+  --scenario lab-apps/custom/app/cyber-range/traces/probes/trace_01_access_boundaries.json \
+  --allowlist config/custom/gateway.yaml \
+  --rso lab-apps/custom/app/cyber-range/model/rso.yaml \
+  --run-id "$RUN_ID" --run-dir "$RUN_DIR" \
+  --proxy-url http://127.0.0.1:8088
+```
+
+For reproducible testing, keep the vulnerability configuration fixed for the
+whole run and record the selected IDs with the test results. Use a fresh
+database seed/reset before state-mutating traces.
+
