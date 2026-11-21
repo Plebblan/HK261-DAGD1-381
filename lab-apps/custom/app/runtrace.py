@@ -232,7 +232,7 @@ class DSLExecutor:
                    "sequence_id": self.sequence_id, "steps": self.results,
                    "assertions": self.assertions}
         Path(output).parent.mkdir(parents=True, exist_ok=True)
-        Path(output).write_text(json.dumps(payload, indent=2, ensure_ascii=False, default=str) + "\\n", encoding="utf-8")
+        Path(output).write_text(json.dumps(payload, indent=2, ensure_ascii=False, default=str) + "\n", encoding="utf-8")
 
 
 def run_trace(scenario: list[dict] | None = None, *, allowlist="runtrace_allowlist.json",
