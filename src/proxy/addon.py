@@ -16,7 +16,7 @@ from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import parse_qsl, urlencode, urlsplit
 
 import yaml
 
@@ -54,6 +54,17 @@ def _body_record(raw: bytes, content_type: str | None) -> Any:
 
 def _hash(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
+
+def _redact_query(query: str | None) -> str | None:
+    if not query:
+        return query
+    sensitive = {"token", "access_token", "refresh_token", "password", "secret", "api_key", "key", "code"}
+    return urlencode([
+        (key, "[REDACTED]" if key.lower() in sensitive else value)
+        for key, value in parse_qsl(query, keep_blank_values=True)
+    ])
+
+
 
 
 class GatewayAddon:
@@ -262,7 +273,8 @@ class GatewayAddon:
         raw_path = request.path
         parsed = urlsplit(raw_path)
         path = parsed.path or "/"
-        query = parsed.query or None
+        raw_query = parsed.query or None
+        query = _redact_query(raw_query)
         host = f"{request.host}:{request.port}"
         headers = request.headers
         actor = _header(headers, "x-runtrace-actor") or _header(headers, "x-stateful-actor")
@@ -284,7 +296,7 @@ class GatewayAddon:
             "method": request.method.upper(),
             "host": host.lower(),
             "path": path,
-            "query": query,
+            "query": raw_query,
             "headers": semantic_headers,
             "raw_body_hash": _hash(raw_body) if raw_body else None,
         }
