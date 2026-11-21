@@ -17,10 +17,11 @@ Companion to `workflow.md`. This document fixes module boundaries, interfaces, t
 | 7 | `capture` (crawler, Playwright) | actor session, scope | HAR with `_actor`/`_fieldAccess` extension | 5 | CORE (later) |
 | 8 | `spec_analyzer` | normalized operations | dependency graph, flows, field classification | 2 | CORE (later) |
 | 9 | `inference`, `oracle`, `probe generation` | per `workflow.md` | per `workflow.md` | 1, 4, 8 | CORE (later) |
+| 10 | `pipeline` (orchestrator) | config, run context, stage registry | run records, stage results, run folder | all stages | CORE (thin first) |
 
 Rule: the tool's code never imports from `lab-apps/` and never reads lab policy or ground-truth files (leakage rule).
 
-Suggested build order: 1, 2, 3, 4, 5, 6, 7, 8.
+Suggested build order: 1, 2, 3, 4, 5, 6, 7, 8. The `pipeline` runner starts thin after the gateway (step 4) and grows as stages land.
 
 ---
 
@@ -379,7 +380,11 @@ repo/
 │           └── lab-upstream.pem     # public certificate only; private keys are never committed
 │
 ├── src/                             # the tool; never imports lab-apps/ or eval/
-│   ├── cli.py                       # entry points: build-allowlist, proxy, import-har, run  [NOW]
+│   ├── cli.py                       # thin: argparse, load config, call a function, map errors to exit codes  [NOW]
+│   ├── pipeline/                    # orchestrator (section 12)                                [NOW, thin]
+│   │   ├── context.py               #   RunContext: config, store/writer, run_id, target paths, logger
+│   │   ├── runner.py                #   run lifecycle + ordered stage execution
+│   │   └── stages.py                #   registry: stage name -> function(ctx)
 │   ├── common/                      # shared, dependency-free                                  [NOW]
 │   │   ├── types.py                 #   GatewayRequest, Verdict
 │   │   ├── config.py                #   config loading and validation (undocumented_policy required)
@@ -462,3 +467,41 @@ Notes
 - **Redaction:** logs go through the same redaction as stored events: no tokens, cookies or raw bodies, even at DEBUG level. Log lines carry `run_id`, `event_id` and `operation_id` so a line can be tied to a stored event.
 - **Setup:** logging is configured by `src/common/logging.py` from the `logging` block in `gateway.yaml`. `runs/` is gitignored.
 - **Open:** keep the previous run's logs as `logs.prev/` for comparison, or only the latest?
+
+---
+
+## 12. Pipeline and run lifecycle
+
+`cli.py` stays thin: it parses arguments, loads config, calls one function, and maps errors to exit codes. Logic lives in the modules, and orchestration lives in `src/pipeline/`.
+
+### 12.1 Stage contract
+- A stage is `def stage(ctx: RunContext) -> StageResult`.
+- It reads inputs from the store or the run folder and writes outputs there.
+- Stages never call each other. They are decoupled through the store and files, so each is runnable and testable alone, and checkpoint/resume becomes possible later.
+- The stages correspond to `workflow.md` [A] to [K].
+
+### 12.2 Two kinds of commands
+
+| Kind | Examples | Notes |
+|---|---|---|
+| Services | `proxy` (capture or test mode) | Long-running and interactive; a human browses through it, so it is not a batch stage |
+| Stages | `build-allowlist`, `import-har`, later `infer`, `plant`, `freeze`, `calibrate`, `probe`, `evaluate` | Run to completion |
+
+`run` composes stages in order, with `--from` and `--to` for partial runs. Every stage accepts `--target` and `--dry-run`. Subcommands are added as their modules land; `run` is added once two or more stages are worth chaining.
+
+### 12.3 Run lifecycle (owned by `runner.py`)
+1. Create `run_id`.
+2. Reset the log directory for the target.
+3. Configure the component loggers.
+4. Copy the config snapshot and the generated allowlist into `runs/<target>/<run_id>/`.
+5. Write the run record, including `isolation_mode` and the allowlist and config hashes.
+6. Run the stages.
+7. Drain the writer, record `queue_stats`, and close the store.
+
+Starting a run is therefore not a side effect of `Store.create_run`; the store no longer resets logs.
+
+### 12.4 Testing
+- Test stages directly with pytest against a temporary target directory.
+- One smoke test calls `main([...])` with `--dry-run`, needing no network, to cover the CLI wiring.
+- Later, an end-to-end test runs against the custom mock lab app with fixture spec and HAR.
+- The leakage rule applies: `cli.py` and `pipeline/` must not import `lab-apps/` or `eval/`; `tests/test_boundaries.py` checks it.
