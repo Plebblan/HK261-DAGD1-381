@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import shutil
 import socket
+import signal
 import sqlite3
 import subprocess
 import threading
@@ -117,7 +118,7 @@ def test_real_reverse_proxy_records_forwarded_and_blocked_runtrace_events(tmp_pa
             assert blocked["gateway_verdict"] == "blocked"
         assert TargetHandler.calls == 1
     finally:
-        process.terminate()
+        process.send_signal(signal.SIGINT)
         try:
             process.wait(timeout=15)
         except subprocess.TimeoutExpired:
