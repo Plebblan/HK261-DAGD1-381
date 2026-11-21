@@ -15,6 +15,9 @@ on:
       - "tests/allowlist/**"
       - "tests/test_custom_1_gateway.py"
       - "pyproject.toml"
+      - "config/**"
+      - "lab-apps/custom/app/**"
+      - "lab-apps/custom_1/cyber-range/**"
 
 jobs:
   gateway:
