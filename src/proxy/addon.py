@@ -432,7 +432,7 @@ class GatewayAddon:
             trace_path = self.export_trace()
             trace_hash = _hash(trace_path.read_bytes())
             self._write_run_metadata(status="completed", trace_hash=trace_hash)
-            self.store.update_queue_stats(run_id=self.run_id, stats={
+            self.store.finish_run(run_id=self.run_id, status="completed", stats={
                 "requests_seen": self._request_count,
                 "active_at_shutdown": self._active_requests,
                 "incomplete_forwarded_events": self.store.count_incomplete_events(run_id=self.run_id),
