@@ -92,6 +92,22 @@ def decide(
             matched = entry
             break
 
+    if matched is None:
+        for extra in data.get("extra_methods", []):
+            if (str(extra.get("method", "")).upper() == method
+                    and match_path_template(str(extra.get("path", "")), path)
+                    and (not extra.get("host") or _host_matches(request.host, str(extra["host"])))):
+                matched = {
+                    "id": extra.get("id", "extra_method"),
+                    "method": method,
+                    "path": extra.get("path"),
+                    "allow": True,
+                    "destructiveness": extra.get("destructiveness", "unknown"),
+                    "tags": ["extra_method"],
+                    "source": "config",
+                }
+                break
+
     approved_patterns = list(data.get("approved_patterns", cfg.get("approved_patterns", [])))
     approved = _approved(request, approved_patterns)
     if matched is None:
