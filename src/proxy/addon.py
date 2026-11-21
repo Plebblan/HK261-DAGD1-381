@@ -1,17 +1,25 @@
-"""mitmproxy adapter with run-scoped, durable gateway trace recording."""
+"""mitmproxy adapter for the shared OpenAPI-driven Safety Gateway.
+
+SQLite is the canonical, durable audit log. JSONL is exported from that store
+when the run closes; the proxy never maintains a parallel event log.
+"""
 from __future__ import annotations
 
 import hashlib
 import json
 import logging
+import threading
+import time
 import uuid
+from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 import yaml
 
-from src.common.types import GatewayRequest
+from src.common.types import GatewayRequest, VerdictRecord
 from src.gateway.engine import decide
 from src.store.store import Store
 
@@ -22,8 +30,32 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
 
+def _header(headers: Any, name: str, default: str | None = None) -> str | None:
+    try:
+        value = headers.get(name)
+    except AttributeError:
+        value = None
+    return str(value) if value not in (None, "") else default
+
+
+def _body_record(raw: bytes, content_type: str | None) -> Any:
+    if not raw:
+        return None
+    if content_type and ("json" in content_type.lower() or "text/" in content_type.lower()):
+        try:
+            return json.loads(raw)
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            if content_type.lower().startswith("text/"):
+                return raw[:8192].decode("utf-8", "replace")
+    return {"body_omitted": True, "content_type": content_type, "size_bytes": len(raw)}
+
+
+def _hash(value: bytes) -> str:
+    return hashlib.sha256(value).hexdigest()
+
+
 class GatewayAddon:
-    """Transport adapter; every decision is committed before a request can pass."""
+    """Default-deny proxy adapter with run-scoped durable evidence."""
 
     def __init__(
         self,
@@ -34,6 +66,7 @@ class GatewayAddon:
         run_id: str | None = None,
         target_id: str | None = None,
         config_hash: str | None = None,
+        openapi_path: str | Path | None = None,
     ):
         self.allowlist = allowlist
         self.config = config or {}
@@ -44,49 +77,63 @@ class GatewayAddon:
             Path(run_dir) if run_dir is not None
             else Path("runs") / self.target_id / str(self.run_id)
         ) if allowlist is not None else None
+        self.openapi_path = Path(openapi_path) if openapi_path else None
         self.store: Store | None = None
         self._closed = False
+        self._lock = threading.RLock()
+        self._request_count = 0
+        self._active_requests = 0
+        self._rate_events: deque[float] = deque()
+        self._started_at = _now()
         if allowlist is not None:
             self.run_dir.mkdir(parents=True, exist_ok=True)
-            self.store = Store(self.run_dir / "evidence.sqlite3")
+            self.store = Store(self.run_dir / "evidence.sqlite3", synchronous="FULL")
             self.store.create_run(
                 run_id=self.run_id,
                 target=self.target_id,
-                mode="proxy",
+                mode="runtrace_proxy",
                 allowlist_hash=allowlist.get("allowlist_hash"),
                 config_hash=config_hash,
                 undocumented_policy=allowlist.get("undocumented_policy"),
                 status="running",
-                metadata={"trace_path": "trace.jsonl", "run_dir": str(self.run_dir)},
+                metadata={
+                    "trace_path": "trace.jsonl",
+                    "run_dir": str(self.run_dir),
+                    "openapi_path": str(self.openapi_path) if self.openapi_path else None,
+                },
             )
-            self._export_run_metadata()
+            self._write_run_metadata(status="running")
+            (self.run_dir / "allowlist.generated.json").write_text(
+                json.dumps(allowlist, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            if self.openapi_path and self.openapi_path.is_file():
+                (self.run_dir / "openapi.json").write_bytes(self.openapi_path.read_bytes())
 
-    def _export_run_metadata(self) -> None:
+    def _write_run_metadata(self, *, status: str, trace_hash: str | None = None) -> None:
+        if self.run_dir is None:
+            return
         payload = {
             "run_id": self.run_id,
             "target_id": self.target_id,
-            "started_at": _now(),
+            "status": status,
+            "started_at": self._started_at,
+            "finished_at": _now() if status != "running" else None,
             "allowlist_hash": (self.allowlist or {}).get("allowlist_hash"),
-            "config_hash": self._config_hash,
+            "config_hash": self.config_hash,
             "artifacts": {
                 "database": "evidence.sqlite3",
                 "trace": "trace.jsonl",
+                "runtrace": "runtrace.json",
                 "allowlist": "allowlist.generated.json",
+                "openapi": "openapi.json" if self.openapi_path else None,
             },
+            "trace_sha256": trace_hash,
         }
         (self.run_dir / "run.json").write_text(
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
-        if self.allowlist is not None:
-            (self.run_dir / "allowlist.generated.json").write_text(
-                json.dumps(self.allowlist, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-                encoding="utf-8",
-            )
-
-    @property
-    def _config_hash(self) -> str | None:
-        return getattr(self, "config_hash", None)
 
     @classmethod
     def from_files(
@@ -96,6 +143,7 @@ class GatewayAddon:
         *,
         run_dir: str | Path | None = None,
         run_id: str | None = None,
+        openapi_path: str | Path | None = None,
     ) -> "GatewayAddon":
         allowlist_file = Path(allowlist_path)
         generated = json.loads(allowlist_file.read_text(encoding="utf-8"))
@@ -107,29 +155,28 @@ class GatewayAddon:
             if not isinstance(loaded, dict):
                 raise ValueError("gateway config must be a YAML mapping")
             config = loaded
-            config_hash = hashlib.sha256(config_file.read_bytes()).hexdigest()
+            config_hash = _hash(config_file.read_bytes())
         if not generated.get("allowlist_hash") or not generated.get("target_id"):
             raise ValueError("allowlist is not a generated target-scoped artifact")
-        instance = cls(
+        return cls(
             generated, config, run_dir=run_dir, run_id=run_id,
-            config_hash=config_hash,
+            config_hash=config_hash, openapi_path=openapi_path,
         )
-        return instance
 
     def load(self, loader: Any) -> None:
-        """Register mitmproxy options when loaded as a script addon."""
-        from mitmproxy import ctx
         loader.add_option("gateway_allowlist", str, "", "Generated allowlist JSON path")
         loader.add_option("gateway_config", str, "", "Target gateway YAML path")
         loader.add_option("gateway_run_dir", str, "", "Directory for this run's artifacts")
-        loader.add_option("gateway_run_id", str, "", "Stable run ID (generated when omitted)")
+        loader.add_option("gateway_run_id", str, "", "Run ID shared with RunTrace")
+        loader.add_option("gateway_openapi", str, "", "Source OpenAPI file copied into run artifacts")
 
     def configure(self, updated: set[str]) -> None:
-        if not ({"gateway_allowlist", "gateway_config", "gateway_run_dir", "gateway_run_id"} & updated):
+        keys = {"gateway_allowlist", "gateway_config", "gateway_run_dir", "gateway_run_id", "gateway_openapi"}
+        if not (keys & updated):
             return
         from mitmproxy import ctx
         if not ctx.options.gateway_allowlist:
-            raise ValueError("set --set gateway_allowlist=/path/to/allowlist.generated.json")
+            raise ValueError("gateway_allowlist must point to a generated allowlist JSON")
         if self.store is not None:
             self.close()
         loaded = type(self).from_files(
@@ -137,64 +184,164 @@ class GatewayAddon:
             ctx.options.gateway_config or None,
             run_dir=ctx.options.gateway_run_dir or None,
             run_id=ctx.options.gateway_run_id or None,
+            openapi_path=ctx.options.gateway_openapi or None,
         )
         self.__dict__.update(loaded.__dict__)
 
+    def _budget_verdict(self) -> VerdictRecord | None:
+        budgets = (self.allowlist or {}).get("budgets", {})
+        now = time.monotonic()
+        with self._lock:
+            self._request_count += 1
+            max_requests = int(budgets.get("max_requests_per_run", 0) or 0)
+            if max_requests and self._request_count > max_requests:
+                return VerdictRecord("blocked", "budget_max_requests_per_run")
+            rate = float(budgets.get("rate_per_second", 0) or 0)
+            if rate > 0:
+                while self._rate_events and now - self._rate_events[0] >= 1.0:
+                    self._rate_events.popleft()
+                if len(self._rate_events) >= rate:
+                    return VerdictRecord("blocked", "budget_rate_per_second")
+                self._rate_events.append(now)
+            concurrency = int(budgets.get("max_concurrency", 0) or 0)
+            if concurrency and self._active_requests >= concurrency:
+                return VerdictRecord("blocked", "budget_max_concurrency")
+            self._active_requests += 1
+        return None
+
+    def _release_request(self, flow: Any) -> None:
+        if flow.metadata.get("gateway_active"):
+            with self._lock:
+                self._active_requests = max(0, self._active_requests - 1)
+            flow.metadata["gateway_active"] = False
+
+    def _persist_response(self, event_id: str, response: Any, *, elapsed_ms: float | None) -> None:
+        raw = response.raw_content or b""
+        content_type = _header(response.headers, "content-type")
+        record = _body_record(raw, content_type)
+        response_headers = {
+            key.lower(): value for key, value in response.headers.items()
+            if key.lower() in {"content-type", "location", "content-disposition", "etag"}
+        }
+        self.store.append_responses([{
+            "event_id": event_id,
+            "status": response.status_code,
+            "elapsed_ms": elapsed_ms,
+            "response_redacted": record,
+            "response_hash": _hash(raw),
+            "metadata": {"headers": response_headers, "body_bytes": len(raw)},
+        }])
+
     def request(self, flow: Any) -> None:
-        """Commit the request and verdict before mitmproxy may contact upstream."""
-        if self.allowlist is None:
-            from mitmproxy import http
+        """Commit the policy decision before allowing mitmproxy to contact upstream."""
+        from mitmproxy import http
+        if self.allowlist is None or self.store is None:
             flow.response = http.Response.make(503, b"gateway_not_configured")
             return
         request = flow.request
-        url_path = request.path.split("?", 1)[0]
-        query = request.path.split("?", 1)[1] if "?" in request.path else None
+        raw_path = request.path
+        parsed = urlsplit(raw_path)
+        path = parsed.path or "/"
+        query = parsed.query or None
+        host = f"{request.host}:{request.port}"
+        headers = request.headers
+        actor = _header(headers, "x-runtrace-actor") or _header(headers, "x-stateful-actor")
+        run_header = _header(headers, "x-lab-run-id")
+        if run_header and run_header != self.run_id:
+            flow.response = http.Response.make(409, b"run_id_mismatch")
+            return
+        raw_body = request.raw_content or b""
+        content_type = _header(headers, "content-type")
+        request_record = _body_record(raw_body, content_type)
+        semantic_headers = {
+            key.lower(): value for key, value in headers.items()
+            if key.lower() not in {
+                "authorization", "cookie", "set-cookie", "x-lab-admin-token",
+                "x-request-id", "proxy-authorization", "connection", "content-length",
+            }
+        }
+        request_fingerprint = {
+            "method": request.method.upper(),
+            "host": host.lower(),
+            "path": path,
+            "query": query,
+            "headers": semantic_headers,
+            "raw_body_hash": _hash(raw_body) if raw_body else None,
+        }
+        fingerprint_hash = _hash(json.dumps(
+            request_fingerprint, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        ).encode("utf-8"))
         normalized = GatewayRequest(
             method=request.method,
-            host=f"{request.host}:{request.port}",
-            path=url_path,
-            headers={},
-            body=None,
-            actor=request.headers.get("x-stateful-actor"),
-            origin="proxy",
+            host=host,
+            path=path,
+            headers={key.lower(): value for key, value in headers.items()},
+            body=raw_body or None,
+            actor=actor,
+            tags=tuple(filter(None, (_header(headers, "x-lab-tag"),))),
+            origin="runtrace",
             run_id=self.run_id,
         )
-        verdict = decide(normalized, allowlist=self.allowlist, config=self.config)
+        budget_verdict = self._budget_verdict()
+        flow.metadata["gateway_active"] = budget_verdict is None
+        verdict = budget_verdict or decide(
+            normalized, allowlist=self.allowlist, config=self.config
+        )
         event_id = uuid.uuid4().hex
-        flow.metadata["gateway_event_id"] = event_id
-        event = {
-            "event_id": event_id,
-            "run_id": self.run_id,
-            "ts": _now(),
-            "origin": "proxy",
-            "actor": normalized.actor,
-            "method": normalized.method,
-            "host": normalized.host,
-            "path": normalized.path,
-            "query": query,
-            "gateway_verdict": verdict.action,
-            "gateway_reason": verdict.reason,
-            "rule_id": verdict.allowlist_rule,
-            "tag": ",".join(verdict.tags) or None,
-            "undocumented": "undocumented" in verdict.tags,
-            "metadata": {"target_id": self.target_id},
-        }
+        request_id = _header(headers, "x-request-id") or uuid.uuid4().hex
         try:
-            # Store.append_event returns only after SQLite commits. Fail closed below.
-            self.store.append_event(**event)
+            self.store.append_event(
+                event_id=event_id,
+                run_id=self.run_id,
+                ts=_now(),
+                workflow_id=_header(headers, "x-lab-workflow-id"),
+                sequence_id=_header(headers, "x-lab-sequence-id"),
+                step_idx=int(_header(headers, "x-lab-step-index", "0") or 0),
+                origin="runtrace",
+                actor=actor,
+                operation_id=_header(headers, "x-lab-operation-id"),
+                method=request.method.upper(),
+                host=host,
+                path=path,
+                query=query,
+                gateway_verdict=verdict.action,
+                gateway_reason=verdict.reason,
+                rule_id=verdict.allowlist_rule,
+                valid_request=(_header(headers, "x-lab-valid-request", "").lower() == "true")
+                    if _header(headers, "x-lab-valid-request") is not None else None,
+                request_redacted=request_record,
+                raw_body_hash=_hash(raw_body) if raw_body else None,
+                request_fingerprint=fingerprint_hash,
+                case_id=_header(headers, "x-lab-case-id"),
+                tag=",".join(filter(None, (*verdict.tags, _header(headers, "x-lab-tag")))) or None,
+                undocumented="undocumented" in verdict.tags,
+                metadata={
+                    "request_id": request_id,
+                    "screen": _header(headers, "x-lab-screen"),
+                    "user_action": _header(headers, "x-lab-user-action"),
+                    "object_id": _header(headers, "x-lab-object-id"),
+                    "usecase_step": _header(headers, "x-lab-usecase-step"),
+                    "content_type": content_type,
+                    "content_length": len(raw_body),
+                    "approval_requested": _header(headers, "x-range-approval") == "true",
+                },
+            )
         except Exception:
+            self._release_request(flow)
             logger.exception("gateway audit write failed; blocking request")
-            from mitmproxy import http
             flow.response = http.Response.make(503, b"gateway_audit_unavailable")
             return
 
+        flow.metadata["gateway_event_id"] = event_id
+        flow.metadata["gateway_started_at"] = time.monotonic()
         logger.info(
-            "gateway verdict=%s reason=%s host=%s path=%s run_id=%s",
-            verdict.action, verdict.reason, normalized.host, normalized.path, self.run_id,
+            "gateway verdict=%s reason=%s host=%s path=%s run_id=%s event_id=%s",
+            verdict.action, verdict.reason, host, path, self.run_id, event_id,
         )
         if verdict.action == "forwarded":
             return
-        from mitmproxy import http
+
+        self._release_request(flow)
         status = 200 if verdict.action == "dry_run" else 403
         payload = {
             "gateway_verdict": verdict.action,
@@ -208,36 +355,31 @@ class GatewayAddon:
             json.dumps(payload).encode("utf-8"),
             {"Content-Type": "application/json", "X-Gateway-Verdict": verdict.action},
         )
-        # For gateway-generated responses there is no upstream response hook.
-        self.store.append_responses([{
-            "event_id": event_id,
-            "status": status,
-            "response_redacted": payload,
-        }])
-
-    def response(self, flow: Any) -> None:
-        """Commit upstream response metadata for a previously committed request."""
-        event_id = flow.metadata.get("gateway_event_id")
-        if not event_id or flow.response is None:
-            return
-        response = flow.response
         try:
-            self.store.append_responses([{
-                "event_id": event_id,
-                "status": response.status_code,
-                "response_redacted": {
-                    "headers": {},
-                    "body_bytes": len(response.raw_content or b""),
-                },
-            }])
+            self._persist_response(event_id, flow.response, elapsed_ms=0.0)
         except Exception:
-            logger.exception("gateway response audit write failed for event %s", event_id)
-            # The response hook runs before the client receives the upstream response.
-            from mitmproxy import http
+            logger.exception("gateway response audit write failed; replacing response")
             flow.response = http.Response.make(503, b"gateway_audit_unavailable")
 
+    def response(self, flow: Any) -> None:
+        event_id = flow.metadata.get("gateway_event_id")
+        if not event_id or flow.response is None or self.store is None:
+            self._release_request(flow)
+            return
+        elapsed = None
+        started = flow.metadata.get("gateway_started_at")
+        if started is not None:
+            elapsed = round((time.monotonic() - started) * 1000, 3)
+        try:
+            self._persist_response(event_id, flow.response, elapsed_ms=elapsed)
+        except Exception:
+            logger.exception("gateway response audit write failed for event %s", event_id)
+            from mitmproxy import http
+            flow.response = http.Response.make(503, b"gateway_audit_unavailable")
+        finally:
+            self._release_request(flow)
+
     def export_trace(self) -> Path:
-        """Export the canonical SQLite event stream as run-local JSONL."""
         if self.store is None or self.run_dir is None:
             raise RuntimeError("gateway addon is not configured")
         trace_path = self.run_dir / "trace.jsonl"
@@ -256,7 +398,21 @@ class GatewayAddon:
             self._closed = True
             return
         try:
-            self.export_trace()
+            trace_path = self.export_trace()
+            trace_hash = _hash(trace_path.read_bytes())
+            self._write_run_metadata(status="completed", trace_hash=trace_hash)
+            self.store.update_queue_stats(run_id=self.run_id, stats={
+                "requests_seen": self._request_count,
+                "active_at_shutdown": self._active_requests,
+                "incomplete_forwarded_events": self.store.count_incomplete_events(run_id=self.run_id),
+            })
+        except Exception:
+            logger.exception("failed to finalize gateway run artifacts")
+            try:
+                self.store.mark_run_degraded(run_id=self.run_id)
+                self._write_run_metadata(status="degraded")
+            except Exception:
+                logger.exception("failed to mark run degraded")
         finally:
             self.store.close()
             self.store = None
@@ -269,12 +425,12 @@ def build_addon(
     *,
     run_dir: str | Path | None = None,
     run_id: str | None = None,
+    openapi_path: str | Path | None = None,
 ) -> GatewayAddon:
-    """Load a target-specific allowlist and create a run-scoped addon."""
     return GatewayAddon.from_files(
         allowlist_path, config_path, run_dir=run_dir, run_id=run_id,
+        openapi_path=openapi_path,
     )
 
 
-# mitmdump -s src/proxy/addon.py --set gateway_allowlist=... --set gateway_run_dir=...
 addons = [GatewayAddon()]
