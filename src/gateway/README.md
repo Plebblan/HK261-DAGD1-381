@@ -140,12 +140,45 @@ write the ID to a small file before starting the proxy:
 printf '%s\n' "$RUN_ID" > .runtrace-current-id
 ```
 
-In Terminal 2, load that exact value and reuse the same run directory:
+In Terminal 2, you can automatically discover the single active Custom run
+from its proxy-owned `run.json` and export both variables. Run this from the
+repository root while the Custom proxy is still running:
 
 ```bash
-export RUN_ID="$(cat .runtrace-current-id)"
-export RUN_DIR="runs/custom/$RUN_ID"
-test -f "$RUN_DIR/run.json"
+eval "$(python - <<'PY'
+import json, shlex, sys
+from pathlib import Path
+
+active = []
+for p in Path("runs/custom").glob("*/run.json"):
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+        if data.get("status") == "running":
+            active.append((p, data))
+    except (OSError, json.JSONDecodeError):
+        pass
+
+if len(active) != 1:
+    print(f"Expected exactly 1 active Custom run, found {len(active)}:", file=sys.stderr)
+    for p, data in active:
+        print(f"  {p} -> {data.get('run_id')}", file=sys.stderr)
+    raise SystemExit(1)
+
+p, data = active[0]
+print("export RUN_DIR=" + shlex.quote(str(p.parent)))
+print("export RUN_ID=" + shlex.quote(data["run_id"]))
+PY
+)"
+
+echo "RUN_ID=$RUN_ID"
+echo "RUN_DIR=$RUN_DIR"
+```
+
+The command intentionally stops if it finds zero or more than one active run;
+in that case, check that the proxy is running and that only one Custom run is
+active. Then execute RunTrace with those exact values:
+
+```bash
 python lab-apps/custom/app/runtrace.py \
   --suite lab-apps/custom/app/runtrace_traffic_suite.json \
   --scenario-id workflow-payout-release \
@@ -155,8 +188,10 @@ python lab-apps/custom/app/runtrace.py \
   --proxy-url http://127.0.0.1:8088
 ```
 
-Alternatively, omit `--run-id` when `--run-dir` points to the existing proxy
-run; RunTrace reads the ID from `run.json`. For a multi-trace
+Alternatively, if you used the `.runtrace-current-id` handoff above, load
+that ID and set `RUN_DIR="runs/custom/$RUN_ID"`. You may also omit
+`--run-id` when `--run-dir` points to the existing proxy run; RunTrace
+reads the ID from `run.json`. For a multi-trace
 legacy run, `--all` groups the selected traces under that run ID and gives
 each trace a distinct sequence ID. Each stateful trace still performs its
 configured reset; use a disposable lab database.
