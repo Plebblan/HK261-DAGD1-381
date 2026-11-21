@@ -10,7 +10,10 @@ scope:
 undocumented_policy: block
 approved_patterns:
   - {method: "*", path: "*"}
-operation_overrides: {}
+operation_overrides:
+  "POST /auth/login":
+    destructiveness: create
+    tags: [auth, bootstrap]
 extra_methods:
   - {id: lab_reset, method: POST, path: /_lab/reset, destructiveness: terminal}
   - {id: lab_health, method: GET, path: /_lab/health, destructiveness: read}
