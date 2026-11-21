@@ -304,7 +304,8 @@ def main():
                         run_id=args.run_id, run_dir=args.run_dir)
     for item in outputs:
         print(json.dumps(item, ensure_ascii=False, default=str))
-    evidence = json.loads(Path(args.evidence).read_text(encoding="utf-8"))
+    evidence_path = Path(args.run_dir) / "runtrace.json" if args.run_dir else Path(args.evidence)
+    evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
     failed = [x for x in evidence.get("assertions", []) if x.get("status") == "failed" or x.get("passed") is False]
     skipped = [x for x in evidence.get("assertions", []) if x.get("status") == "skipped"]
     print(f"RunTrace summary: {len(outputs)} steps; {len(evidence.get('assertions', []))} assertions; {len(failed)} failed; {len(skipped)} skipped")
