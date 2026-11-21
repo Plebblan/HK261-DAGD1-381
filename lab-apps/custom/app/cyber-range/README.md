@@ -60,6 +60,7 @@ runs/custom/<run-id>/
   allowlist.generated.json
   evidence.sqlite3
   trace.jsonl
+  trace.har
   runtrace.json
 ```
 
