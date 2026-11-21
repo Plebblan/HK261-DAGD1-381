@@ -99,6 +99,7 @@ class GatewayAddon:
         self._closed = False
         self._lock = threading.RLock()
         self._request_count = 0
+        self._actors_seen: set[str] = set()
         self._active_requests = 0
         self._rate_events: deque[float] = deque()
         self._started_at = _now()
@@ -322,6 +323,9 @@ class GatewayAddon:
         event_id = uuid.uuid4().hex
         request_id = _header(headers, "x-request-id") or uuid.uuid4().hex
         try:
+            if actor and actor not in self._actors_seen:
+                self.store.record_actor_session(run_id=self.run_id, actor=actor)
+                self._actors_seen.add(actor)
             self.store.append_event(
                 event_id=event_id,
                 run_id=self.run_id,
