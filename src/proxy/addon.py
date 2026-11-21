@@ -188,6 +188,16 @@ class GatewayAddon:
         )
         self.__dict__.update(loaded.__dict__)
 
+    @staticmethod
+    def _step_index(headers: Any) -> int | None:
+        value = _header(headers, "x-lab-step-index")
+        if value is None:
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
     def _budget_verdict(self) -> VerdictRecord | None:
         budgets = (self.allowlist or {}).get("budgets", {})
         now = time.monotonic()
@@ -256,7 +266,7 @@ class GatewayAddon:
         semantic_headers = {
             key.lower(): value for key, value in headers.items()
             if key.lower() not in {
-                "authorization", "cookie", "set-cookie", "x-lab-admin-token",
+                "authorization", "cookie", "set-cookie", "x-lab-admin-token", "x-lab-key",
                 "x-request-id", "proxy-authorization", "connection", "content-length",
             }
         }
@@ -296,7 +306,7 @@ class GatewayAddon:
                 ts=_now(),
                 workflow_id=_header(headers, "x-lab-workflow-id"),
                 sequence_id=_header(headers, "x-lab-sequence-id"),
-                step_idx=int(_header(headers, "x-lab-step-index", "0") or 0),
+                step_idx=self._step_index(headers),
                 origin="runtrace",
                 actor=actor,
                 operation_id=_header(headers, "x-lab-operation-id"),
