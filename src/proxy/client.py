@@ -198,7 +198,7 @@ class SafetyGateway:
             request_id=request_id, response_body=raw,
             response_headers={
                 key: value for key, value in response_headers.items()
-                if key in {"content-type", "location", "content-disposition"}
+                if key in {"content-type", "location", "content-disposition", "x-request-id", "x-gateway-verdict", "x-gateway-rule"}
             },
         )
 
