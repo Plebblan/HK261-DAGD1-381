@@ -10,7 +10,7 @@ from src.common.types import GatewayRequest, VerdictRecord
 def canonical_path(path: str) -> str:
     """Normalize URL path shape while rejecting traversal."""
     value = "/" + str(path).split("?", 1)[0].strip("/")
-    if "\\\\" in value:
+    if chr(92) in value:
         raise ValueError("invalid request path")
     if any(segment in {".", ".."} for segment in value.split("/")):
         raise ValueError("path traversal is not allowed")
@@ -18,10 +18,18 @@ def canonical_path(path: str) -> str:
 
 
 def match_path_template(template: str, actual: str) -> bool:
-    """Match OpenAPI {parameter} segments without crossing separators."""
-    escaped = re.escape(canonical_path(template))
-    pattern = re.sub(r"\\\\\{[^/{}]+\\\\\}", r"[^/]+", escaped)
-    return re.fullmatch(pattern, canonical_path(actual)) is not None
+    """Match OpenAPI parameter segments without crossing path separators."""
+    expected = canonical_path(template).split("/")
+    received = canonical_path(actual).split("/")
+    if len(expected) != len(received):
+        return False
+    for expected_segment, actual_segment in zip(expected, received):
+        if expected_segment.startswith("{") and expected_segment.endswith("}") and len(expected_segment) > 2:
+            if not actual_segment:
+                return False
+        elif expected_segment != actual_segment:
+            return False
+    return True
 
 
 def _host(value: str) -> str:
