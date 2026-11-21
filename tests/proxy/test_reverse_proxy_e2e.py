@@ -147,3 +147,9 @@ def test_real_reverse_proxy_records_forwarded_and_blocked_runtrace_events(tmp_pa
     connection.close()
     assert [row[0] for row in rows] == [event["event_id"] for event in trace]
     assert [row[1] for row in rows] == ["forwarded", "blocked"]
+    connection = sqlite3.connect(run_dir / "evidence.sqlite3")
+    metadata = json.loads(connection.execute(
+        "SELECT metadata FROM events WHERE event_id=?", (trace[0]["event_id"],)
+    ).fetchone()[0])
+    connection.close()
+    assert metadata["request_id"]
