@@ -253,7 +253,7 @@ class GatewayAddon:
         record = _body_record(raw, content_type)
         response_headers = {
             key.lower(): value for key, value in response.headers.items()
-            if key.lower() in {"content-type", "location", "content-disposition", "etag"}
+            if key.lower() in {"content-type", "location", "content-disposition", "etag", "x-request-id", "x-gateway-verdict", "x-gateway-rule"}
         }
         self.store.append_responses([{
             "event_id": event_id,
@@ -379,12 +379,15 @@ class GatewayAddon:
             return
 
         flow.metadata["gateway_event_id"] = event_id
+        flow.metadata["gateway_request_id"] = request_id
+        flow.metadata["gateway_rule_id"] = verdict.allowlist_rule
         flow.metadata["gateway_started_at"] = time.monotonic()
         logger.info(
             "gateway verdict=%s reason=%s host=%s path=%s run_id=%s event_id=%s",
             verdict.action, verdict.reason, host, path, self.run_id, event_id,
         )
         if verdict.action == "forwarded":
+            request.headers["X-Request-Id"] = request_id
             return
 
         self._release_request(flow)
@@ -400,7 +403,7 @@ class GatewayAddon:
         flow.response = http.Response.make(
             status,
             json.dumps(payload).encode("utf-8"),
-            {"Content-Type": "application/json", "X-Gateway-Verdict": verdict.action, "X-Gateway-Rule": verdict.allowlist_rule or ""},
+            {"Content-Type": "application/json", "X-Gateway-Verdict": verdict.action, "X-Gateway-Rule": verdict.allowlist_rule or "", "X-Request-Id": request_id},
         )
         try:
             self._persist_response(event_id, flow.response, elapsed_ms=0.0)
