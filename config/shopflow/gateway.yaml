@@ -1,0 +1,21 @@
+target_id: shopflow
+target:
+  base_url: http://127.0.0.1:8002
+openapi:
+  source: http://127.0.0.1:8002/openapi.json
+scope:
+  in_scope_hosts: ["127.0.0.1:8002"]
+  out_of_scope_default: block
+  pass_hosts: []
+undocumented_policy: block
+approved_patterns: []
+operation_overrides: {}
+extra_methods: []
+budgets:
+  max_requests_per_run: 5000
+  rate_per_second: 10
+  max_concurrency: 2
+destructiveness:
+  enabled_tags: [read, create, mutate, advance]
+  disabled_tags: [terminal, session_affecting, unknown]
+dry_run: true
