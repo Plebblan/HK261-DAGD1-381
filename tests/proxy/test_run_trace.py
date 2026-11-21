@@ -81,9 +81,13 @@ def test_gateway_records_forwarded_and_blocked_events_in_run_trace(tmp_path, mon
     response_count = connection.execute(
         "SELECT COUNT(*) FROM event_responses"
     ).fetchone()[0]
+    run_status = connection.execute(
+        "SELECT status FROM runs WHERE run_id=?", (run_id,)
+    ).fetchone()[0]
     connection.close()
 
     assert [row[0] for row in rows] == [event["event_id"] for event in trace]
     assert all(row[1] == run_id for row in rows)
     assert [row[2] for row in rows] == [event["gateway_verdict"] for event in trace]
     assert response_count == 2
+    assert run_status == "completed"
