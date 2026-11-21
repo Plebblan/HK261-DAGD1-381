@@ -164,6 +164,7 @@ runs/<target>/<run-id>/
   allowlist.generated.json
   evidence.sqlite3
   trace.jsonl
+  trace.har
   runtrace.json
   runtrace/<trace-id>.json       # legacy multi-trace runner
 ```
@@ -185,8 +186,7 @@ response to the RunTrace client. If request or response audit persistence fails,
 the proxy fails closed with HTTP 503. Upstream transport failures are also
 associated with their request event.
 
-`trace.jsonl` is exported from SQLite at proxy shutdown; it is not an
-independent event writer. `run.json` records the run ID, target, policy/config
+`trace.jsonl` and redacted HAR 1.2 (`trace.har`) are exported from SQLite at proxy shutdown; they are not independent event writers. `run.json` records the run ID, target, policy/config
 hashes, artifact names, final status, and trace hash.
 
 ## 7. Verify that RunTrace traffic was persisted
