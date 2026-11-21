@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Replay a valid-sequence trace script against a custom_1 app THROUGH the Safety Gateway (stdlib only).
+"""Replay a valid-sequence trace through the shared OpenAPI-driven reverse proxy (stdlib only).
 
     # 1. apps (patched twin) on 8001/8002, 2. gateways on 8101/8102, 3. run
     python custom_1/cyber-range/run_trace.py --all --evidence-dir /tmp/custom_1-evidence
@@ -93,15 +93,24 @@ def redact(h):
     return {k: ("[REDACTED_BEARER_TOKEN]" if k.lower() in ("authorization", "x-lab-key") else v) for k, v in (h or {}).items()}
 
 
-def run_trace(path, base=None, reset=True, verbose=True, direct=False):
+def redact_payload(value):
+    secrets = {"password", "token", "accesstoken", "refreshtoken", "secret", "api_key", "cvv", "otp"}
+    if isinstance(value, dict):
+        return {k: ("[REDACTED]" if k.lower() in secrets else redact_payload(v)) for k, v in value.items()}
+    if isinstance(value, list):
+        return [redact_payload(v) for v in value]
+    return value
+
+
+def run_trace(path, base=None, reset=True, verbose=True, direct=False, run_id=None):
     t = load_json(path)
     app = t["app"]
     base = base or (DIRECT_URL if direct else GATEWAY_URL)[app]
-    run_id = str(uuid.uuid4())
-    sequence_id = f"{run_id}-sequence-001"
-    ctl_run = f"{run_id}-control"           # reset/health use their own request budget
+    run_id = run_id or os.getenv("RUNTRACE_RUN_ID") or str(uuid.uuid4())
+    sequence_id = f"{run_id}-{t['id']}"
+    ctl_run = run_id
     def ctl_headers(actor="lab-control", approval=False):
-        h = {} if direct else {"x-runtrace-actor": actor, "x-lab-run-id": ctl_run, "x-lab-workflow-id": t["id"]}
+        h = {} if direct else {"x-runtrace-actor": actor, "x-lab-run-id": ctl_run, "x-lab-sequence-id": sequence_id, "x-lab-workflow-id": t["id"], "x-lab-valid-request": "true"}
         if approval and not direct:
             h["x-range-approval"] = "true"
         return h
@@ -118,7 +127,7 @@ def run_trace(path, base=None, reset=True, verbose=True, direct=False):
         gw = {}
         if not direct:
             gw = {"x-runtrace-actor": actor, "x-lab-run-id": run_id, "x-lab-sequence-id": sequence_id,
-                  "x-lab-workflow-id": t["id"], "x-lab-step-index": str(i), "x-lab-valid-request": "true"}
+                  "x-lab-workflow-id": t["id"], "x-lab-step-index": str(i), "x-lab-case-id": step.get("case_id", ""), "x-lab-valid-request": "true"}
             if step.get("approval"):
                 gw["x-range-approval"] = "true"
         if step["dsl"] == "login":
@@ -201,6 +210,8 @@ def main():
     ap.add_argument("--base-url", help="override target URL (single app only)")
     ap.add_argument("--no-reset", action="store_true")
     ap.add_argument("--evidence-dir", default=None)
+    ap.add_argument("--run-id", default=os.getenv("RUNTRACE_RUN_ID"))
+    ap.add_argument("--run-dir", default=os.getenv("RUNTRACE_RUN_DIR"))
     a = ap.parse_args()
     files = sorted((HERE / "traces").glob("*.json")) if a.all else [Path(x) for x in a.traces]
     if not files:
@@ -210,12 +221,16 @@ def main():
     total_fail = 0
     for f in files:
         print(f"== {f.name}")
-        res = run_trace(f, a.base_url, reset=not a.no_reset, direct=a.direct)
+        res = run_trace(f, a.base_url, reset=not a.no_reset, direct=a.direct, run_id=a.run_id)
         total_fail += res["failures"]
         print(f"   {res['steps_total'] - res['failures']}/{res['steps_total']} steps passed, {res['gateway_denials']} gateway denial(s)")
         if a.evidence_dir:
             Path(a.evidence_dir).mkdir(parents=True, exist_ok=True)
             (Path(a.evidence_dir) / f"{res['trace_id']}.evidence.json").write_text(json.dumps(res, indent=2), encoding="utf-8")
+        if a.run_dir:
+            run_dir = Path(a.run_dir)
+            run_dir.mkdir(parents=True, exist_ok=True)
+            (run_dir / "runtrace.json").write_text(json.dumps(res, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     sys.exit(1 if total_fail else 0)
 
 
