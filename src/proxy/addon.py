@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 import threading
 import time
 import uuid
@@ -70,7 +71,11 @@ class GatewayAddon:
         openapi_path: str | Path | None = None,
     ):
         self.allowlist = allowlist
-        self.config = config or {}
+        self.config = dict(config or {})
+        if os.getenv("RUNTRACE_KILL_SWITCH", "").lower() == "true":
+            self.config["kill_switch"] = True
+        if os.getenv("RUNTRACE_DRY_RUN", "").lower() == "true":
+            self.config["dry_run"] = True
         self.config_hash = config_hash
         self.run_id = run_id or (uuid.uuid4().hex if allowlist is not None else None)
         self.target_id = target_id or str((allowlist or {}).get("target_id", "unknown"))
@@ -96,6 +101,8 @@ class GatewayAddon:
                 allowlist_hash=allowlist.get("allowlist_hash"),
                 config_hash=config_hash,
                 undocumented_policy=allowlist.get("undocumented_policy"),
+                isolation_mode=self.config.get("isolation_mode"),
+                seed_id=os.getenv("RUNTRACE_SEED_ID"),
                 status="running",
                 metadata={
                     "trace_path": "trace.jsonl",
