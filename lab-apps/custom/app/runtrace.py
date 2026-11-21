@@ -9,7 +9,13 @@ import argparse, json, os, uuid
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
 from typing import Any
-from gateway import SafetyGateway, GatewayResult
+import sys
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from src.proxy.client import SafetyGateway, GatewayResult
 
 
 def _public_result(value: Any) -> Any:
@@ -108,9 +114,14 @@ class DSLExecutor:
         request_headers["x-lab-step-index"] = str(step_idx)
         request_headers["x-lab-workflow-id"] = self.workflow_id
         request_headers.setdefault("x-lab-valid-request", "true")
-        result = self.gateway.send(actor=actor, method=method, path=path, token=self.tokens[actor],
-                                   json_body=body, params=params, headers=request_headers, run_id=self.run_id,
-                                   sequence_id=self.sequence_id, approval=approval)
+        request_headers["x-lab-case-id"] = request_headers.get("x-lab-case-id", "")
+        request_headers = {key: value for key, value in request_headers.items() if value != ""}
+        result = self.gateway.send(
+            actor=actor, method=method, path=path, token=self.tokens[actor],
+            json_body=body, params=params, headers=request_headers,
+            run_id=self.run_id, sequence_id=self.sequence_id, approval=approval,
+            workflow_id=self.workflow_id, step_idx=step_idx,
+        )
         record = _public_result(result)
         self.results.append(self.gateway.redact(record))
         return result
@@ -195,6 +206,7 @@ class DSLExecutor:
         elif kind == "request":
             headers = dict(step.get("headers") or {})
             headers.update({
+                "x-lab-case-id": step.get("case_id", ""),
                 "x-lab-operation-id": interaction.get("operation_id", ""),
                 "x-lab-screen": interaction.get("screen", ""),
                 "x-lab-user-action": interaction.get("action", ""),
@@ -223,17 +235,56 @@ class DSLExecutor:
                 "assertions": self.assertions[-2:]}
 
     def export_evidence(self, output: str):
-        Path(output).write_text(json.dumps({"run_id": self.run_id, "steps": self.results,
-                                            "assertions": self.assertions},
-                                           indent=2, ensure_ascii=False, default=str), encoding="utf-8")
+        payload = {"run_id": self.run_id, "workflow_id": self.workflow_id,
+                   "sequence_id": self.sequence_id, "steps": self.results,
+                   "assertions": self.assertions}
+        Path(output).parent.mkdir(parents=True, exist_ok=True)
+        Path(output).write_text(json.dumps(payload, indent=2, ensure_ascii=False, default=str) + "\n", encoding="utf-8")
 
 
-def run_trace(scenario: list[dict] | None = None, *, allowlist="runtrace_allowlist.json",
-              rso="cyber-range/model/rso.yaml", evidence_out="runtrace_evidence.json", dry_run=False,
-              workflow_id="trace", proxy_url="http://127.0.0.1:8088") -> list[dict]:
+def _resolve_run_id(run_id: str | None, run_dir: str | Path | None, *, dry_run: bool) -> str:
+    """Resolve the proxy-owned run ID without silently inventing a different one."""
+    resolved = run_id or os.getenv("RUNTRACE_RUN_ID")
+    metadata_path = Path(run_dir) / "run.json" if run_dir else None
+    metadata = None
+    if metadata_path and metadata_path.is_file():
+        try:
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise RuntimeError(f"Cannot read proxy run metadata at {metadata_path}: {exc}") from exc
+        recorded = metadata.get("run_id")
+        if not isinstance(recorded, str) or not recorded:
+            raise RuntimeError(f"Proxy run metadata has no valid run_id: {metadata_path}")
+        if resolved and resolved != recorded:
+            raise RuntimeError(
+                f"Run ID mismatch before sending traffic: --run-id/RUNTRACE_RUN_ID={resolved!r}, "
+                f"but {metadata_path} records {recorded!r}. Use the proxy's recorded run_id."
+            )
+        resolved = recorded
+    if not resolved:
+        if not dry_run:
+            raise RuntimeError(
+                "A shared proxy run ID is required. Pass --run-id with the exact ID used "
+                "to start src.proxy.run, or pass --run-dir pointing to that proxy run's "
+                "directory containing run.json. Do not generate a new UUID in the runner."
+            )
+        resolved = str(uuid.uuid4())
+    return resolved
+
+
+def run_trace(scenario: list[dict] | None = None, *, allowlist="config/custom/gateway.yaml",
+              rso="lab-apps/custom/app/cyber-range/model/rso.yaml", evidence_out="runtrace_evidence.json", dry_run=False,
+              workflow_id="trace", proxy_url="http://127.0.0.1:8088", run_id=None, run_dir=None) -> list[dict]:
     """Execute a pre-authored trace. Does not inspect planner state or ground truth."""
-    gateway = SafetyGateway(allowlist, dry_run=dry_run, rso_path=rso, proxy_url=None if dry_run else proxy_url)
-    dsl = DSLExecutor(gateway, workflow_id=workflow_id)
+    run_id = _resolve_run_id(run_id, run_dir, dry_run=dry_run)
+    gateway = SafetyGateway(
+        allowlist, dry_run=dry_run, rso_path=rso,
+        proxy_url=None if dry_run else proxy_url, run_id=run_id,
+        workflow_id=workflow_id,
+    )
+    dsl = DSLExecutor(gateway, run_id=run_id, workflow_id=workflow_id)
+    if run_dir:
+        evidence_out = str(Path(run_dir) / "runtrace.json")
     outputs = []
     try:
         for step in scenario or DEFAULT_SCENARIO:
@@ -246,12 +297,14 @@ def run_trace(scenario: list[dict] | None = None, *, allowlist="runtrace_allowli
 
 def main():
     parser = argparse.ArgumentParser(description="Run fixed benign RunTrace through Safety Gateway")
-    parser.add_argument("--allowlist", default="runtrace_allowlist.json")
-    parser.add_argument("--rso", default="cyber-range/model/rso.yaml", help="Synthetic actor registry; credentials may be overridden by environment variables")
+    parser.add_argument("--allowlist", default="config/custom/gateway.yaml", help="target gateway config (policy is enforced by the shared proxy)")
+    parser.add_argument("--rso", default="lab-apps/custom/app/cyber-range/model/rso.yaml", help="Synthetic actor registry; credentials may be overridden by environment variables")
     parser.add_argument("--scenario", help="JSON file containing a fixed list of DSL steps")
     parser.add_argument("--suite", help="Traffic suite JSON produced from workflows.yaml")
     parser.add_argument("--scenario-id", help="Select exactly one scenario from --suite (run each stateful workflow after a clean reset)")
     parser.add_argument("--evidence", default="runtrace_evidence.json")
+    parser.add_argument("--run-id", default=os.getenv("RUNTRACE_RUN_ID"))
+    parser.add_argument("--run-dir", help="Run-scoped output directory created by the shared proxy")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--proxy-url", default=os.getenv("RUNTRACE_GATEWAY_URL", "http://127.0.0.1:8088"),
                         help="local Safety Gateway URL (default: %(default)s)")
@@ -277,10 +330,12 @@ def main():
         if isinstance(loaded_scenario, dict):
             workflow_id = loaded_scenario.get("id", workflow_id)
     outputs = run_trace(scenario, allowlist=args.allowlist, rso=args.rso, evidence_out=args.evidence,
-                        dry_run=args.dry_run, workflow_id=workflow_id, proxy_url=args.proxy_url)
+                        dry_run=args.dry_run, workflow_id=workflow_id, proxy_url=args.proxy_url,
+                        run_id=args.run_id, run_dir=args.run_dir)
     for item in outputs:
         print(json.dumps(item, ensure_ascii=False, default=str))
-    evidence = json.loads(Path(args.evidence).read_text(encoding="utf-8"))
+    evidence_path = Path(args.run_dir) / "runtrace.json" if args.run_dir else Path(args.evidence)
+    evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
     failed = [x for x in evidence.get("assertions", []) if x.get("status") == "failed" or x.get("passed") is False]
     skipped = [x for x in evidence.get("assertions", []) if x.get("status") == "skipped"]
     print(f"RunTrace summary: {len(outputs)} steps; {len(evidence.get('assertions', []))} assertions; {len(failed)} failed; {len(skipped)} skipped")

@@ -1,26 +1,51 @@
 #!/usr/bin/env python3
-"""Start the existing Safety Gateway engine (lab-apps/custom/app/gateway.py) for a custom_1 app.
+"""Start the shared OpenAPI-driven reverse proxy for TenantDesk or ShopFlow.
 
-    python custom_1/cyber-range/gateway/start_gateway.py tenantdesk     # listens on 127.0.0.1:8101 -> localhost:8001
-    python custom_1/cyber-range/gateway/start_gateway.py shopflow       # listens on 127.0.0.1:8102 -> localhost:8002
+Generate the run-scoped allowlist first, then start one proxy process per run:
 
-The engine is reused unchanged; only the per-app profile and allowlist in this folder differ. Run it on the host
-(the engine refuses to bind to anything but loopback), next to the docker-published app ports.
-Needs fastapi, uvicorn and httpx (custom/requirements.txt).
+  python lab-apps/custom_1/cyber-range/gateway/start_gateway.py tenantdesk \
+    --run-id "$RUN_ID" --run-dir "runs/tenantdesk/$RUN_ID" \
+    --allowlist "runs/tenantdesk/$RUN_ID/allowlist.generated.json" \
+    --openapi "runs/tenantdesk/$RUN_ID/openapi.json"
+
+The listener ports remain compatible with run_trace.py: 8101 (TenantDesk),
+8102 (ShopFlow). No legacy gateway code or app-specific policy engine is used.
 """
-import os, sys
+from __future__ import annotations
+
+import argparse
+import subprocess
+import sys
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
-LAB_APPS = HERE.parents[2]                      # lab-apps/
-ENGINE_DIR = LAB_APPS / "custom" / "app"
+ROOT = Path(__file__).resolve().parents[4]
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("app", choices=("tenantdesk", "shopflow"))
+    parser.add_argument("--run-id", required=True)
+    parser.add_argument("--run-dir", required=True)
+    parser.add_argument("--allowlist", required=True)
+    parser.add_argument("--openapi")
+    parser.add_argument("--config")
+    args = parser.parse_args()
+
+    port = 8101 if args.app == "tenantdesk" else 8102
+    config = Path(args.config or ROOT / "config" / args.app / "gateway.yaml")
+    command = [
+        sys.executable, "-m", "src.proxy.run",
+        "--allowlist", str(Path(args.allowlist).resolve()),
+        "--config", str(config.resolve()),
+        "--run-dir", str(Path(args.run_dir).resolve()),
+        "--run-id", args.run_id,
+        "--listen-host", "127.0.0.1",
+        "--listen-port", str(port),
+    ]
+    if args.openapi:
+        command.extend(["--openapi", str(Path(args.openapi).resolve())])
+    raise SystemExit(subprocess.call(command, cwd=ROOT))
+
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2 or sys.argv[1] not in ("tenantdesk", "shopflow"):
-        sys.exit(__doc__)
-    app = sys.argv[1]
-    os.chdir(LAB_APPS)                          # profile paths are relative to lab-apps/
-    sys.path.insert(0, str(ENGINE_DIR))
-    import gateway                              # the existing engine, unmodified
-    sys.argv = ["gateway.py", "--serve", "--profile", str(HERE / f"{app}_profile.json")]
-    gateway.main()
+    main()

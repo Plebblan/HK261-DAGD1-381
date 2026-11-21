@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
-"""Replay a valid-sequence trace script against a custom_1 app THROUGH the Safety Gateway (stdlib only).
+"""Replay valid-sequence traces through the shared OpenAPI-driven reverse proxy.
 
-    # 1. apps (patched twin) on 8001/8002, 2. gateways on 8101/8102, 3. run
-    python custom_1/cyber-range/run_trace.py --all --evidence-dir /tmp/custom_1-evidence
+Start one target-scoped proxy process with src.proxy.addon for the same run ID
+before executing the runner. TenantDesk listens on 127.0.0.1:8101 and ShopFlow
+on 127.0.0.1:8102. Example:
 
-* Default route: runner -> Safety Gateway (127.0.0.1:8101 tenantdesk, :8102 shopflow) -> app. The gateway enforces the
-  host/method/path allowlist, approval for destructive operations, request/rate budgets, kill switch and dry-run, and writes
-  the redacted event log that coverage.py reads. `--direct` talks to the app ports and is for debugging only: such runs
-  produce no gateway events and never count towards the KPIs.
-* Safe baseline: the app must run with ENABLED_FLAWS=NONE; probes carry `case_id` and are expected to be denied by the app.
-* Gateway denials come back as HTTP 403 with a gateway message. They are reported as `gateway_denied` and fail the step,
-  except for anonymous steps: the allowlist requires a token, so the gateway blocks them before the app (still a safe 401/403).
-* Each trace needs a clean seed: the runner calls POST /_lab/reset first (approval header sent) unless --no-reset.
-* Producer/consumer links: `capture` stores response fields, `{var}` in path/body consumes them.
+    python lab-apps/custom_1/cyber-range/run_trace.py \
+      lab-apps/custom_1/cyber-range/traces/trace_td_01_ticket_lifecycle.json \
+      --run-id "$RUN_ID" --run-dir "runs/tenantdesk/$RUN_ID"
+
+RunTrace preserves ordered DSL steps, actor identity, operation/case/workflow
+metadata and producer-consumer values. The shared proxy enforces policy and
+writes redacted SQLite, JSONL and HAR artifacts. The --direct option is a
+debug-only bypass and never produces KPI-eligible gateway evidence.
+
+Each trace resets its disposable target unless --no-reset is supplied. A
+reset is a configured extra method and requires the explicit approval header.
 """
 import argparse, hashlib, json, os, sys, time, urllib.error, urllib.request, uuid
 from pathlib import Path
@@ -61,7 +64,11 @@ def http(base, method, path, body=None, headers=None, token=None):
 
 
 def gateway_denied(status, payload):
-    d = payload.get("detail") if isinstance(payload, dict) else None
+    if not isinstance(payload, dict):
+        return False
+    if payload.get("gateway_verdict") == "blocked":
+        return True
+    d = payload.get("detail")
     return status in (403, 502) and isinstance(d, str) and d.startswith(GATEWAY_DENIALS)
 
 
@@ -93,15 +100,24 @@ def redact(h):
     return {k: ("[REDACTED_BEARER_TOKEN]" if k.lower() in ("authorization", "x-lab-key") else v) for k, v in (h or {}).items()}
 
 
-def run_trace(path, base=None, reset=True, verbose=True, direct=False):
+def redact_payload(value):
+    secrets = {"password", "token", "accesstoken", "refreshtoken", "secret", "api_key", "cvv", "otp"}
+    if isinstance(value, dict):
+        return {k: ("[REDACTED]" if k.lower() in secrets else redact_payload(v)) for k, v in value.items()}
+    if isinstance(value, list):
+        return [redact_payload(v) for v in value]
+    return value
+
+
+def run_trace(path, base=None, reset=True, verbose=True, direct=False, run_id=None):
     t = load_json(path)
     app = t["app"]
     base = base or (DIRECT_URL if direct else GATEWAY_URL)[app]
-    run_id = str(uuid.uuid4())
-    sequence_id = f"{run_id}-sequence-001"
-    ctl_run = f"{run_id}-control"           # reset/health use their own request budget
+    run_id = run_id or os.getenv("RUNTRACE_RUN_ID") or str(uuid.uuid4())
+    sequence_id = f"{run_id}-{t['id']}"
+    ctl_run = run_id
     def ctl_headers(actor="lab-control", approval=False):
-        h = {} if direct else {"x-runtrace-actor": actor, "x-lab-run-id": ctl_run, "x-lab-workflow-id": t["id"]}
+        h = {} if direct else {"x-runtrace-actor": actor, "x-lab-run-id": ctl_run, "x-lab-sequence-id": sequence_id, "x-lab-workflow-id": t["id"], "x-lab-valid-request": "true"}
         if approval and not direct:
             h["x-range-approval"] = "true"
         return h
@@ -118,7 +134,7 @@ def run_trace(path, base=None, reset=True, verbose=True, direct=False):
         gw = {}
         if not direct:
             gw = {"x-runtrace-actor": actor, "x-lab-run-id": run_id, "x-lab-sequence-id": sequence_id,
-                  "x-lab-workflow-id": t["id"], "x-lab-step-index": str(i), "x-lab-valid-request": "true"}
+                  "x-lab-workflow-id": t["id"], "x-lab-step-index": str(i), "x-lab-case-id": step.get("case_id", ""), "x-lab-valid-request": "true"}
             if step.get("approval"):
                 gw["x-range-approval"] = "true"
         if step["dsl"] == "login":
@@ -176,8 +192,8 @@ def run_trace(path, base=None, reset=True, verbose=True, direct=False):
                     vars_[var] = p[field]
             raw = json.dumps({"method": step["method"], "path": p_, "body": body, "status": st, "response": p}, sort_keys=True)
             rec = {"step": i, "id": step["id"], "actor": actor, "case_id": step.get("case_id"), "operation_id": action["id"] if action else None,
-                   "request": {"method": step["method"], "url": base + p_, "headers": redact({**hdr, **({"Authorization": "x"} if tok else {})}), "body": body},
-                   "response": {"status_code": st, "body": p}, "wf": step.get("wf"), "ok": not problems, "problems": problems,
+                   "request": {"method": step["method"], "url": base + p_, "headers": redact({**hdr, **({"Authorization": "x"} if tok else {})}), "body": redact_payload(body)},
+                   "response": {"status_code": st, "body": redact_payload(p)}, "wf": step.get("wf"), "ok": not problems, "problems": problems,
                    "gateway_denied": blocked, **({"note": note} if note else {}),
                    "raw_hash": hashlib.sha256(raw.encode()).hexdigest(), "elapsed_ms": round((time.time() - t0) * 1000, 1)}
         evidence.append(rec)
@@ -201,21 +217,47 @@ def main():
     ap.add_argument("--base-url", help="override target URL (single app only)")
     ap.add_argument("--no-reset", action="store_true")
     ap.add_argument("--evidence-dir", default=None)
+    ap.add_argument("--run-id", default=os.getenv("RUNTRACE_RUN_ID"))
+    ap.add_argument("--run-dir", default=os.getenv("RUNTRACE_RUN_DIR"))
     a = ap.parse_args()
+    a.run_id = a.run_id or str(uuid.uuid4())
     files = sorted((HERE / "traces").glob("*.json")) if a.all else [Path(x) for x in a.traces]
     if not files:
         ap.error("give a trace file or --all")
     if a.direct:
         print("WARNING: --direct bypasses the Safety Gateway; this run is not a KPI run.")
     total_fail = 0
+    run_results = []
     for f in files:
         print(f"== {f.name}")
-        res = run_trace(f, a.base_url, reset=not a.no_reset, direct=a.direct)
+        res = run_trace(f, a.base_url, reset=not a.no_reset, direct=a.direct, run_id=a.run_id)
+        run_results.append(res)
         total_fail += res["failures"]
         print(f"   {res['steps_total'] - res['failures']}/{res['steps_total']} steps passed, {res['gateway_denials']} gateway denial(s)")
         if a.evidence_dir:
             Path(a.evidence_dir).mkdir(parents=True, exist_ok=True)
-            (Path(a.evidence_dir) / f"{res['trace_id']}.evidence.json").write_text(json.dumps(res, indent=2), encoding="utf-8")
+            (Path(a.evidence_dir) / f"{res['trace_id']}.evidence.json").write_text(json.dumps(res, indent=2, ensure_ascii=False), encoding="utf-8")
+        if a.run_dir:
+            run_dir = Path(a.run_dir)
+            trace_dir = run_dir / "runtrace"
+            trace_dir.mkdir(parents=True, exist_ok=True)
+            (trace_dir / f"{res['trace_id']}.json").write_text(
+                json.dumps(res, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+            )
+    if a.run_dir:
+        run_dir = Path(a.run_dir)
+        summary = {
+            "run_id": a.run_id or os.getenv("RUNTRACE_RUN_ID"),
+            "trace_count": len(run_results),
+            "steps_total": sum(item["steps_total"] for item in run_results),
+            "failures": total_fail,
+            "gateway_denials": sum(item["gateway_denials"] for item in run_results),
+            "traces": [item["trace_id"] for item in run_results],
+        }
+        (run_dir / "runtrace.json").write_text(
+            json.dumps({"summary": summary, "traces": run_results}, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
     sys.exit(1 if total_fail else 0)
 
 

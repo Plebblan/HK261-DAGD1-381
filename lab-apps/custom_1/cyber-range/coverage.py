@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
-"""coverage.py - Phase-1 coverage metrics for the custom_1 range (TenantDesk + ShopFlow), computed from the
-Safety Gateway event logs. Definitions follow docs/GroundTruth_Metrics_Coverage.md (section 4 and 9.3) and are
+"""coverage.py - Phase-1 coverage metrics for the custom_1 range (TenantDesk + ShopFlow), computed from the shared proxy Store trace JSONL. Definitions follow docs/GroundTruth_Metrics_Coverage.md (section 4 and 9.3) and are
 fixed BEFORE any result is looked at (acceptance principle): do not change them after viewing a report; bump
 `METRICS_VERSION` and write the reason down instead.
 
-    python custom_1/cyber-range/coverage.py                      # reads logs/*_gateway_events.jsonl
+    python lab-apps/custom_1/cyber-range/coverage.py --log runs/tenantdesk/<run-id>/trace.jsonl --log runs/shopflow/<run-id>/trace.jsonl
     python custom_1/cyber-range/coverage.py --log a.jsonl --log b.jsonl --evidence-dir /tmp/custom_1-evidence \\
            --out custom_1/cyber-range/reports/coverage_report.json --fail-on-kpi
 
-Input    gateway event JSONL (one forwarded request per line); optional runner evidence (seed, flags, gateway denials)
+Input    run-scoped Store-exported trace.jsonl (forwarded and denied events); optional RunTrace runtrace.json evidence
 Model    model/rso_custom.yaml, workflows/workflows_custom.yaml, seed/objects_custom.json,
-         business_state_graph_custom.yaml (needs PyYAML), ground_truth/ground_truth.yaml, gateway/*_allowlist.json
+         business_state_graph_custom.yaml (needs PyYAML), ground_truth/ground_truth.yaml
 
 Metrics (per app and overall)
   operation_coverage        |RSO actions with >=1 valid request| / |RSO actions|                      (KPI table "workflow coverage" wording, >= 0.70)
@@ -37,9 +36,9 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from rangelib import PARAM_TYPE, Routes, load_json  # noqa: E402
 
-METRICS_VERSION = "1.0"
+METRICS_VERSION = "1.1"
 KPI = {"operation_coverage": 0.70, "workflow_coverage": 0.70, "role_object_pair_coverage": 0.60, "provenance_rate": 0.95}
-PROFILE_APP = {"custom_1_tenantdesk": "tenantdesk", "custom_1_shopflow": "shopflow"}
+PROFILE_APP = {"tenantdesk": "tenantdesk", "shopflow": "shopflow"}
 APPS = ("tenantdesk", "shopflow")
 CREATES = {"create_ticket", "create_document", "create_user", "create_order", "create_product", "request_refund"}
 
@@ -62,21 +61,21 @@ def load_events(paths):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--log", action="append", help="gateway event JSONL (repeatable); default logs/*_gateway_events.jsonl")
+    ap.add_argument("--log", action="append", help="run-scoped trace.jsonl (repeatable)")
     ap.add_argument("--evidence-dir", help="runner evidence dir (adds seed, flags, gateway denials)")
     ap.add_argument("--out", default=str(HERE / "reports/coverage_report.json"))
     ap.add_argument("--fail-on-kpi", action="store_true", help="exit 1 when a KPI is not met or the safety count is not 0")
     a = ap.parse_args()
-    logs = a.log or sorted(glob.glob(str(HERE / "logs/*_gateway_events.jsonl")))
+    repo_root = HERE.parents[2]
+    logs = a.log or sorted(glob.glob(str(repo_root / "runs/*/*/trace.jsonl")) )
     if not logs:
-        sys.exit("[error] no gateway event logs found; run the traces through the gateway first (run_trace.py)")
+        sys.exit("[error] no run trace JSONL found; execute RunTrace through the shared proxy first")
 
     rso, wfs = load_json(HERE / "model/rso_custom.yaml"), load_json(HERE / "workflows/workflows_custom.yaml")
     seed, gt = load_json(HERE / "seed/objects_custom.json"), load_json(HERE / "ground_truth/ground_truth.yaml")
     routes = Routes(rso)
     actors = {x["ID"]: x for x in rso["actors"]}
     actions = {x["id"]: x for x in rso["actions"]}
-    allow = {app: load_json(HERE / f"gateway/{app}_allowlist.json") for app in APPS}
     graph = None
     try:
         import yaml
@@ -87,33 +86,45 @@ def main():
     # ---------------------------------------------------------------- normalise events
     events = []
     for e in load_events(logs):
-        app = PROFILE_APP.get(e.get("profile_id"))
+        metadata = e.get("metadata") or {}
+        app = PROFILE_APP.get(metadata.get("target_id") or e.get("target_id"))
         if not app:
             continue
-        h = e.get("request_headers") or {}
-        act, params = routes.match(app, e["method"], e["path"])
+        request_record = e.get("request_redacted") or {}
+        h = request_record.get("headers", {}) if isinstance(request_record, dict) else {}
+        request_body = request_record.get("body") if isinstance(request_record, dict) else request_record
+        act, params = routes.match(app, e.get("method", "GET"), e.get("path", "/"))
         op = e.get("operation_id") or (act["id"] if act else None)
-        obj = h.get("x-lab-object-id") or Routes.object_id(params)
-        body = e.get("response")
-        if act and act["id"] in CREATES and isinstance(body, dict) and "id" in body and 200 <= e["status_code"] < 300:
-            obj = f"{act['resource_type']}-{body['id']}"      # the object this request created (overrides the parent id in the path)
-        events.append({"app": app, "run": e.get("run_id"), "seq": e.get("sequence_id"), "step": int(e.get("step_idx") or 0), "actor": e.get("actor"),
-                       "op": op, "obj": obj, "status": e["status_code"], "valid": str(e.get("valid_request")).lower() == "true",
-                       "case": e.get("case_id"), "wf": h.get("x-lab-wf-workflow"), "wf_action": h.get("x-lab-wf-action"),
-                       "guard": h.get("x-lab-guard-object"), "method": e["method"], "path": e["path"], "body": body,
-                       "resp_hash": e.get("response_sha256"), "req_hash": e.get("request_body_sha256"), "has_req_body": e.get("request") is not None,
-                       "control": str(e.get("run_id", "")).endswith("-control"), "trace": e.get("workflow_id")})
-    events.sort(key=lambda x: (x["run"] or "", x["step"]))
+        obj = metadata.get("object_id") or h.get("x-lab-object-id") or Routes.object_id(params)
+        body = e.get("response_redacted")
+        status = int(e.get("status") or 0)
+        verdict = e.get("gateway_verdict")
+        if act and act["id"] in CREATES and isinstance(body, dict) and "id" in body and 200 <= status < 300:
+            obj = f"{act['resource_type']}-{body['id']}"
+        events.append({
+            "app": app, "run": e.get("run_id"), "seq": e.get("sequence_id"),
+            "step": int(e.get("step_idx") or 0), "actor": e.get("actor"),
+            "op": op, "obj": obj, "status": status,
+            "valid": verdict == "forwarded" and bool(e.get("valid_request")),
+            "verdict": verdict, "case": e.get("case_id"),
+            "wf": metadata.get("wf_workflow"), "wf_action": metadata.get("wf_action"),
+            "guard": metadata.get("guard_object"), "method": e.get("method"),
+            "path": e.get("path"), "body": body,
+            "resp_hash": e.get("response_hash"), "req_hash": e.get("raw_body_hash"),
+            "has_req_body": request_body is not None,
+            "control": e.get("actor") == "lab-control", "trace": e.get("workflow_id"),
+        })
+    events.sort(key=lambda x: (x["run"] or "", x["seq"] or "", x["step"]))
     seeds = {o["ID"]: o for o in seed["objects"]}
 
     # ---------------------------------------------------------------- state simulation (per run)
     wf_steps = {w["ID"]: {s["Action"]: s for s in w["Steps"]} for w in wfs["workflows"]}
     wf_app = {w["ID"]: w["App"] for w in wfs["workflows"]}
-    valid_steps = defaultdict(set)          # run -> {(workflow, action)}
-    run_app = {}
+    valid_steps = defaultdict(set)          # sequence -> {(workflow, action)}
+    sequence_app = {}
     transitions_done, system_done = set(), set()
     state, owner = {}, {}
-    cur_run = None
+    cur_sequence = None
     graph_trans = {}
     if graph:
         for app, spec in graph["apps"].items():
@@ -124,11 +135,11 @@ def main():
     for e in events:
         if e["control"] or not e["run"]:
             continue
-        if e["run"] != cur_run:
-            cur_run = e["run"]
+        if e["seq"] != cur_sequence:
+            cur_sequence = e["seq"]
             state = {oid: o["State"] for oid, o in seeds.items() if o["App"] == e["app"] and o.get("State")}
             owner = {oid: o["OwnerID"] for oid, o in seeds.items() if o["App"] == e["app"]}
-        run_app[e["run"]] = e["app"]
+        sequence_app[e["seq"]] = e["app"]
         ok2 = 200 <= e["status"] < 300
         new_state = e["body"].get("status") if isinstance(e["body"], dict) and ok2 and e["obj"] else None
         if e["wf"] and e["wf_action"] and ok2 and e["valid"]:
@@ -153,7 +164,7 @@ def main():
                 elif post == "no_state_change" and before is not None and new_state is not None and new_state != before:
                     good = False
                 if good:
-                    valid_steps[e["run"]].add((e["wf"], e["wf_action"]))
+                    valid_steps[e["seq"]].add((e["wf"], e["wf_action"]))
                     tr = wf_to_tr.get(e["wf_action"])
                     if tr:
                         transitions_done.add(tr)
@@ -172,11 +183,11 @@ def main():
     # ---------------------------------------------------------------- metrics
     def per_app(app):
         ev = [e for e in events if e["app"] == app]
-        run_ev = [e for e in ev if not e["control"]]
+        run_ev = [e for e in ev if not e["control"] and e["verdict"] == "forwarded"]
         ops = {i for i, x in actions.items() if x["App"] == app}
         op_cov = {e["op"] for e in run_ev if e["valid"] and e["op"] in ops}
         wfl = [w for w in wfs["workflows"] if w["App"] == app]
-        runs_app = {r for r, ap_ in run_app.items() if ap_ == app}
+        runs_app = {sequence for sequence, ap_ in sequence_app.items() if ap_ == app}
         wf_cov, wf_missing, steps_done = [], {}, set()
         total_steps = {(w["ID"], s["Action"]) for w in wfl for s in w["Steps"]}
         for r in runs_app:
@@ -207,12 +218,12 @@ def main():
         # sequences / provenance
         seqs = defaultdict(list)
         for e in run_ev:
-            seqs[e["run"]].append(e)
+            seqs[e["seq"]].append(e)
         # planted cases
         cases = [c for c in gt["cases"] if c["app"] == app]
         planted = [c for c in cases if not c["is_benign"]]
         benign = [c for c in cases if c["is_benign"]]
-        seen = {e["case"] for e in ev if e["case"]}
+        seen = {e["case"] for e in run_ev if e["case"]}
         fam = defaultdict(lambda: [0, 0])
         for c in planted:
             fam[c["family"]][0] += 1
@@ -221,14 +232,11 @@ def main():
         inv_all = {i["id"] for ent in graph["apps"][app]["entities"].values() for i in ent["invariants"]} if graph else set()
         inv_probed = {c["invariant_id"] for c in planted if c.get("invariant_id", "").split("-")[0] in {i.split("-")[0] for i in inv_all} and c["case_id"] in seen and c.get("invariant_id") in inv_all}
         # safety
-        entries = [(x["method"], x["path"]) for x in allow[app]["entries"] if x.get("allow")]
-        def allowed(e):
-            import re
-            return any(m == e["method"] and re.fullmatch(re.sub(r"\{[^/{}]+\}", "[^/]+", p).rstrip("/") + "/?", e["path"]) for m, p in entries)
-        outside = [e for e in ev if not allowed(e)]
-        errors5 = [e for e in ev if e["status"] >= 500]
+        outside = [e for e in run_ev if not e["op"]]
+        errors5 = [e for e in run_ev if e["status"] >= 500]
+        gateway_denials = [e for e in ev if not e["control"] and e["verdict"] == "blocked"]
         return {
-            "forwarded_requests": len(ev), "sequences": len(seqs),
+            "forwarded_requests": len(run_ev), "gateway_denials": len(gateway_denials), "sequences": len(seqs),
             "operation_coverage": ratio(len(op_cov), len(ops)), "operations_uncovered": sorted(ops - op_cov),
             "workflow_coverage": ratio(len(wf_cov), len(wfl)), "workflows_uncovered": wf_missing,
             "workflow_step_coverage": ratio(len(steps_done & total_steps), len(total_steps)),
@@ -251,11 +259,11 @@ def main():
                               "verified": sum(1 for c in planted if c.get("verified_by"))},
             "benign_cases": {"total": len(benign), "probed": sum(c["case_id"] in seen for c in benign)},
             "safety_gate_violations": len(outside) + len(errors5),
-            "safety_detail": {"outside_allowlist": len(outside), "http_5xx": len(errors5)},
+            "safety_detail": {"forwarded_without_rso_operation": len(outside), "http_5xx": len(errors5)},
         }
 
     report = {"metrics_version": METRICS_VERSION, "inputs": {Path(p).name: hashlib.sha256(Path(p).read_bytes()).hexdigest()[:16] for p in logs},
-              "n_events": len(events), "per_app": {app: per_app(app) for app in APPS}}
+              "n_events": len(events), "forwarded_events": sum(1 for event in events if event["verdict"] == "forwarded"), "per_app": {app: per_app(app) for app in APPS}}
     pa = report["per_app"]
     def pool(key, num, den):
         n = sum(pa[x][key][num] for x in APPS); d = sum(pa[x][key][den] for x in APPS)
@@ -270,21 +278,33 @@ def main():
         "planted_cases_total": sum(pa[x]["planted_cases"]["total"] for x in APPS),
         "planted_cases_probed": sum(pa[x]["planted_cases"]["probed"] for x in APPS),
         "planted_cases_verified": sum(pa[x]["planted_cases"]["verified"] for x in APPS),
-        "safety_gate_violations": sum(pa[x]["safety_gate_violations"] for x in APPS)}
+        "safety_gate_violations": sum(pa[x]["safety_gate_violations"] for x in APPS),
+        "gateway_denials": sum(pa[x]["gateway_denials"] for x in APPS)}
     report["overall"] = overall
     kpi = {k: ("PASS" if (overall[k] or 0) >= t else "FAIL") for k, t in KPI.items()}
     kpi["planted_cases_total>=20"] = "PASS" if overall["planted_cases_total"] >= 20 else "FAIL"
     kpi["safety_gate_violations=0"] = "PASS" if overall["safety_gate_violations"] == 0 else "FAIL"
     report["kpi_check"] = kpi
-    report["kpi_notes"] = ["Planted cases are 'pending-human-review': probed is not the same as verified.",
-                           "Anonymous steps are blocked by the gateway allowlist (auth_required) and do not appear in the event log.",
-                           "provenance_rate hashes the response body (gateway response_sha256); the request hash is only logged for requests with a body."]
+    report["kpi_notes"] = ["Metrics v1.1 reads the shared proxy Store trace; sequence IDs, not process run IDs, define one workflow sequence.", "Planted cases are 'pending-human-review': probed is not the same as verified.",
+                           "Anonymous and denied steps remain in trace.jsonl with gateway_verdict=blocked; they are excluded from forwarded-operation coverage.",
+                           "provenance_rate uses response_hash from the Store response record; raw_body_hash is computed before redaction and only exists when a body was sent."]
     if a.evidence_dir:
         runs = []
-        for f in sorted(Path(a.evidence_dir).glob("*.evidence.json")):
+        evidence_files = list(Path(a.evidence_dir).glob("*.evidence.json"))
+        evidence_files += list(Path(a.evidence_dir).rglob("runtrace.json"))
+        for f in sorted(set(evidence_files)):
             ev_ = load_json(f)
-            runs.append({"trace": ev_["trace_id"], "app": ev_["app"], "run_id": ev_["run_id"], "seed": ev_.get("seed"), "enabled_flaws": ev_.get("enabled_flaws"),
-                         "via_gateway": ev_.get("via_gateway"), "step_failures": ev_["failures"], "gateway_denials": ev_.get("gateway_denials")})
+            if "traces" in ev_:
+                for item in ev_["traces"]:
+                    runs.append({"trace": item["trace_id"], "app": item["app"], "run_id": item["run_id"],
+                                 "seed": item.get("seed"), "enabled_flaws": item.get("enabled_flaws"),
+                                 "via_gateway": item.get("via_gateway"), "step_failures": item["failures"],
+                                 "gateway_denials": item.get("gateway_denials")})
+            elif "trace_id" in ev_:
+                runs.append({"trace": ev_["trace_id"], "app": ev_["app"], "run_id": ev_["run_id"],
+                             "seed": ev_.get("seed"), "enabled_flaws": ev_.get("enabled_flaws"),
+                             "via_gateway": ev_.get("via_gateway"), "step_failures": ev_["failures"],
+                             "gateway_denials": ev_.get("gateway_denials")})
         report["runs"] = runs
         report["gateway_denials_total"] = sum(r["gateway_denials"] or 0 for r in runs)
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)

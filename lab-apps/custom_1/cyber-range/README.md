@@ -12,9 +12,9 @@ Per-app artifacts for the two synthetic apps in `lab-apps/custom_1`. Shared taxo
 | `ground_truth/ground_truth.yaml` | **Single source of truth.** 31 planted cases + 12 benign, using taxonomy family ids, oracle types, per-family evidence fields and decisions D1-D5 |
 | `ground_truth/planted_cases_custom.csv`, `schema/ground_truth.schema.json` | Flat export of the above (regenerate if the YAML changes) |
 | `traces/*.json` | Valid-sequence trace scripts (one per workflow group), same step DSL as `lab-apps/custom` |
-| `gateway/` | Per-app profile + allowlist for the existing Safety Gateway engine (`custom/app/gateway.py`, unchanged) and `start_gateway.py` |
+| `gateway/start_gateway.py` | Thin launcher for the shared `src.proxy` reverse proxy; there is no app-specific gateway engine or legacy allowlist |
 | `run_trace.py` | Replays a trace over HTTP **through the gateway** (stdlib only); `--direct` bypasses it for debugging |
-| `coverage.py` | Phase-1 coverage metrics from the gateway event logs (`logs/*_gateway_events.jsonl`) -> `reports/coverage_report.json` |
+| `coverage.py` | Phase-1 coverage metrics from run-scoped Store traces (`runs/<target>/<run-id>/trace.jsonl`) -> `reports/coverage_report.json` |
 | `rangelib.py` | RSO route matching / object ids shared by the two scripts |
 | `replay_ground_truth.py` | Replays every ground-truth case in-process: vulnerable build (only its flag on) vs patched twin |
 | `validate_custom.py` | Static consistency checks (model, taxonomy conformance, valid-sequence conformance) |
@@ -46,33 +46,124 @@ state machine (role, pre-state, post-state) so an out-of-order trace is rejected
 (`case_id`) are interleaved at the point where the object is in the required state. Traces run against the
 patched twin (`ENABLED_FLAWS=NONE`) and expect every probe to be denied; run a single flag to see it fire.
 
-## Running through the Safety Gateway
+## Running through the shared OpenAPI-driven proxy
 
-Traffic path: `run_trace.py -> gateway (127.0.0.1:8101 / :8102) -> app (127.0.0.1:8001 / :8002)`. The existing engine is reused;
-only the profile and allowlist differ per app. The engine binds to loopback only, so run it on the host next to the published ports.
+The request path is `run_trace.py -> shared reverse proxy (src.proxy) -> app`.
+RunTrace does not implement policy. The shared proxy applies the target-scoped
+OpenAPI allowlist, explicit write approval, budgets, kill switch, redaction,
+SQLite audit, JSONL trace, and HAR export.
+
+Start the patched lab twins from the repository root:
 
 ```bash
-# from lab-apps/ ; the apps run the patched twin
-TD_ENABLED_FLAWS=NONE SF_ENABLED_FLAWS=NONE docker compose --profile custom up --build -d tenantdesk shopflow
-python custom_1/cyber-range/gateway/start_gateway.py tenantdesk &     # needs fastapi, uvicorn, httpx (custom/requirements.txt)
-python custom_1/cyber-range/gateway/start_gateway.py shopflow &
-
-python custom_1/cyber-range/run_trace.py --all --evidence-dir /tmp/custom_1-evidence
-python custom_1/cyber-range/coverage.py --evidence-dir /tmp/custom_1-evidence --fail-on-kpi
-
-python custom_1/cyber-range/validate_custom.py
-python custom_1/cyber-range/replay_ground_truth.py     # in-process, needs requirements-dev.txt
-pytest tests                                           # from the repository root
+TD_ENABLED_FLAWS=NONE SF_ENABLED_FLAWS=NONE \
+  docker compose -f lab-apps/docker-compose.yml --profile custom up --build -d tenantdesk shopflow
 ```
 
-What the gateway enforces for custom_1: default-deny exact method + path-template allowlist (the 48 RSO operations plus
-`/_lab/health` and `/_lab/reset`), a token for every authenticated operation, `X-Range-Approval` for destructive operations
-(`DELETE` and reset; traces mark those steps `"approval": true`), a per-run request budget (60), per-operation rate limits,
-`RUNTRACE_KILL_SWITCH=true` and `RUNTRACE_DRY_RUN=true`. Each forwarded request becomes a redacted event in `logs/`.
+For each app, create a separate run and generate its allowlist from the live
+OpenAPI document. TenantDesk example:
 
-Gateway denials are HTTP 403 with a gateway message; `run_trace.py` reports them as `gateway_denied`. Anonymous probes
-(BENIGN-106/206) are blocked by the allowlist before the app, so they are safe but do not appear in the event log.
-The raw `logs/` and `reports/` are run outputs: generate them from a real run, do not commit stand-in results.
+```bash
+export RUN_ID_TD="$(python -c 'import uuid; print(uuid.uuid4().hex)')"
+export RUN_DIR_TD="runs/tenantdesk/$RUN_ID_TD"
+mkdir -p "$RUN_DIR_TD"
+curl -fsS http://127.0.0.1:8001/openapi.json -o "$RUN_DIR_TD/openapi.json"
+python -m src.allowlist.builder \
+  --openapi "$RUN_DIR_TD/openapi.json" \
+  --config config/tenantdesk/gateway.yaml \
+  --output "$RUN_DIR_TD/allowlist.generated.json"
+```
+
+Start the proxy in terminal 1:
+
+ShopFlow gets its own run ID and directory:
+
+```bash
+export RUN_ID_SF="$(python -c 'import uuid; print(uuid.uuid4().hex)')"
+export RUN_DIR_SF="runs/shopflow/$RUN_ID_SF"
+mkdir -p "$RUN_DIR_SF"
+curl -fsS http://127.0.0.1:8002/openapi.json -o "$RUN_DIR_SF/openapi.json"
+python -m src.allowlist.builder \
+  --openapi "$RUN_DIR_SF/openapi.json" \
+  --config config/shopflow/gateway.yaml \
+  --output "$RUN_DIR_SF/allowlist.generated.json"
+```
+
+```bash
+python lab-apps/custom_1/cyber-range/gateway/start_gateway.py tenantdesk \
+  --run-id "$RUN_ID_TD" --run-dir "$RUN_DIR_TD" \
+  --allowlist "$RUN_DIR_TD/allowlist.generated.json" \
+  --openapi "$RUN_DIR_TD/openapi.json"
+```
+
+Run the TenantDesk traces in terminal 2. The exact same run ID and run
+directory must be passed to the runner:
+
+```bash
+python lab-apps/custom_1/cyber-range/run_trace.py \
+  lab-apps/custom_1/cyber-range/traces/trace_td_01_ticket_lifecycle.json \
+  lab-apps/custom_1/cyber-range/traces/trace_td_02_document_review.json \
+  --run-id "$RUN_ID_TD" --run-dir "$RUN_DIR_TD"
+```
+
+Repeat the same process for ShopFlow using port 8002, config
+`config/shopflow/gateway.yaml`, and `start_gateway.py shopflow`. Its proxy
+listens on 8102; TenantDesk listens on 8101. Run the ShopFlow traces with the
+matching run ID and directory:
+
+```bash
+python lab-apps/custom_1/cyber-range/run_trace.py \
+  lab-apps/custom_1/cyber-range/traces/trace_sf_01_order_fulfilment.json \
+  lab-apps/custom_1/cyber-range/traces/trace_sf_02_refund_and_coupon.json \
+  --run-id "$RUN_ID_SF" --run-dir "$RUN_DIR_SF"
+```
+
+When a trace sequence is complete, stop its proxy with Ctrl-C. The run
+directory contains:
+
+```text
+runs/<target>/<run-id>/
+  run.json
+  openapi.json
+  allowlist.generated.json
+  evidence.sqlite3
+  trace.jsonl
+  trace.har
+  runtrace.json
+  runtrace/<trace-id>.json
+```
+
+Run coverage from the repository root, passing the two run-local trace logs:
+
+```bash
+python lab-apps/custom_1/cyber-range/coverage.py \
+  --log "$RUN_DIR_TD/trace.jsonl" \
+  --log "$RUN_DIR_SF/trace.jsonl" \
+  --evidence-dir runs \
+  --fail-on-kpi
+```
+
+Then run static and ground-truth checks:
+
+```bash
+python lab-apps/custom_1/cyber-range/validate_custom.py
+python lab-apps/custom_1/cyber-range/replay_ground_truth.py
+python -m pytest tests -q
+```
+
+The proxy records both forwarded and blocked requests. Coverage uses only
+forwarded requests for operation/workflow/provenance metrics, but reports
+gateway denials separately. Anonymous and undocumented denials are retained
+in `trace.jsonl`; they are not silently dropped. `--direct` is a debug-only
+bypass and must never be used for KPI runs.
+
+Non-read requests require the explicit `X-Range-Approval: true` header and a
+configured approval pattern. The approval signal does not authorize
+undocumented operations. The target configs keep reset as an explicit extra
+method and classify only the synthetic login bootstrap as non-destructive.
+All other writes stay disabled until a RunTrace step explicitly requests
+approval. The gateway is not the authorization oracle: ground truth and
+business-state invariants remain separate inputs used only by evaluation.
 
 ## Coverage metrics
 

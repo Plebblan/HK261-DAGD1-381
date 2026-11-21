@@ -350,6 +350,18 @@ class Store:
             run_id=run_id,
         )
 
+    def finish_run(self, *, run_id: str, status: str, stats: Mapping[str, Any] | None = None) -> None:
+        """Persist final run status and audit-writer counters."""
+        if status not in {"completed", "failed", "degraded", "cancelled"}:
+            raise ValueError("invalid terminal run status")
+        self._write(
+            lambda conn: conn.execute(
+                "UPDATE runs SET status = ?, queue_stats = ? WHERE run_id = ?",
+                (status, _json(stats or {}), run_id),
+            ),
+            run_id=run_id,
+        )
+
     def mark_run_degraded(self, *, run_id: str) -> None:
         """Record that audit availability forced the run to fail closed."""
         self._write(

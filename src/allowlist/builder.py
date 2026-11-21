@@ -1,60 +1,117 @@
-"""Build the gateway's route allowlist from the app's OpenAPI document.
+"""Generate immutable, per-target allowlists from normalized OpenAPI and config.
 
-The allowlist is deliberately only an execution boundary: it contains route
-templates and HTTP methods. It does not encode expected responses or oracle data.
+OpenAPI establishes which operations are documented; it does not establish
+roles, ownership, business rules, or permission to execute destructive writes.
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
-METHODS = {"get", "post", "put", "patch", "delete", "options", "head"}
-ROOT = Path(__file__).resolve().parent
+import yaml
 
-
-def operations(spec: dict[str, Any]) -> list[dict[str, Any]]:
-    entries = []
-    for path, path_item in spec.get("paths", {}).items():
-        for method, operation in path_item.items():
-            if method.lower() not in METHODS or not isinstance(operation, dict):
-                continue
-            operation_id = operation.get("operationId") or f"{method.upper()}_{path}"
-            entries.append({
-                "id": operation_id,
-                "method": method.upper(),
-                "path": path,
-                "host": "localhost:8000",
-                "allow": True,
-                "auth_required": path not in {"/health", "/__lab/auth/token"},
-            })
-    return sorted(entries, key=lambda item: (item["path"], item["method"], item["id"]))
+from src.spec.loader import load_spec
 
 
-def build(spec: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "version": 1,
-        "purpose": "Gateway route boundary generated from the app OpenAPI contract.",
-        "target": {"scheme": "http", "host": "localhost", "port": 8000,
-                   "base_url": "http://localhost:8000"},
-        "default_deny": True,
-        "allow_external_hosts": False,
-        "global_limits": {"max_concurrency": 2, "timeout_seconds": 10,
-                          "max_requests_per_run": 40},
-        "entries": operations(spec),
+class AllowlistBuildError(ValueError):
+    """Target configuration is incomplete or unsafe."""
+
+
+def _operations(spec: Any) -> list[dict[str, Any]]:
+    normalized = spec.to_dict() if hasattr(spec, "to_dict") else spec
+    items = normalized.get("operations", [])
+    result = []
+    for item in items:
+        method = str(item["method"]).upper()
+        # Unknown/destructive operations are not enabled by spec presence.
+        result.append({
+            "id": item["operation_id"],
+            "operation_id": item["operation_id"],
+            "method": method,
+            "path": item.get("route_template", item.get("path")),
+            "documented": True,
+            "allow": True,
+            "destructiveness": "unknown",
+            "tags": [],
+            "source": "openapi",
+        })
+    return sorted(result, key=lambda row: (row["path"], row["method"], row["id"]))
+
+
+def build_allowlist(spec: Any, config: Mapping[str, Any]) -> dict[str, Any]:
+    """Build a target-scoped allowlist; explicit config never mutates the spec."""
+    target = config.get("target") or {}
+    target_id = config.get("target_id") or target.get("id")
+    base_url = target.get("base_url")
+    scope = config.get("scope") or {}
+    hosts = scope.get("in_scope_hosts") or []
+    undocumented_policy = config.get("undocumented_policy")
+    if not isinstance(target_id, str) or not target_id.strip():
+        raise AllowlistBuildError("target_id is required")
+    if not isinstance(base_url, str) or not base_url.strip():
+        raise AllowlistBuildError("target.base_url is required")
+    if not isinstance(hosts, list) or not hosts or not all(isinstance(h, str) and h for h in hosts):
+        raise AllowlistBuildError("scope.in_scope_hosts must explicitly list host[:port] values")
+    if undocumented_policy not in {"block", "hold", "allow_and_flag"}:
+        raise AllowlistBuildError("undocumented_policy is required: block | hold | allow_and_flag")
+
+    entries = _operations(spec)
+    overrides = config.get("operation_overrides") or {}
+    if not isinstance(overrides, dict):
+        raise AllowlistBuildError("operation_overrides must be a mapping keyed by operation_id")
+    for entry in entries:
+        override = overrides.get(
+            entry["operation_id"],
+            overrides.get("{} {}".format(entry["method"], entry["path"]), {}),
+        )
+        if not isinstance(override, dict):
+            raise AllowlistBuildError(f"override for {entry['operation_id']} must be a mapping")
+        if "allow" in override:
+            if not isinstance(override["allow"], bool):
+                raise AllowlistBuildError(f"allow override for {entry['operation_id']} must be boolean")
+            entry["allow"] = override["allow"]
+        entry["tags"] = list(override.get("tags", []))
+        entry["destructiveness"] = override.get("destructiveness", "unknown")
+
+    payload = {
+        "schema_version": 1,
+        "target_id": target_id,
+        "target": {"base_url": base_url},
+        "scope": {
+            "in_scope_hosts": list(hosts),
+            "out_of_scope_default": "block",
+            "pass_hosts": list(scope.get("pass_hosts", [])),
+        },
+        "undocumented_policy": undocumented_policy,
+        "approved_patterns": list(config.get("approved_patterns", [])),
+        "extra_methods": list(config.get("extra_methods", [])),
+        "budgets": dict(config.get("budgets", {})),
+        "destructiveness": dict(config.get("destructiveness", {})),
+        "entries": entries,
     }
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    payload["allowlist_hash"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return payload
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--openapi", default=str(ROOT.parent / "docs/openapi.json"))
-    parser.add_argument("--output", default=str(ROOT / "runtrace_allowlist.json"))
+    parser.add_argument("--openapi", required=True, help="Path to this target's OpenAPI JSON/YAML")
+    parser.add_argument("--config", required=True, help="Path to config/<target>/gateway.yaml")
+    parser.add_argument("--output", required=True, help="Run-scoped allowlist.generated.json destination")
     args = parser.parse_args()
-    spec = json.loads(Path(args.openapi).read_text(encoding="utf-8"))
-    result = build(spec)
-    Path(args.output).write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    print(f"Built {len(result['entries'])} allowlist entries from {args.openapi} -> {args.output}")
+    spec = load_spec(args.openapi)
+    config = yaml.safe_load(Path(args.config).read_text(encoding="utf-8"))
+    if not isinstance(config, dict):
+        raise AllowlistBuildError("gateway config must be a YAML mapping")
+    generated = build_allowlist(spec, config)
+    output = Path(args.output)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(generated, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    print(f"Generated {len(generated['entries'])} operations for {generated['target_id']} at {output}")
 
 
 if __name__ == "__main__":
