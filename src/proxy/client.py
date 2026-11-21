@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 from urllib.request import Request, urlopen
 
 import yaml
@@ -68,6 +68,10 @@ class SafetyGateway:
         self.proxy_url = (proxy_url or os.getenv("RUNTRACE_GATEWAY_URL") or "").rstrip("/")
         if not self.proxy_url and not dry_run:
             raise GatewayDenied("RUNTRACE_GATEWAY_URL must point to the shared local reverse proxy.")
+        if self.proxy_url:
+            parsed_proxy = urlsplit(self.proxy_url)
+            if parsed_proxy.scheme != "http" or parsed_proxy.hostname not in {"127.0.0.1", "localhost", "::1"}:
+                raise GatewayDenied("RunTrace may connect only to a loopback HTTP gateway listener.")
         self.dry_run = bool(dry_run or os.getenv("RUNTRACE_DRY_RUN", "").lower() == "true")
         self.run_id = run_id or os.getenv("RUNTRACE_RUN_ID") or uuid.uuid4().hex
         self.workflow_id = workflow_id or "runtrace"
