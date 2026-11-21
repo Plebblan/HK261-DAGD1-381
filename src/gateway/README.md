@@ -227,7 +227,7 @@ PY
 Test suite:
 
 ```bash
-python -m pytest tests/gateway tests/allowlist tests/proxy -q
+python -m pytest tests/gateway tests/allowlist tests/proxy tests/test_custom_1_gateway.py -q
 ```
 
 The GitHub Actions workflow `.github/workflows/gateway-tests.yml` runs the same
