@@ -37,6 +37,7 @@ class GatewayAddon:
     ):
         self.allowlist = allowlist
         self.config = config or {}
+        self.config_hash = config_hash
         self.run_id = run_id or uuid.uuid4().hex
         self.target_id = target_id or str((allowlist or {}).get("target_id", "unknown"))
         self.run_dir = Path(run_dir) if run_dir is not None else Path("runs") / self.target_id / self.run_id
