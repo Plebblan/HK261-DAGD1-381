@@ -22,6 +22,7 @@ import yaml
 from src.common.types import GatewayRequest, VerdictRecord
 from src.gateway.engine import decide
 from src.store.store import Store
+from src.proxy.har_export import export_har
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +125,7 @@ class GatewayAddon:
             "artifacts": {
                 "database": "evidence.sqlite3",
                 "trace": "trace.jsonl",
+                "har": "trace.har",
                 "runtrace": "runtrace.json",
                 "allowlist": "allowlist.generated.json",
                 "openapi": "openapi.json" if self.openapi_path else None,
@@ -319,7 +321,7 @@ class GatewayAddon:
                 rule_id=verdict.allowlist_rule,
                 valid_request=(_header(headers, "x-lab-valid-request", "").lower() == "true")
                     if _header(headers, "x-lab-valid-request") is not None else None,
-                request_redacted=request_record,
+                request_redacted={"headers": semantic_headers, "body": request_record},
                 raw_body_hash=_hash(raw_body) if raw_body else None,
                 request_fingerprint=fingerprint_hash,
                 case_id=_header(headers, "x-lab-case-id"),
@@ -430,6 +432,7 @@ class GatewayAddon:
             return
         try:
             trace_path = self.export_trace()
+            export_har(self.store, run_id=self.run_id, path=self.run_dir / "trace.har")
             trace_hash = _hash(trace_path.read_bytes())
             self._write_run_metadata(status="completed", trace_hash=trace_hash)
             self.store.finish_run(run_id=self.run_id, status="completed", stats={
