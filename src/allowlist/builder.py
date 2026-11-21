@@ -33,7 +33,7 @@ def _operations(spec: Any) -> list[dict[str, Any]]:
             "method": method,
             "path": item.get("route_template", item.get("path")),
             "documented": True,
-            "allow": method in {"GET", "HEAD", "OPTIONS"},
+            "allow": True,
             "destructiveness": "unknown",
             "tags": [],
             "source": "openapi",
