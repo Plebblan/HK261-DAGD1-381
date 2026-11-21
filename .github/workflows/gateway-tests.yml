@@ -30,5 +30,7 @@ jobs:
           cache: pip
       - name: Install project and test dependencies
         run: python -m pip install -e ".[test]"
+      - name: Compile gateway, RunTrace, and coverage modules
+        run: python -m compileall -q src lab-apps/custom/app lab-apps/custom_1/cyber-range
       - name: Run gateway, allowlist, and run-trace tests
         run: python -m pytest tests/gateway tests/allowlist tests/proxy tests/test_custom_1_gateway.py -q
