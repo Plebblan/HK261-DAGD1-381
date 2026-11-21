@@ -47,7 +47,11 @@ curl -fsS http://127.0.0.1:8002/_lab/health
 ## 2. Create a run and build the target allowlist
 
 Every proxy process and RunTrace invocation must use the same run ID and run
-directory. Do not reuse a run directory.
+directory. Do not reuse a run directory. The proxy creates `run.json` at startup;
+RunTrace now treats that file as the authoritative run-ID source when
+`--run-dir` is supplied, and rejects a conflicting `--run-id` before sending
+any traffic. For safety, a non-dry-run invocation without a proxy-owned run ID
+fails immediately instead of generating a new UUID.
 
 TenantDesk example:
 
@@ -128,7 +132,31 @@ python lab-apps/custom/app/runtrace.py \
   --proxy-url http://127.0.0.1:8088
 ```
 
-The same `RUN_ID` must be passed to the proxy and RunTrace. For a multi-trace
+The same `RUN_ID` must be passed to the proxy and RunTrace. If you use two
+terminal windows, shell variables are not shared between them. In Terminal 1,
+write the ID to a small file before starting the proxy:
+
+```bash
+printf '%s\n' "$RUN_ID" > .runtrace-current-id
+```
+
+In Terminal 2, load that exact value and reuse the same run directory:
+
+```bash
+export RUN_ID="$(cat .runtrace-current-id)"
+export RUN_DIR="runs/custom/$RUN_ID"
+test -f "$RUN_DIR/run.json"
+python lab-apps/custom/app/runtrace.py \
+  --suite lab-apps/custom/app/runtrace_traffic_suite.json \
+  --scenario-id workflow-payout-release \
+  --allowlist config/custom/gateway.yaml \
+  --rso lab-apps/custom/app/cyber-range/model/rso.yaml \
+  --run-id "$RUN_ID" --run-dir "$RUN_DIR" \
+  --proxy-url http://127.0.0.1:8088
+```
+
+Alternatively, omit `--run-id` when `--run-dir` points to the existing proxy
+run; RunTrace reads the ID from `run.json`. For a multi-trace
 legacy run, `--all` groups the selected traces under that run ID and gives
 each trace a distinct sequence ID. Each stateful trace still performs its
 configured reset; use a disposable lab database.
