@@ -114,17 +114,17 @@ def main():
             "has_req_body": request_body is not None,
             "control": e.get("actor") == "lab-control", "trace": e.get("workflow_id"),
         })
-    events.sort(key=lambda x: (x["run"] or "", x["step"]))
+    events.sort(key=lambda x: (x["run"] or "", x["seq"] or "", x["step"]))
     seeds = {o["ID"]: o for o in seed["objects"]}
 
     # ---------------------------------------------------------------- state simulation (per run)
     wf_steps = {w["ID"]: {s["Action"]: s for s in w["Steps"]} for w in wfs["workflows"]}
     wf_app = {w["ID"]: w["App"] for w in wfs["workflows"]}
-    valid_steps = defaultdict(set)          # run -> {(workflow, action)}
-    run_app = {}
+    valid_steps = defaultdict(set)          # sequence -> {(workflow, action)}
+    sequence_app = {}
     transitions_done, system_done = set(), set()
     state, owner = {}, {}
-    cur_run = None
+    cur_sequence = None
     graph_trans = {}
     if graph:
         for app, spec in graph["apps"].items():
@@ -135,11 +135,11 @@ def main():
     for e in events:
         if e["control"] or not e["run"]:
             continue
-        if e["run"] != cur_run:
-            cur_run = e["run"]
+        if e["seq"] != cur_sequence:
+            cur_sequence = e["seq"]
             state = {oid: o["State"] for oid, o in seeds.items() if o["App"] == e["app"] and o.get("State")}
             owner = {oid: o["OwnerID"] for oid, o in seeds.items() if o["App"] == e["app"]}
-        run_app[e["run"]] = e["app"]
+        sequence_app[e["seq"]] = e["app"]
         ok2 = 200 <= e["status"] < 300
         new_state = e["body"].get("status") if isinstance(e["body"], dict) and ok2 and e["obj"] else None
         if e["wf"] and e["wf_action"] and ok2 and e["valid"]:
@@ -164,7 +164,7 @@ def main():
                 elif post == "no_state_change" and before is not None and new_state is not None and new_state != before:
                     good = False
                 if good:
-                    valid_steps[e["run"]].add((e["wf"], e["wf_action"]))
+                    valid_steps[e["seq"]].add((e["wf"], e["wf_action"]))
                     tr = wf_to_tr.get(e["wf_action"])
                     if tr:
                         transitions_done.add(tr)
@@ -187,7 +187,7 @@ def main():
         ops = {i for i, x in actions.items() if x["App"] == app}
         op_cov = {e["op"] for e in run_ev if e["valid"] and e["op"] in ops}
         wfl = [w for w in wfs["workflows"] if w["App"] == app]
-        runs_app = {r for r, ap_ in run_app.items() if ap_ == app}
+        runs_app = {sequence for sequence, ap_ in sequence_app.items() if ap_ == app}
         wf_cov, wf_missing, steps_done = [], {}, set()
         total_steps = {(w["ID"], s["Action"]) for w in wfl for s in w["Steps"]}
         for r in runs_app:
@@ -218,7 +218,7 @@ def main():
         # sequences / provenance
         seqs = defaultdict(list)
         for e in run_ev:
-            seqs[e["run"]].append(e)
+            seqs[e["seq"]].append(e)
         # planted cases
         cases = [c for c in gt["cases"] if c["app"] == app]
         planted = [c for c in cases if not c["is_benign"]]
