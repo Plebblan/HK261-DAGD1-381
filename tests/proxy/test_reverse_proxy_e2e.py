@@ -10,8 +10,7 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.error import HTTPError
-from urllib.request import Request, urlopen
+from src.proxy.client import SafetyGateway
 
 import pytest
 import yaml
@@ -97,25 +96,26 @@ def test_real_reverse_proxy_records_forwarded_and_blocked_runtrace_events(tmp_pa
             raise AssertionError("mitmdump did not open its listener")
         time.sleep(0.5)
 
-        common_headers = {
-            "X-RunTrace-Actor": "actor-e2e",
-            "X-Lab-Run-Id": run_id,
-            "X-Lab-Sequence-Id": "sequence-e2e",
-            "X-Lab-Workflow-Id": "workflow-e2e",
-            "X-Lab-Step-Index": "1",
-            "X-Lab-Valid-Request": "true",
-        }
-        response = urlopen(Request(proxy_url + "/health?access_token=do-not-log-this", headers=common_headers), timeout=5)
-        assert response.status == 200
-        assert json.loads(response.read())["ok"] is True
-
+        client = SafetyGateway(proxy_url=proxy_url, run_id=run_id, workflow_id="workflow-e2e")
         try:
-            urlopen(Request(proxy_url + "/not-allowlisted", headers=common_headers), timeout=5)
-            raise AssertionError("undocumented path unexpectedly reached upstream")
-        except HTTPError as exc:
-            assert exc.code == 403
-            blocked = json.loads(exc.read())
-            assert blocked["gateway_verdict"] == "blocked"
+            forwarded = client.send(
+                actor="actor-e2e", method="GET", path="/health",
+                params={"access_token": "do-not-log-this"},
+                run_id=run_id, sequence_id="sequence-e2e",
+                workflow_id="workflow-e2e", step_idx=1,
+            )
+            assert forwarded.status_code == 200
+            assert forwarded.response["ok"] is True
+
+            blocked = client.send(
+                actor="actor-e2e", method="GET", path="/not-allowlisted",
+                run_id=run_id, sequence_id="sequence-e2e",
+                workflow_id="workflow-e2e", step_idx=2,
+            )
+            assert blocked.status_code == 403
+            assert blocked.response["gateway_verdict"] == "blocked"
+        finally:
+            client.close()
         assert TargetHandler.calls == 1
     finally:
         process.send_signal(signal.SIGINT)
