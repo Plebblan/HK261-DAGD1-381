@@ -63,7 +63,10 @@ def build_allowlist(spec: Any, config: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(overrides, dict):
         raise AllowlistBuildError("operation_overrides must be a mapping keyed by operation_id")
     for entry in entries:
-        override = overrides.get(entry["operation_id"], {})
+        override = overrides.get(
+            entry["operation_id"],
+            overrides.get("{} {}".format(entry["method"], entry["path"]), {}),
+        )
         if not isinstance(override, dict):
             raise AllowlistBuildError(f"override for {entry['operation_id']} must be a mapping")
         if "allow" in override:
