@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
-"""Replay a valid-sequence trace through the shared OpenAPI-driven reverse proxy (stdlib only).
+"""Replay valid-sequence traces through the shared OpenAPI-driven reverse proxy.
 
-    # Start the shared proxy for RUN_ID, then run one trace:
-    python lab-apps/custom_1/cyber-range/run_trace.py traces/trace_td_01_ticket_lifecycle.json --run-id "$RUN_ID" --run-dir "runs/tenantdesk/$RUN_ID"
+Start one target-scoped proxy process with src.proxy.addon for the same run ID
+before executing the runner. TenantDesk listens on 127.0.0.1:8101 and ShopFlow
+on 127.0.0.1:8102. Example:
 
-* Default route: runner -> Safety Gateway (127.0.0.1:8101 tenantdesk, :8102 shopflow) -> app. The gateway enforces the
-  host/method/path allowlist, approval for destructive operations, request/rate budgets, kill switch and dry-run, and writes
-  the redacted event log that coverage.py reads. `--direct` talks to the app ports and is for debugging only: such runs
-  produce no gateway events and never count towards the KPIs.
-* Safe baseline: the app must run with ENABLED_FLAWS=NONE; probes carry `case_id` and are expected to be denied by the app.
-* Gateway denials come back as HTTP 403 with a gateway message. They are reported as `gateway_denied` and fail the step,
-  except for anonymous steps: the allowlist requires a token, so the gateway blocks them before the app (still a safe 401/403).
-* Each trace needs a clean seed: the runner calls POST /_lab/reset first (approval header sent) unless --no-reset.
-* Producer/consumer links: `capture` stores response fields, `{var}` in path/body consumes them.
+    python lab-apps/custom_1/cyber-range/run_trace.py \
+      lab-apps/custom_1/cyber-range/traces/trace_td_01_ticket_lifecycle.json \
+      --run-id "$RUN_ID" --run-dir "runs/tenantdesk/$RUN_ID"
+
+RunTrace preserves ordered DSL steps, actor identity, operation/case/workflow
+metadata and producer-consumer values. The shared proxy enforces policy and
+writes redacted SQLite, JSONL and HAR artifacts. The --direct option is a
+debug-only bypass and never produces KPI-eligible gateway evidence.
+
+Each trace resets its disposable target unless --no-reset is supplied. A
+reset is a configured extra method and requires the explicit approval header.
 """
 import argparse, hashlib, json, os, sys, time, urllib.error, urllib.request, uuid
 from pathlib import Path
