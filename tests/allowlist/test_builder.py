@@ -40,3 +40,17 @@ def test_operation_override_can_disable_documented_operation():
               "scope": {"in_scope_hosts": ["127.0.0.1:8000"]}, "undocumented_policy": "block",
               "operation_overrides": {"listUsers": {"allow": False}}}
     assert build_allowlist(spec, config)["entries"][0]["allow"] is False
+
+
+def test_operation_override_can_target_method_and_route():
+    spec = {"operations": [{"operation_id": "login", "method": "POST", "route_template": "/auth/login"}]}
+    config = {
+        "target_id": "tenantdesk",
+        "target": {"base_url": "http://127.0.0.1:8001"},
+        "scope": {"in_scope_hosts": ["127.0.0.1:8001"]},
+        "undocumented_policy": "block",
+        "operation_overrides": {"POST /auth/login": {"destructiveness": "create", "tags": ["auth"]}},
+    }
+    entry = build_allowlist(spec, config)["entries"][0]
+    assert entry["destructiveness"] == "create"
+    assert entry["tags"] == ["auth"]
