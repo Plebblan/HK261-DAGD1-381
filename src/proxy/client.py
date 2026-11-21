@@ -72,7 +72,7 @@ class SafetyGateway:
             parsed_proxy = urlsplit(self.proxy_url)
             if parsed_proxy.scheme != "http" or parsed_proxy.hostname not in {"127.0.0.1", "localhost", "::1"}:
                 raise GatewayDenied("RunTrace may connect only to a loopback HTTP gateway listener.")
-        self.dry_run = bool(dry_run or os.getenv("RUNTRACE_DRY_RUN", "").lower() == "true")
+        self.dry_run = bool(dry_run)
         self.run_id = run_id or os.getenv("RUNTRACE_RUN_ID") or uuid.uuid4().hex
         self.workflow_id = workflow_id or "runtrace"
         self.target_id = target_id or profile_id
