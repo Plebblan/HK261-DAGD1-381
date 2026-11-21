@@ -21,6 +21,7 @@ operation_overrides:
     destructiveness: read
     tags: [control, health]
 extra_methods:
+  - {id: auth_login, method: POST, path: /auth/login, destructiveness: create}
   - {id: lab_reset, method: POST, path: /_lab/reset, destructiveness: terminal}
   - {id: lab_health, method: GET, path: /_lab/health, destructiveness: read}
 budgets:
