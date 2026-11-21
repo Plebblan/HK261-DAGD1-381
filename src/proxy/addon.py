@@ -345,6 +345,7 @@ class GatewayAddon:
         status = 200 if verdict.action == "dry_run" else 403
         payload = {
             "gateway_verdict": verdict.action,
+            "detail": verdict.reason,
             "reason": verdict.reason,
             "target_id": self.target_id,
             "run_id": self.run_id,
@@ -353,7 +354,7 @@ class GatewayAddon:
         flow.response = http.Response.make(
             status,
             json.dumps(payload).encode("utf-8"),
-            {"Content-Type": "application/json", "X-Gateway-Verdict": verdict.action},
+            {"Content-Type": "application/json", "X-Gateway-Verdict": verdict.action, "X-Gateway-Rule": verdict.allowlist_rule or ""},
         )
         try:
             self._persist_response(event_id, flow.response, elapsed_ms=0.0)
