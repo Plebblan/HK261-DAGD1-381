@@ -94,6 +94,7 @@ def export_har(store: Any, *, run_id: str, path: str | Path) -> Path:
             "_stepIndex": event.get("step_idx"),
             "_operationId": event.get("operation_id"),
             "_caseId": event.get("case_id"),
+            "_fieldAccess": metadata.get("field_access"),
             "_gatewayVerdict": event.get("gateway_verdict"),
             "_gatewayReason": event.get("gateway_reason"),
         })
