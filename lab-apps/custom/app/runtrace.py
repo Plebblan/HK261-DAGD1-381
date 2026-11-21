@@ -9,6 +9,12 @@ import argparse, json, os, uuid
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
 from typing import Any
+import sys
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 from src.proxy.client import SafetyGateway, GatewayResult
 
 
@@ -200,6 +206,7 @@ class DSLExecutor:
         elif kind == "request":
             headers = dict(step.get("headers") or {})
             headers.update({
+                "x-lab-case-id": step.get("case_id", ""),
                 "x-lab-operation-id": interaction.get("operation_id", ""),
                 "x-lab-screen": interaction.get("screen", ""),
                 "x-lab-user-action": interaction.get("action", ""),
