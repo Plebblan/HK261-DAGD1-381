@@ -9,7 +9,7 @@ import argparse, json, os, uuid
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
 from typing import Any
-from gateway import SafetyGateway, GatewayResult
+from src.proxy.client import SafetyGateway, GatewayResult
 
 
 def _public_result(value: Any) -> Any:
@@ -108,9 +108,14 @@ class DSLExecutor:
         request_headers["x-lab-step-index"] = str(step_idx)
         request_headers["x-lab-workflow-id"] = self.workflow_id
         request_headers.setdefault("x-lab-valid-request", "true")
-        result = self.gateway.send(actor=actor, method=method, path=path, token=self.tokens[actor],
-                                   json_body=body, params=params, headers=request_headers, run_id=self.run_id,
-                                   sequence_id=self.sequence_id, approval=approval)
+        request_headers["x-lab-case-id"] = request_headers.get("x-lab-case-id", "")
+        request_headers = {key: value for key, value in request_headers.items() if value != ""}
+        result = self.gateway.send(
+            actor=actor, method=method, path=path, token=self.tokens[actor],
+            json_body=body, params=params, headers=request_headers,
+            run_id=self.run_id, sequence_id=self.sequence_id, approval=approval,
+            workflow_id=self.workflow_id, step_idx=step_idx,
+        )
         record = _public_result(result)
         self.results.append(self.gateway.redact(record))
         return result
@@ -223,17 +228,26 @@ class DSLExecutor:
                 "assertions": self.assertions[-2:]}
 
     def export_evidence(self, output: str):
-        Path(output).write_text(json.dumps({"run_id": self.run_id, "steps": self.results,
-                                            "assertions": self.assertions},
-                                           indent=2, ensure_ascii=False, default=str), encoding="utf-8")
+        payload = {"run_id": self.run_id, "workflow_id": self.workflow_id,
+                   "sequence_id": self.sequence_id, "steps": self.results,
+                   "assertions": self.assertions}
+        Path(output).parent.mkdir(parents=True, exist_ok=True)
+        Path(output).write_text(json.dumps(payload, indent=2, ensure_ascii=False, default=str) + "\\n", encoding="utf-8")
 
 
 def run_trace(scenario: list[dict] | None = None, *, allowlist="runtrace_allowlist.json",
               rso="cyber-range/model/rso.yaml", evidence_out="runtrace_evidence.json", dry_run=False,
-              workflow_id="trace", proxy_url="http://127.0.0.1:8088") -> list[dict]:
+              workflow_id="trace", proxy_url="http://127.0.0.1:8088", run_id=None, run_dir=None) -> list[dict]:
     """Execute a pre-authored trace. Does not inspect planner state or ground truth."""
-    gateway = SafetyGateway(allowlist, dry_run=dry_run, rso_path=rso, proxy_url=None if dry_run else proxy_url)
-    dsl = DSLExecutor(gateway, workflow_id=workflow_id)
+    run_id = run_id or os.getenv("RUNTRACE_RUN_ID") or str(uuid.uuid4())
+    gateway = SafetyGateway(
+        allowlist, dry_run=dry_run, rso_path=rso,
+        proxy_url=None if dry_run else proxy_url, run_id=run_id,
+        workflow_id=workflow_id,
+    )
+    dsl = DSLExecutor(gateway, run_id=run_id, workflow_id=workflow_id)
+    if run_dir:
+        evidence_out = str(Path(run_dir) / "runtrace.json")
     outputs = []
     try:
         for step in scenario or DEFAULT_SCENARIO:
@@ -252,6 +266,8 @@ def main():
     parser.add_argument("--suite", help="Traffic suite JSON produced from workflows.yaml")
     parser.add_argument("--scenario-id", help="Select exactly one scenario from --suite (run each stateful workflow after a clean reset)")
     parser.add_argument("--evidence", default="runtrace_evidence.json")
+    parser.add_argument("--run-id", default=os.getenv("RUNTRACE_RUN_ID"))
+    parser.add_argument("--run-dir", help="Run-scoped output directory created by the shared proxy")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--proxy-url", default=os.getenv("RUNTRACE_GATEWAY_URL", "http://127.0.0.1:8088"),
                         help="local Safety Gateway URL (default: %(default)s)")
@@ -277,7 +293,8 @@ def main():
         if isinstance(loaded_scenario, dict):
             workflow_id = loaded_scenario.get("id", workflow_id)
     outputs = run_trace(scenario, allowlist=args.allowlist, rso=args.rso, evidence_out=args.evidence,
-                        dry_run=args.dry_run, workflow_id=workflow_id, proxy_url=args.proxy_url)
+                        dry_run=args.dry_run, workflow_id=workflow_id, proxy_url=args.proxy_url,
+                        run_id=args.run_id, run_dir=args.run_dir)
     for item in outputs:
         print(json.dumps(item, ensure_ascii=False, default=str))
     evidence = json.loads(Path(args.evidence).read_text(encoding="utf-8"))
