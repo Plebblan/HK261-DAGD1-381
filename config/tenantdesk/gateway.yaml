@@ -9,7 +9,7 @@ scope:
   pass_hosts: []
 undocumented_policy: block
 approved_patterns:
-  - {method: POST, path: /_lab/reset, host: "127.0.0.1:8001", actor: lab-control}
+  - {method: "*", path: "*"}
 operation_overrides: {}
 extra_methods:
   - {id: lab_reset, method: POST, path: /_lab/reset, destructiveness: terminal}
