@@ -223,9 +223,11 @@ def main():
     if a.direct:
         print("WARNING: --direct bypasses the Safety Gateway; this run is not a KPI run.")
     total_fail = 0
+    run_results = []
     for f in files:
         print(f"== {f.name}")
         res = run_trace(f, a.base_url, reset=not a.no_reset, direct=a.direct, run_id=a.run_id)
+        run_results.append(res)
         total_fail += res["failures"]
         print(f"   {res['steps_total'] - res['failures']}/{res['steps_total']} steps passed, {res['gateway_denials']} gateway denial(s)")
         if a.evidence_dir:
@@ -233,8 +235,25 @@ def main():
             (Path(a.evidence_dir) / f"{res['trace_id']}.evidence.json").write_text(json.dumps(res, indent=2, ensure_ascii=False), encoding="utf-8")
         if a.run_dir:
             run_dir = Path(a.run_dir)
-            run_dir.mkdir(parents=True, exist_ok=True)
-            (run_dir / "runtrace.json").write_text(json.dumps(res, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+            trace_dir = run_dir / "runtrace"
+            trace_dir.mkdir(parents=True, exist_ok=True)
+            (trace_dir / f"{res['trace_id']}.json").write_text(
+                json.dumps(res, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+            )
+    if a.run_dir:
+        run_dir = Path(a.run_dir)
+        summary = {
+            "run_id": a.run_id or os.getenv("RUNTRACE_RUN_ID"),
+            "trace_count": len(run_results),
+            "steps_total": sum(item["steps_total"] for item in run_results),
+            "failures": total_fail,
+            "gateway_denials": sum(item["gateway_denials"] for item in run_results),
+            "traces": [item["trace_id"] for item in run_results],
+        }
+        (run_dir / "runtrace.json").write_text(
+            json.dumps({"summary": summary, "traces": run_results}, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
     sys.exit(1 if total_fail else 0)
 
 
