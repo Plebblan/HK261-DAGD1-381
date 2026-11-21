@@ -107,7 +107,7 @@ def main() -> None:
     generated = build_allowlist(spec, config)
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(generated, indent=2, ensure_ascii=False) + "\\n", encoding="utf-8")
+    output.write_text(json.dumps(generated, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"Generated {len(generated['entries'])} operations for {generated['target_id']} at {output}")
 
 
