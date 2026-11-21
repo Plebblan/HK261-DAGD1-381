@@ -111,7 +111,7 @@ class GatewayAddon:
             if self.openapi_path and self.openapi_path.is_file():
                 (self.run_dir / "openapi.json").write_bytes(self.openapi_path.read_bytes())
 
-    def _write_run_metadata(self, *, status: str, trace_hash: str | None = None) -> None:
+    def _write_run_metadata(self, *, status: str, trace_hash: str | None = None, har_hash: str | None = None) -> None:
         if self.run_dir is None:
             return
         payload = {
@@ -131,6 +131,7 @@ class GatewayAddon:
                 "openapi": "openapi.json" if self.openapi_path else None,
             },
             "trace_sha256": trace_hash,
+            "har_sha256": har_hash,
         }
         (self.run_dir / "run.json").write_text(
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
@@ -432,9 +433,10 @@ class GatewayAddon:
             return
         try:
             trace_path = self.export_trace()
-            export_har(self.store, run_id=self.run_id, path=self.run_dir / "trace.har")
+            har_path = export_har(self.store, run_id=self.run_id, path=self.run_dir / "trace.har")
             trace_hash = _hash(trace_path.read_bytes())
-            self._write_run_metadata(status="completed", trace_hash=trace_hash)
+            har_hash = _hash(har_path.read_bytes())
+            self._write_run_metadata(status="completed", trace_hash=trace_hash, har_hash=har_hash)
             self.store.finish_run(run_id=self.run_id, status="completed", stats={
                 "requests_seen": self._request_count,
                 "active_at_shutdown": self._active_requests,
