@@ -76,6 +76,19 @@ python -m src.allowlist.builder \
 
 Start the proxy in terminal 1:
 
+ShopFlow gets its own run ID and directory:
+
+```bash
+export RUN_ID_SF="$(python -c 'import uuid; print(uuid.uuid4().hex)')"
+export RUN_DIR_SF="runs/shopflow/$RUN_ID_SF"
+mkdir -p "$RUN_DIR_SF"
+curl -fsS http://127.0.0.1:8002/openapi.json -o "$RUN_DIR_SF/openapi.json"
+python -m src.allowlist.builder \
+  --openapi "$RUN_DIR_SF/openapi.json" \
+  --config config/shopflow/gateway.yaml \
+  --output "$RUN_DIR_SF/allowlist.generated.json"
+```
+
 ```bash
 python lab-apps/custom_1/cyber-range/gateway/start_gateway.py tenantdesk \
   --run-id "$RUN_ID_TD" --run-dir "$RUN_DIR_TD" \
