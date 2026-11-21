@@ -68,7 +68,7 @@ class SafetyGateway:
         self.proxy_url = (proxy_url or os.getenv("RUNTRACE_GATEWAY_URL") or "").rstrip("/")
         if not self.proxy_url and not dry_run:
             raise GatewayDenied("RUNTRACE_GATEWAY_URL must point to the shared local reverse proxy.")
-        self.dry_run = bool(dry_run)
+        self.dry_run = bool(dry_run or os.getenv("RUNTRACE_DRY_RUN", "").lower() == "true")
         self.run_id = run_id or os.getenv("RUNTRACE_RUN_ID") or uuid.uuid4().hex
         self.workflow_id = workflow_id or "runtrace"
         self.target_id = target_id or profile_id
@@ -177,7 +177,7 @@ class SafetyGateway:
         }, sort_keys=True, separators=(",", ":"), default=str).encode()
         request_hash = hashlib.sha256(request_material).hexdigest()
         response_hash = hashlib.sha256(raw).hexdigest()
-        if self.dry_run:
+        if self.dry_run or response_headers.get("x-gateway-verdict") == "dry_run":
             return {
                 "dry_run": True, "method": method.upper(), "path": path,
                 "run_id": run_id, "sequence_id": sequence_id,
