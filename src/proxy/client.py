@@ -218,8 +218,8 @@ class SafetyGateway:
             run_id=run_id, sequence_id=sequence_id, workflow_id=workflow_id,
             step_idx=step_idx,
         )
-        if isinstance(result, dict):
-            raise GatewayDenied("Token bootstrap is unavailable in dry-run mode.")
+        if isinstance(result, dict) and result.get("dry_run"):
+            return "DRY_RUN_TOKEN"
         if result.status_code >= 400:
             raise GatewayDenied(f"Token endpoint returned {result.status_code}: {result.response}")
         payload = result.response if isinstance(result.response, dict) else {}
