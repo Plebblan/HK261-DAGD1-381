@@ -242,8 +242,8 @@ class DSLExecutor:
         Path(output).write_text(json.dumps(payload, indent=2, ensure_ascii=False, default=str) + "\n", encoding="utf-8")
 
 
-def run_trace(scenario: list[dict] | None = None, *, allowlist="runtrace_allowlist.json",
-              rso="cyber-range/model/rso.yaml", evidence_out="runtrace_evidence.json", dry_run=False,
+def run_trace(scenario: list[dict] | None = None, *, allowlist="config/custom/gateway.yaml",
+              rso="lab-apps/custom/app/cyber-range/model/rso.yaml", evidence_out="runtrace_evidence.json", dry_run=False,
               workflow_id="trace", proxy_url="http://127.0.0.1:8088", run_id=None, run_dir=None) -> list[dict]:
     """Execute a pre-authored trace. Does not inspect planner state or ground truth."""
     run_id = run_id or os.getenv("RUNTRACE_RUN_ID") or str(uuid.uuid4())
@@ -267,8 +267,8 @@ def run_trace(scenario: list[dict] | None = None, *, allowlist="runtrace_allowli
 
 def main():
     parser = argparse.ArgumentParser(description="Run fixed benign RunTrace through Safety Gateway")
-    parser.add_argument("--allowlist", default="runtrace_allowlist.json")
-    parser.add_argument("--rso", default="cyber-range/model/rso.yaml", help="Synthetic actor registry; credentials may be overridden by environment variables")
+    parser.add_argument("--allowlist", default="config/custom/gateway.yaml", help="target gateway config (policy is enforced by the shared proxy)")
+    parser.add_argument("--rso", default="lab-apps/custom/app/cyber-range/model/rso.yaml", help="Synthetic actor registry; credentials may be overridden by environment variables")
     parser.add_argument("--scenario", help="JSON file containing a fixed list of DSL steps")
     parser.add_argument("--suite", help="Traffic suite JSON produced from workflows.yaml")
     parser.add_argument("--scenario-id", help="Select exactly one scenario from --suite (run each stateful workflow after a clean reset)")
