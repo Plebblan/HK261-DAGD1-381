@@ -33,7 +33,7 @@ def make_flow(method: str, path: str):
         host="127.0.0.1",
         port=8001,
         path=path,
-        headers={"x-stateful-actor": "trace-test"},
+        headers={"x-stateful-actor": "trace-test", "authorization": "Bearer secret-token"},
         raw_content=b"",
     )
     return SimpleNamespace(request=request, metadata={}, response=None)
@@ -77,6 +77,7 @@ def test_gateway_records_forwarded_and_blocked_events_in_run_trace(tmp_path, mon
     assert har["log"]["version"] == "1.2"
     assert len(har["log"]["entries"]) == 2
     assert har["log"]["entries"][0]["_actor"] == "trace-test"
+    assert "authorization" not in {h["name"].lower() for h in har["log"]["entries"][0]["request"]["headers"]}
 
     connection = sqlite3.connect(run_dir / "evidence.sqlite3")
     rows = connection.execute(
