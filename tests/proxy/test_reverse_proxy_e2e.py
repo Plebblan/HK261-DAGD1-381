@@ -105,7 +105,7 @@ def test_real_reverse_proxy_records_forwarded_and_blocked_runtrace_events(tmp_pa
             "X-Lab-Step-Index": "1",
             "X-Lab-Valid-Request": "true",
         }
-        response = urlopen(Request(proxy_url + "/health", headers=common_headers), timeout=5)
+        response = urlopen(Request(proxy_url + "/health?access_token=do-not-log-this", headers=common_headers), timeout=5)
         assert response.status == 200
         assert json.loads(response.read())["ok"] is True
 
@@ -130,6 +130,8 @@ def test_real_reverse_proxy_records_forwarded_and_blocked_runtrace_events(tmp_pa
 
     trace = [json.loads(line) for line in (run_dir / "trace.jsonl").read_text(encoding="utf-8").splitlines()]
     assert [event["gateway_verdict"] for event in trace] == ["forwarded", "blocked"]
+    assert "do-not-log-this" not in (run_dir / "trace.jsonl").read_text(encoding="utf-8")
+    assert trace[0]["query"] == "access_token=%5BREDACTED%5D"
     assert all(event["run_id"] == run_id for event in trace)
     assert (run_dir / "trace.har").is_file()
     meta = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
