@@ -232,6 +232,9 @@ class GatewayAddon:
             }])
         except Exception:
             logger.exception("gateway response audit write failed for event %s", event_id)
+            # The response hook runs before the client receives the upstream response.
+            from mitmproxy import http
+            flow.response = http.Response.make(503, b"gateway_audit_unavailable")
 
     def export_trace(self) -> Path:
         """Export the canonical SQLite event stream as run-local JSONL."""
