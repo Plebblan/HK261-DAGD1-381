@@ -106,6 +106,8 @@ def test_real_reverse_proxy_records_forwarded_and_blocked_runtrace_events(tmp_pa
             )
             assert forwarded.status_code == 200
             assert forwarded.response["ok"] is True
+            assert forwarded.response_headers["x-gateway-verdict"] == "forwarded"
+            assert forwarded.request_id
 
             blocked = client.send(
                 actor="actor-e2e", method="GET", path="/not-allowlisted",
@@ -114,6 +116,7 @@ def test_real_reverse_proxy_records_forwarded_and_blocked_runtrace_events(tmp_pa
             )
             assert blocked.status_code == 403
             assert blocked.response["gateway_verdict"] == "blocked"
+            assert blocked.response_headers["x-gateway-verdict"] == "blocked"
         finally:
             client.close()
         assert TargetHandler.calls == 1
