@@ -1,4 +1,30 @@
+# Python bytecode and local environments
 __pycache__/
 *.py[cod]
+.venv/
+venv/
+
+# Python test, lint, and build artifacts
+.pytest_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Local configuration and operating-system files
 .env
-.DS_Store/
+.env.*
+!.env.example
+.DS_Store
+
+# Runtime data (database and logs live under runs/<target>/)
+runs/
+*.db
+*.db-wal
+*.db-shm
+
+# Private lab certificates/keys; public lab-upstream.pem may be tracked
+config/*/certs/*.key
