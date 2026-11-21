@@ -28,14 +28,14 @@ def test_documented_get_is_forwarded():
 
 
 def test_write_requires_approved_pattern():
-    verdict = decide(GatewayRequest(method="POST", host="127.0.0.1:8001", path="/customers", actor="other"),
+    verdict = decide(GatewayRequest(method="POST", host="127.0.0.1:8001", path="/customers", actor="other", headers={"x-range-approval": "true"}),
                      allowlist=sample_allowlist())
     assert verdict.action == "blocked"
     assert verdict.reason == "write_requires_approval"
 
 
 def test_approved_write_is_forwarded():
-    verdict = decide(GatewayRequest(method="POST", host="127.0.0.1:8001", path="/customers", actor="tester"),
+    verdict = decide(GatewayRequest(method="POST", host="127.0.0.1:8001", path="/customers", actor="tester", headers={"x-range-approval": "true"}),
                      allowlist=sample_allowlist())
     assert verdict.action == "forwarded"
 
@@ -55,3 +55,14 @@ def test_out_of_scope_host_is_blocked():
 
 def test_missing_allowlist_fails_closed():
     assert decide(GatewayRequest(method="GET", host="127.0.0.1:8001", path="/customers")).action == "blocked"
+
+
+def test_wildcard_approval_pattern_still_requires_request_signal():
+    allowlist = sample_allowlist()
+    allowlist["approved_patterns"] = [{"method": "*", "path": "*"}]
+    request = GatewayRequest(
+        method="DELETE", host="127.0.0.1:8001", path="/customers/1",
+        actor="tester", headers={"x-range-approval": "true"},
+    )
+    # An undocumented path remains blocked even when the approval signal is present.
+    assert decide(request, allowlist=allowlist).reason == "undocumented_operation"
