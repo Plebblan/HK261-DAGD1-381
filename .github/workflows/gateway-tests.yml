@@ -14,6 +14,7 @@ on:
       - "tests/proxy/**"
       - "tests/allowlist/**"
       - "tests/test_custom_1_gateway.py"
+      - "tests/test_coverage_proxy_trace.py"
       - "pyproject.toml"
       - "config/**"
       - "lab-apps/custom/app/**"
@@ -33,4 +34,4 @@ jobs:
       - name: Compile gateway, RunTrace, and coverage modules
         run: python -m compileall -q src lab-apps/custom/app lab-apps/custom_1/cyber-range
       - name: Run gateway, allowlist, and run-trace tests
-        run: python -m pytest tests/gateway tests/allowlist tests/proxy tests/test_custom_1_gateway.py -q
+        run: python -m pytest tests/gateway tests/allowlist tests/proxy tests/test_custom_1_gateway.py tests/test_coverage_proxy_trace.py -q
