@@ -44,9 +44,11 @@ def _approved(request: GatewayRequest, patterns: list[dict[str, Any]]) -> bool:
     for pattern in patterns:
         if not isinstance(pattern, dict):
             continue
-        if str(pattern.get("method", "")).upper() != request.method.upper():
+        pattern_method = str(pattern.get("method", "")).upper()
+        if pattern_method not in {"*", request.method.upper()}:
             continue
-        if not match_path_template(str(pattern.get("path", "")), request.path):
+        pattern_path = str(pattern.get("path", ""))
+        if pattern_path != "*" and not match_path_template(pattern_path, request.path):
             continue
         actor = pattern.get("actor")
         if actor is not None and actor != request.actor:
