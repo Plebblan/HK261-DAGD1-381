@@ -242,11 +242,41 @@ class DSLExecutor:
         Path(output).write_text(json.dumps(payload, indent=2, ensure_ascii=False, default=str) + "\n", encoding="utf-8")
 
 
+def _resolve_run_id(run_id: str | None, run_dir: str | Path | None, *, dry_run: bool) -> str:
+    """Resolve the proxy-owned run ID without silently inventing a different one."""
+    resolved = run_id or os.getenv("RUNTRACE_RUN_ID")
+    metadata_path = Path(run_dir) / "run.json" if run_dir else None
+    metadata = None
+    if metadata_path and metadata_path.is_file():
+        try:
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise RuntimeError(f"Cannot read proxy run metadata at {metadata_path}: {exc}") from exc
+        recorded = metadata.get("run_id")
+        if not isinstance(recorded, str) or not recorded:
+            raise RuntimeError(f"Proxy run metadata has no valid run_id: {metadata_path}")
+        if resolved and resolved != recorded:
+            raise RuntimeError(
+                f"Run ID mismatch before sending traffic: --run-id/RUNTRACE_RUN_ID={resolved!r}, "
+                f"but {metadata_path} records {recorded!r}. Use the proxy's recorded run_id."
+            )
+        resolved = recorded
+    if not resolved:
+        if not dry_run:
+            raise RuntimeError(
+                "A shared proxy run ID is required. Pass --run-id with the exact ID used "
+                "to start src.proxy.run, or pass --run-dir pointing to that proxy run's "
+                "directory containing run.json. Do not generate a new UUID in the runner."
+            )
+        resolved = str(uuid.uuid4())
+    return resolved
+
+
 def run_trace(scenario: list[dict] | None = None, *, allowlist="config/custom/gateway.yaml",
               rso="lab-apps/custom/app/cyber-range/model/rso.yaml", evidence_out="runtrace_evidence.json", dry_run=False,
               workflow_id="trace", proxy_url="http://127.0.0.1:8088", run_id=None, run_dir=None) -> list[dict]:
     """Execute a pre-authored trace. Does not inspect planner state or ground truth."""
-    run_id = run_id or os.getenv("RUNTRACE_RUN_ID") or str(uuid.uuid4())
+    run_id = _resolve_run_id(run_id, run_dir, dry_run=dry_run)
     gateway = SafetyGateway(
         allowlist, dry_run=dry_run, rso_path=rso,
         proxy_url=None if dry_run else proxy_url, run_id=run_id,
