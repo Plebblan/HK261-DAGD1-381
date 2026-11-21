@@ -109,7 +109,10 @@ def decide(
                 break
 
     approved_patterns = list(data.get("approved_patterns", cfg.get("approved_patterns", [])))
-    approved = _approved(request, approved_patterns)
+    # A configured pattern defines which operation may be manually approved;
+    # the per-request header is the explicit approval signal from RunTrace.
+    approval_signal = str(request.headers.get("x-range-approval", "")).lower() == "true"
+    approved = approval_signal and _approved(request, approved_patterns)
     if matched is None:
         policy = data.get("undocumented_policy", cfg.get("undocumented_policy"))
         if policy == "allow_and_flag":
