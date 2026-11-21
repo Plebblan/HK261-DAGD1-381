@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Replay a valid-sequence trace through the shared OpenAPI-driven reverse proxy (stdlib only).
 
-    # 1. apps (patched twin) on 8001/8002, 2. gateways on 8101/8102, 3. run
-    python custom_1/cyber-range/run_trace.py --all --evidence-dir /tmp/custom_1-evidence
+    # Start the shared proxy for RUN_ID, then run one trace:
+    python lab-apps/custom_1/cyber-range/run_trace.py traces/trace_td_01_ticket_lifecycle.json --run-id "$RUN_ID" --run-dir "runs/tenantdesk/$RUN_ID"
 
 * Default route: runner -> Safety Gateway (127.0.0.1:8101 tenantdesk, :8102 shopflow) -> app. The gateway enforces the
   host/method/path allowlist, approval for destructive operations, request/rate budgets, kill switch and dry-run, and writes
@@ -61,7 +61,11 @@ def http(base, method, path, body=None, headers=None, token=None):
 
 
 def gateway_denied(status, payload):
-    d = payload.get("detail") if isinstance(payload, dict) else None
+    if not isinstance(payload, dict):
+        return False
+    if payload.get("gateway_verdict") == "blocked":
+        return True
+    d = payload.get("detail")
     return status in (403, 502) and isinstance(d, str) and d.startswith(GATEWAY_DENIALS)
 
 
@@ -226,7 +230,7 @@ def main():
         print(f"   {res['steps_total'] - res['failures']}/{res['steps_total']} steps passed, {res['gateway_denials']} gateway denial(s)")
         if a.evidence_dir:
             Path(a.evidence_dir).mkdir(parents=True, exist_ok=True)
-            (Path(a.evidence_dir) / f"{res['trace_id']}.evidence.json").write_text(json.dumps(res, indent=2), encoding="utf-8")
+            (Path(a.evidence_dir) / f"{res['trace_id']}.evidence.json").write_text(json.dumps(res, indent=2, ensure_ascii=False), encoding="utf-8")
         if a.run_dir:
             run_dir = Path(a.run_dir)
             run_dir.mkdir(parents=True, exist_ok=True)
