@@ -70,12 +70,12 @@ class GatewayAddon:
             },
         }
         (self.run_dir / "run.json").write_text(
-            json.dumps(payload, ensure_ascii=False, indent=2) + "\\n",
+            json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
         if self.allowlist is not None:
             (self.run_dir / "allowlist.generated.json").write_text(
-                json.dumps(self.allowlist, ensure_ascii=False, indent=2, sort_keys=True) + "\\n",
+                json.dumps(self.allowlist, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
             )
 
@@ -233,7 +233,7 @@ class GatewayAddon:
         trace_path = self.run_dir / "trace.jsonl"
         with trace_path.open("w", encoding="utf-8") as stream:
             for event in self.store.get_events(run_id=self.run_id):
-                stream.write(json.dumps(event, ensure_ascii=False, sort_keys=True, default=str) + "\\n")
+                stream.write(json.dumps(event, ensure_ascii=False, sort_keys=True, default=str) + "\n")
         return trace_path
 
     def done(self) -> None:
