@@ -1,0 +1,38 @@
+name: Gateway tests
+
+on:
+  push:
+    branches:
+      - feat/openapi-driven-gateway
+  pull_request:
+    paths:
+      - "src/gateway/**"
+      - "src/proxy/**"
+      - "src/allowlist/**"
+      - "src/store/**"
+      - "tests/gateway/**"
+      - "tests/proxy/**"
+      - "tests/allowlist/**"
+      - "tests/test_custom_1_gateway.py"
+      - "tests/test_coverage_proxy_trace.py"
+      - "tests/test_runtrace_run_id.py"
+      - "pyproject.toml"
+      - "config/**"
+      - "lab-apps/custom/app/**"
+      - "lab-apps/custom_1/cyber-range/**"
+
+jobs:
+  gateway:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install project and test dependencies
+        run: python -m pip install -e ".[test]"
+      - name: Compile gateway, RunTrace, and coverage modules
+        run: python -m compileall -q src lab-apps/custom/app lab-apps/custom_1/cyber-range
+      - name: Run gateway, allowlist, and run-trace tests
+        run: python -m pytest tests/gateway tests/allowlist tests/proxy tests/test_custom_1_gateway.py tests/test_coverage_proxy_trace.py tests/test_runtrace_run_id.py -q
